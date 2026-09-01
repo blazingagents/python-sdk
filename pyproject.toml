@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://www.blazingagents.com/docs"
+Documentation = "https://docs.blazingagents.com"
 Repository = "https://github.com/blazingagents/python-sdk"
 
 [dependency-groups]

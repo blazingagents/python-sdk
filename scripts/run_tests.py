@@ -40,6 +40,7 @@ def inspect_wheel(wheel: Path) -> None:
             f"{dist_info}METADATA",
             f"{dist_info}RECORD",
             f"{dist_info}WHEEL",
+            f"{dist_info}licenses/LICENSE",
         }
         if names != expected:
             unexpected = sorted(names - expected)
