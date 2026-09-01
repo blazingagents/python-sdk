@@ -9,7 +9,7 @@ pagination, binary transfers, and one-owner generation streams.
 Blazing Agents supports CPython 3.11 and newer.
 
 ```console
-pip install blazing_agents
+pip install blazing-agents
 ```
 
 Create a Tenant API key in the Blazing Agents dashboard. Pass it explicitly or
