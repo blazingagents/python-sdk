@@ -304,27 +304,24 @@ bodies, schemas, file data, and stream content are never logged.
 
 ## Verification commands
 
-The package check is self-contained and does not require Supabase:
+The package checks are self-contained and do not require Supabase:
 
 ```console
-npm --workspace @blazing-agents/python-sdk run check
+uv sync --locked
+uv run ruff check .
+uv run ruff format --check .
+uv run python scripts/run_typechecks.py
+uv run python scripts/run_tests.py
 ```
 
-It builds and tests the installed wheel, enforces the 99% line, branch,
+These commands build and test the installed wheel, enforce the 99% line, branch,
 function, and statement thresholds, runs Pyright and mypy, and checks Ruff.
 Interpreter compatibility uses the same installed-wheel behavioral suite for
 each supported Python version:
 
 ```console
-npm --workspace @blazing-agents/python-sdk run test:compatibility
+uv run --python 3.11 python scripts/run_compatibility.py
 ```
 
-The local-platform suite is a separate command. Start the repository's local
-Supabase stack, reset it with `npm run db:test:reset`, then run:
-
-```console
-npm --workspace @blazing-agents/python-sdk run test:integration
-```
-
-The complete `npm run test:integration` gate performs the guarded reset and
-includes this command in its database integration chain.
+Repeat the compatibility command with Python 3.12, 3.13, and 3.14. The
+platform integration suite remains in the private platform repository.
