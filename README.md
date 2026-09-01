@@ -1,8 +1,28 @@
-# Blazing Agents Python SDK
+<div align="center">
+  <a href="https://docs.blazingagents.com">
+    <img src="https://raw.githubusercontent.com/blazingagents/docs/main/public/brand/icon.svg" alt="Blazing Agents logo" width="96">
+  </a>
+  <h1>Blazing Agents Python SDK</h1>
+  <p>Build production agents in Python with a typed client for the Blazing Agents API.</p>
+  <p>
+    <a href="https://docs.blazingagents.com/sdk/python">Documentation</a> ·
+    <a href="https://pypi.org/project/blazing-agents/">PyPI</a>
+  </p>
+</div>
 
-The official backend SDK for the Blazing Agents `/v1` API. It provides native
-synchronous and asynchronous clients, typed Pydantic responses, lazy
-pagination, binary transfers, and one-owner generation streams.
+The official backend SDK provides native synchronous and asynchronous clients,
+typed Pydantic responses, lazy pagination, binary transfers, and one-owner
+generation streams.
+
+## Features
+
+- Synchronous and asynchronous clients with the same resource API.
+- Typed Pydantic models for requests and responses.
+- Agent, Workspace, Skill, Provider, Prompt, Memory, Session, Artifact, Task,
+  usage, and Tenant management.
+- Text, structured-object, and chat-stream generation.
+- Lazy pagination plus buffered and streaming binary transfers.
+- Request correlation and configurable response observability.
 
 ## Installation
 
@@ -11,6 +31,11 @@ Blazing Agents supports CPython 3.11 and newer.
 ```console
 pip install blazing-agents
 ```
+
+## Documentation
+
+Read the [Python SDK documentation](https://docs.blazingagents.com/sdk/python)
+for guides and the complete API reference.
 
 Create a Tenant API key in the Blazing Agents dashboard. Pass it explicitly or
 set `BLAZING_AGENTS_API_KEY`; an explicit key takes precedence.
