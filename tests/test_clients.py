@@ -548,7 +548,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     second_run = {
         **TASK_RUN,
         "id": "tr_fedcba9876543210",
-        "status": "future_terminal",
+        "status": "succeeded",
         "error": None,
         "futureRunField": {"opaque_key": True},
     }
@@ -596,8 +596,11 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
         Response(
             body={
                 "data": SESSION_MESSAGES,
+                "error": "Monthly token quota reached",
+                "finishedAt": "2026-08-02T02:00:01.000Z",
                 "nextCursor": "older",
                 "latestCursor": "tail",
+                "status": "blocked",
             }
         ),
         Response(status=204, raw_body=b""),
@@ -676,7 +679,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
             assert len(state.requests) == 12
             assert next(runs).status == "blocked"
             assert len(state.requests) == 13
-            assert next(runs).status == "future_terminal"
+            assert next(runs).status == "succeeded"
             with pytest.raises(StopIteration):
                 next(runs)
             run = client.tasks.get_run(TASK["id"], "tr_fedcba9876543210")
@@ -709,12 +712,16 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert runs_page.data[0].status == "blocked"
     assert runs_page.data[0].error == "Monthly token quota reached"
     assert runs_page.data[0].turn_id == TASK_RUN["turnId"]
-    assert run.status == "future_terminal"
+    assert run.status == "succeeded"
     assert run.turn_id == TASK_RUN["turnId"]
     assert run.model_extra == {"futureRunField": {"opaque_key": True}}
     assert run._request_id == "req_task_run"
     assert isinstance(messages, TaskRunMessagesPage)
     assert messages.latest_cursor == "tail"
+    assert messages.status == "blocked"
+    assert messages.error == "Monthly token quota reached"
+    assert messages.finished_at is not None
+    assert messages.finished_at.isoformat() == "2026-08-02T02:00:01+00:00"
     assert messages.data[1].parts[0].model_extra == {"OpaqueKey": {"nested_key": True}}
 
     assert json.loads(state.requests[0].body) == {
@@ -799,7 +806,16 @@ def test_async_tasks_match_sync_resources_and_lazy_pagination() -> None:
             body={"data": [{**TASK_RUN, "status": "succeeded"}], "nextCursor": None}
         ),
         Response(body=TASK_RUN),
-        Response(body={"data": [], "nextCursor": None, "latestCursor": None}),
+        Response(
+            body={
+                "data": [],
+                "error": None,
+                "finishedAt": None,
+                "nextCursor": None,
+                "latestCursor": None,
+                "status": "running",
+            }
+        ),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
 
@@ -1923,6 +1939,25 @@ def test_debug_logging_contains_only_approved_metadata(
         assert not any(
             name.startswith(("x-analytics", "x-telemetry", "x-device"))
             for name in request.headers
+        )
+
+
+def test_task_run_messages_require_run_state() -> None:
+    with pytest.raises(ValidationError):
+        TaskRunMessagesPage.model_validate(
+            {"data": [], "nextCursor": None, "latestCursor": None}
+        )
+
+    with pytest.raises(ValidationError):
+        TaskRunMessagesPage.model_validate(
+            {
+                "data": [],
+                "error": None,
+                "finishedAt": None,
+                "latestCursor": None,
+                "nextCursor": None,
+                "status": "future_terminal",
+            }
         )
 
 

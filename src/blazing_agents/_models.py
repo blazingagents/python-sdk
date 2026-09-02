@@ -802,9 +802,14 @@ class Task(ResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
+TaskRunStatus: TypeAlias = Literal[
+    "queued", "running", "blocked", "succeeded", "failed", "canceled"
+]
+
+
 class TaskLatestRun(ResponseModel):
     id: TaskRunId
-    status: NonEmptyString
+    status: TaskRunStatus
     finished_at: AwareDatetime | None = Field(alias="finishedAt")
 
 
@@ -834,7 +839,7 @@ class TaskRun(ResponseModel):
     agent_version: int = Field(alias="agentVersion", ge=1, le=2_147_483_647)
     session_id: SessionId | None = Field(alias="sessionId")
     turn_id: TurnId | None = Field(alias="turnId")
-    status: NonEmptyString
+    status: TaskRunStatus
     error: str | None
     user_id: str = Field(alias="userId")
     metadata: dict[str, object]
@@ -851,7 +856,10 @@ class TaskRunsPage(ResponseModel):
     next_cursor: str | None = Field(alias="nextCursor")
 
 
-TaskRunMessagesPage: TypeAlias = SessionMessagesPage
+class TaskRunMessagesPage(SessionMessagesPage):
+    status: TaskRunStatus
+    error: str | None
+    finished_at: AwareDatetime | None = Field(alias="finishedAt")
 
 
 class ToolApproval(ResponseModel):

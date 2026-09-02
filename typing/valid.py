@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator, Iterator
+from datetime import datetime
 from typing import Annotated, assert_type
 
 from pydantic import BaseModel
@@ -31,6 +32,7 @@ from blazing_agents import (
     TaskCreateResponse,
     TaskRunMessagesPage,
     TaskRunsPage,
+    TaskRunStatus,
     TaskRunSubmission,
     TasksPage,
     ToolApprovalDecisionInput,
@@ -169,6 +171,12 @@ def sync_examples(client: BlazingAgents) -> None:
         ),
         TaskRunMessagesPage,
     )
+    task_messages = client.tasks.run_messages(
+        "tk_0123456789abcdef", "tr_0123456789abcdef"
+    )
+    assert_type(task_messages.status, TaskRunStatus)
+    assert_type(task_messages.error, str | None)
+    assert_type(task_messages.finished_at, datetime | None)
     assert_type(
         client.object(
             agent_id="ag_0123456789abcdef",
