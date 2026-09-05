@@ -67,7 +67,10 @@ Version restores its level too. The async client provides the same methods.
 capabilities = client.providers.get_thinking_levels(provider_id, model="gpt-5")
 # capabilities.known distinguishes unknown metadata from known choices.
 agent = client.agents.create(
-    name="Reasoner", provider_id=provider_id, model="openai/gpt-5", thinking_level="high"
+    name="Reasoner",
+    provider_id=provider_id,
+    model="openai/gpt-5",
+    thinking_level="high",
 )
 client.agents.update(agent.id, thinking_level=None)
 ```
