@@ -55,6 +55,23 @@ Read the [Python SDK documentation](https://docs.blazingagents.com/sdk/python)
 for authentication, resource guides, generation and streaming, error handling,
 and the complete API reference.
 
+## Thinking levels
+
+Configure `thinking_level` on Agent create or update. Omit it on update to
+preserve the current selection; pass `None` for Provider default. Explicit
+levels are strings, including custom values for Models with unknown capabilities.
+Agent and Agent Version responses expose `thinking_level`, and restoring a
+Version restores its level too. The async client provides the same methods.
+
+```python
+capabilities = client.providers.get_thinking_levels(provider_id, model="gpt-5")
+# capabilities.known distinguishes unknown metadata from known choices.
+agent = client.agents.create(
+    name="Reasoner", provider_id=provider_id, model="openai/gpt-5", thinking_level="high"
+)
+client.agents.update(agent.id, thinking_level=None)
+```
+
 ## Development
 
 ```console

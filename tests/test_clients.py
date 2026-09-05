@@ -146,6 +146,7 @@ AGENT: dict[str, Any] = {
     "id": "ag_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "name": "Builder",
+    "thinkingLevel": None,
     "model": None,
     "providerId": None,
     "workspaceId": "ws_aaaaaaaaaaaaaaaa",
@@ -165,6 +166,7 @@ AGENT_VERSION: dict[str, Any] = {
     "agentId": "ag_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "version": 3,
+    "thinkingLevel": "high",
     "name": "Historical Builder",
     "model": "anthropic/claude-sonnet-4.5",
     "providerId": "prv_0123456789abcdef",
@@ -2113,6 +2115,7 @@ def test_sync_agent_versions_page_lazy_iteration_get_and_restore() -> None:
     assert state.requests[2].target.endswith("?cursor=next&limit=1")
     assert state.requests[3].target.endswith("/versions/3")
     assert json.loads(state.requests[5].body) == {
+        "thinkingLevel": "high",
         "name": "Historical Builder",
         "model": "anthropic/claude-sonnet-4.5",
         "providerId": "prv_0123456789abcdef",
@@ -6831,3 +6834,78 @@ def test_async_objects_match_sync_validation_and_lifecycle() -> None:
         asyncio.run(exercise())
 
     assert len(state.requests) == 12
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_thinking_levels_omit_clear_custom_and_capabilities(asynchronous: bool) -> None:
+    configured = {
+        **AGENT,
+        "providerId": "prv_0123456789abcdef",
+        "model": "custom/custom-model",
+        "thinkingLevel": "custom-effort",
+    }
+    with loopback(
+        Response(body=configured),
+        Response(body=configured),
+        Response(body=AGENT),
+        Response(body={"known": True, "levels": ["off", "high", "max"]}),
+        Response(body={"known": False, "levels": []}),
+    ) as (base_url, state):
+        if asynchronous:
+
+            async def run() -> None:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    created = await client.agents.create(
+                        name="Builder",
+                        provider_id="prv_0123456789abcdef",
+                        model="custom/custom-model",
+                        thinking_level="custom-effort",
+                    )
+                    assert created.thinking_level == "custom-effort"
+                    await client.agents.update(AGENT["id"], name="Renamed")
+                    cleared = await client.agents.update(
+                        AGENT["id"], thinking_level=None
+                    )
+                    assert cleared.thinking_level is None
+                    known = await client.providers.get_thinking_levels(
+                        "provider/id", model="vendor/model + custom"
+                    )
+                    assert known.known and known.levels == ["off", "high", "max"]
+                    unknown = await client.providers.get_thinking_levels(
+                        "provider/id", model="unknown"
+                    )
+                    assert not unknown.known and unknown.levels == []
+
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                created = client.agents.create(
+                    name="Builder",
+                    provider_id="prv_0123456789abcdef",
+                    model="custom/custom-model",
+                    thinking_level="custom-effort",
+                )
+                assert created.thinking_level == "custom-effort"
+                client.agents.update(AGENT["id"], name="Renamed")
+                cleared = client.agents.update(AGENT["id"], thinking_level=None)
+                assert cleared.thinking_level is None
+                known = client.providers.get_thinking_levels(
+                    "provider/id", model="vendor/model + custom"
+                )
+                assert known.known and known.levels == ["off", "high", "max"]
+                unknown = client.providers.get_thinking_levels(
+                    "provider/id", model="unknown"
+                )
+                assert not unknown.known and unknown.levels == []
+
+    assert json.loads(state.requests[0].body)["thinkingLevel"] == "custom-effort"
+    assert "thinkingLevel" not in json.loads(state.requests[1].body)
+    assert json.loads(state.requests[2].body) == {"thinkingLevel": None}
+    assert urlsplit(state.requests[3].target).path == (
+        "/v1/providers/provider%2Fid/thinking-levels"
+    )
+    assert parse_qs(urlsplit(state.requests[3].target).query) == {
+        "model": ["vendor/model + custom"]
+    }

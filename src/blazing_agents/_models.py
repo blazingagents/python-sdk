@@ -350,6 +350,11 @@ class ProviderModel(CredentialSafeResponseModel):
     id: NonEmptyString
 
 
+class ThinkingLevels(CredentialSafeResponseModel):
+    known: bool
+    levels: list[NonEmptyString]
+
+
 class ProviderModels(CredentialSafeResponseModel):
     models: list[ProviderModel]
 
@@ -450,6 +455,7 @@ class Agent(ResponseModel):
     tenant_id: TenantId = Field(alias="tenantId")
     name: AgentName
     model: AgentModelId | None
+    thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
     workspace_id: WorkspaceId = Field(alias="workspaceId")
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
@@ -482,6 +488,7 @@ class AgentVersion(ResponseModel):
     version: int = Field(ge=1, le=2_147_483_647)
     name: AgentName
     model: AgentModelId | None
+    thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
     tools: AgentTools

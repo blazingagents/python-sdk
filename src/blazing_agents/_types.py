@@ -244,6 +244,7 @@ class SkillCopy(TypedDict):
 
 
 class _AgentCreateBase(TypedDict, total=False):
+    thinking_level: str | None
     name: Required[str]
     workspace_id: str
     memory_injection_enabled: bool
@@ -268,6 +269,7 @@ AgentCreate: TypeAlias = _ConfiguredAgentCreate | _UnconfiguredAgentCreate
 
 
 class _AgentUpdateBase(TypedDict, total=False):
+    thinking_level: str | None
     name: str
     workspace_id: str
     memory_injection_enabled: bool
