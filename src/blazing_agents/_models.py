@@ -350,6 +350,11 @@ class ProviderModel(CredentialSafeResponseModel):
     id: NonEmptyString
 
 
+class ThinkingLevels(CredentialSafeResponseModel):
+    known: bool
+    levels: list[NonEmptyString]
+
+
 class ProviderModels(CredentialSafeResponseModel):
     models: list[ProviderModel]
 
@@ -450,6 +455,7 @@ class Agent(ResponseModel):
     tenant_id: TenantId = Field(alias="tenantId")
     name: AgentName
     model: AgentModelId | None
+    thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
     workspace_id: WorkspaceId = Field(alias="workspaceId")
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
@@ -482,6 +488,7 @@ class AgentVersion(ResponseModel):
     version: int = Field(ge=1, le=2_147_483_647)
     name: AgentName
     model: AgentModelId | None
+    thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
     tools: AgentTools
@@ -802,9 +809,14 @@ class Task(ResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
+TaskRunStatus: TypeAlias = Literal[
+    "queued", "running", "blocked", "succeeded", "failed", "canceled"
+]
+
+
 class TaskLatestRun(ResponseModel):
     id: TaskRunId
-    status: NonEmptyString
+    status: TaskRunStatus
     finished_at: AwareDatetime | None = Field(alias="finishedAt")
 
 
@@ -834,7 +846,7 @@ class TaskRun(ResponseModel):
     agent_version: int = Field(alias="agentVersion", ge=1, le=2_147_483_647)
     session_id: SessionId | None = Field(alias="sessionId")
     turn_id: TurnId | None = Field(alias="turnId")
-    status: NonEmptyString
+    status: TaskRunStatus
     error: str | None
     user_id: str = Field(alias="userId")
     metadata: dict[str, object]
@@ -851,7 +863,10 @@ class TaskRunsPage(ResponseModel):
     next_cursor: str | None = Field(alias="nextCursor")
 
 
-TaskRunMessagesPage: TypeAlias = SessionMessagesPage
+class TaskRunMessagesPage(SessionMessagesPage):
+    status: TaskRunStatus
+    error: str | None
+    finished_at: AwareDatetime | None = Field(alias="finishedAt")
 
 
 class ToolApproval(ResponseModel):

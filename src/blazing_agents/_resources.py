@@ -51,6 +51,7 @@ from ._models import (
     TaskRunSubmission,
     TasksPage,
     TenantSettings,
+    ThinkingLevels,
     ToolApprovalDecision,
     ToolApprovals,
     Usage,
@@ -113,6 +114,7 @@ def _agent_body(
     name: str | _Omitted,
     model: str | None | _Omitted,
     provider_id: str | None | _Omitted,
+    thinking_level: str | None | _Omitted,
     workspace_id: str | _Omitted,
     memory_injection_enabled: bool | _Omitted,
     tools: Sequence[str] | _Omitted,
@@ -126,6 +128,7 @@ def _agent_body(
         ("name", name),
         ("model", model),
         ("providerId", provider_id),
+        ("thinkingLevel", thinking_level),
         ("workspaceId", workspace_id),
         ("memoryInjectionEnabled", memory_injection_enabled),
         ("tools", tools),
@@ -445,6 +448,7 @@ def _restored_agent_body(version: AgentVersion) -> dict[str, object]:
     return _agent_body(
         name=version.name,
         model=version.model,
+        thinking_level=version.thinking_level,
         provider_id=version.provider_id,
         workspace_id=OMITTED,
         memory_injection_enabled=version.memory_injection_enabled,
@@ -781,6 +785,7 @@ class AgentsResource:
         model: str | _Omitted = OMITTED,
         provider_id: str | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
+        thinking_level: str | None | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: list[AgentTool] | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
@@ -800,6 +805,7 @@ class AgentsResource:
                     model=model,
                     provider_id=provider_id,
                     workspace_id=workspace_id,
+                    thinking_level=thinking_level,
                     memory_injection_enabled=memory_injection_enabled,
                     tools=tools,
                     instructions=instructions,
@@ -988,6 +994,7 @@ class AgentsResource:
         model: str | None | _Omitted = OMITTED,
         provider_id: str | None | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
+        thinking_level: str | None | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: Sequence[AgentTool] | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
@@ -1002,6 +1009,7 @@ class AgentsResource:
             model=model,
             provider_id=provider_id,
             workspace_id=workspace_id,
+            thinking_level=thinking_level,
             memory_injection_enabled=memory_injection_enabled,
             tools=tools,
             instructions=instructions,
@@ -1131,6 +1139,7 @@ class AsyncAgentsResource:
         model: str | _Omitted = OMITTED,
         provider_id: str | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
+        thinking_level: str | None | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: list[AgentTool] | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
@@ -1150,6 +1159,7 @@ class AsyncAgentsResource:
                     model=model,
                     provider_id=provider_id,
                     workspace_id=workspace_id,
+                    thinking_level=thinking_level,
                     memory_injection_enabled=memory_injection_enabled,
                     tools=tools,
                     instructions=instructions,
@@ -1339,6 +1349,7 @@ class AsyncAgentsResource:
         model: str | None | _Omitted = OMITTED,
         provider_id: str | None | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
+        thinking_level: str | None | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: Sequence[AgentTool] | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
@@ -1353,6 +1364,7 @@ class AsyncAgentsResource:
             model=model,
             provider_id=provider_id,
             workspace_id=workspace_id,
+            thinking_level=thinking_level,
             memory_injection_enabled=memory_injection_enabled,
             tools=tools,
             instructions=instructions,
@@ -1553,6 +1565,25 @@ class ProvidersResource:
             ProviderModels,
         )
 
+    def get_thinking_levels(
+        self,
+        provider_id: str,
+        *,
+        model: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> ThinkingLevels:
+        return self._transport.request(
+            _Request(
+                "GET",
+                f"{_provider_path(provider_id)}/thinking-levels",
+                query={"model": model},
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            ThinkingLevels,
+        )
+
     def update(
         self,
         provider_id: str,
@@ -1676,6 +1707,25 @@ class AsyncProvidersResource:
                 timeout=timeout,
             ),
             ProviderModels,
+        )
+
+    async def get_thinking_levels(
+        self,
+        provider_id: str,
+        *,
+        model: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> ThinkingLevels:
+        return await self._transport.request(
+            _Request(
+                "GET",
+                f"{_provider_path(provider_id)}/thinking-levels",
+                query={"model": model},
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            ThinkingLevels,
         )
 
     async def update(

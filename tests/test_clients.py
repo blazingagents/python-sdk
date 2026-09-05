@@ -146,6 +146,7 @@ AGENT: dict[str, Any] = {
     "id": "ag_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "name": "Builder",
+    "thinkingLevel": None,
     "model": None,
     "providerId": None,
     "workspaceId": "ws_aaaaaaaaaaaaaaaa",
@@ -165,6 +166,7 @@ AGENT_VERSION: dict[str, Any] = {
     "agentId": "ag_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "version": 3,
+    "thinkingLevel": "high",
     "name": "Historical Builder",
     "model": "anthropic/claude-sonnet-4.5",
     "providerId": "prv_0123456789abcdef",
@@ -548,7 +550,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     second_run = {
         **TASK_RUN,
         "id": "tr_fedcba9876543210",
-        "status": "future_terminal",
+        "status": "succeeded",
         "error": None,
         "futureRunField": {"opaque_key": True},
     }
@@ -596,8 +598,11 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
         Response(
             body={
                 "data": SESSION_MESSAGES,
+                "error": "Monthly token quota reached",
+                "finishedAt": "2026-08-02T02:00:01.000Z",
                 "nextCursor": "older",
                 "latestCursor": "tail",
+                "status": "blocked",
             }
         ),
         Response(status=204, raw_body=b""),
@@ -676,7 +681,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
             assert len(state.requests) == 12
             assert next(runs).status == "blocked"
             assert len(state.requests) == 13
-            assert next(runs).status == "future_terminal"
+            assert next(runs).status == "succeeded"
             with pytest.raises(StopIteration):
                 next(runs)
             run = client.tasks.get_run(TASK["id"], "tr_fedcba9876543210")
@@ -709,12 +714,16 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert runs_page.data[0].status == "blocked"
     assert runs_page.data[0].error == "Monthly token quota reached"
     assert runs_page.data[0].turn_id == TASK_RUN["turnId"]
-    assert run.status == "future_terminal"
+    assert run.status == "succeeded"
     assert run.turn_id == TASK_RUN["turnId"]
     assert run.model_extra == {"futureRunField": {"opaque_key": True}}
     assert run._request_id == "req_task_run"
     assert isinstance(messages, TaskRunMessagesPage)
     assert messages.latest_cursor == "tail"
+    assert messages.status == "blocked"
+    assert messages.error == "Monthly token quota reached"
+    assert messages.finished_at is not None
+    assert messages.finished_at.isoformat() == "2026-08-02T02:00:01+00:00"
     assert messages.data[1].parts[0].model_extra == {"OpaqueKey": {"nested_key": True}}
 
     assert json.loads(state.requests[0].body) == {
@@ -799,7 +808,16 @@ def test_async_tasks_match_sync_resources_and_lazy_pagination() -> None:
             body={"data": [{**TASK_RUN, "status": "succeeded"}], "nextCursor": None}
         ),
         Response(body=TASK_RUN),
-        Response(body={"data": [], "nextCursor": None, "latestCursor": None}),
+        Response(
+            body={
+                "data": [],
+                "error": None,
+                "finishedAt": None,
+                "nextCursor": None,
+                "latestCursor": None,
+                "status": "running",
+            }
+        ),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
 
@@ -1926,6 +1944,25 @@ def test_debug_logging_contains_only_approved_metadata(
         )
 
 
+def test_task_run_messages_require_run_state() -> None:
+    with pytest.raises(ValidationError):
+        TaskRunMessagesPage.model_validate(
+            {"data": [], "nextCursor": None, "latestCursor": None}
+        )
+
+    with pytest.raises(ValidationError):
+        TaskRunMessagesPage.model_validate(
+            {
+                "data": [],
+                "error": None,
+                "finishedAt": None,
+                "latestCursor": None,
+                "nextCursor": None,
+                "status": "future_terminal",
+            }
+        )
+
+
 def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
     attributed = {
         **AGENT,
@@ -2078,6 +2115,7 @@ def test_sync_agent_versions_page_lazy_iteration_get_and_restore() -> None:
     assert state.requests[2].target.endswith("?cursor=next&limit=1")
     assert state.requests[3].target.endswith("/versions/3")
     assert json.loads(state.requests[5].body) == {
+        "thinkingLevel": "high",
         "name": "Historical Builder",
         "model": "anthropic/claude-sonnet-4.5",
         "providerId": "prv_0123456789abcdef",
@@ -6796,3 +6834,78 @@ def test_async_objects_match_sync_validation_and_lifecycle() -> None:
         asyncio.run(exercise())
 
     assert len(state.requests) == 12
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_thinking_levels_omit_clear_custom_and_capabilities(asynchronous: bool) -> None:
+    configured = {
+        **AGENT,
+        "providerId": "prv_0123456789abcdef",
+        "model": "custom/custom-model",
+        "thinkingLevel": "custom-effort",
+    }
+    with loopback(
+        Response(body=configured),
+        Response(body=configured),
+        Response(body=AGENT),
+        Response(body={"known": True, "levels": ["off", "high", "max"]}),
+        Response(body={"known": False, "levels": []}),
+    ) as (base_url, state):
+        if asynchronous:
+
+            async def run() -> None:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    created = await client.agents.create(
+                        name="Builder",
+                        provider_id="prv_0123456789abcdef",
+                        model="custom/custom-model",
+                        thinking_level="custom-effort",
+                    )
+                    assert created.thinking_level == "custom-effort"
+                    await client.agents.update(AGENT["id"], name="Renamed")
+                    cleared = await client.agents.update(
+                        AGENT["id"], thinking_level=None
+                    )
+                    assert cleared.thinking_level is None
+                    known = await client.providers.get_thinking_levels(
+                        "provider/id", model="vendor/model + custom"
+                    )
+                    assert known.known and known.levels == ["off", "high", "max"]
+                    unknown = await client.providers.get_thinking_levels(
+                        "provider/id", model="unknown"
+                    )
+                    assert not unknown.known and unknown.levels == []
+
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                created = client.agents.create(
+                    name="Builder",
+                    provider_id="prv_0123456789abcdef",
+                    model="custom/custom-model",
+                    thinking_level="custom-effort",
+                )
+                assert created.thinking_level == "custom-effort"
+                client.agents.update(AGENT["id"], name="Renamed")
+                cleared = client.agents.update(AGENT["id"], thinking_level=None)
+                assert cleared.thinking_level is None
+                known = client.providers.get_thinking_levels(
+                    "provider/id", model="vendor/model + custom"
+                )
+                assert known.known and known.levels == ["off", "high", "max"]
+                unknown = client.providers.get_thinking_levels(
+                    "provider/id", model="unknown"
+                )
+                assert not unknown.known and unknown.levels == []
+
+    assert json.loads(state.requests[0].body)["thinkingLevel"] == "custom-effort"
+    assert "thinkingLevel" not in json.loads(state.requests[1].body)
+    assert json.loads(state.requests[2].body) == {"thinkingLevel": None}
+    assert urlsplit(state.requests[3].target).path == (
+        "/v1/providers/provider%2Fid/thinking-levels"
+    )
+    assert parse_qs(urlsplit(state.requests[3].target).query) == {
+        "model": ["vendor/model + custom"]
+    }
