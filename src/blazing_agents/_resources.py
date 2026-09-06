@@ -19,6 +19,7 @@ from ._models import (
     Artifact,
     ArtifactDownloadUrl,
     ArtifactsPage,
+    LatestSessionsPage,
     McpAttachment,
     McpAttachments,
     McpConnection,
@@ -3873,6 +3874,26 @@ class SessionsResource:
             SessionsPage,
         )
 
+    def list_latest(
+        self,
+        *,
+        user_id: str | _Omitted = OMITTED,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> LatestSessionsPage:
+        return self._transport.request(
+            _Request(
+                "GET",
+                "/v1/sessions/latest",
+                query=_sessions_query(user_id, cursor, limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            LatestSessionsPage,
+        )
+
     def iter(
         self,
         *,
@@ -4032,6 +4053,26 @@ class AsyncSessionsResource:
                 timeout=timeout,
             ),
             SessionsPage,
+        )
+
+    async def list_latest(
+        self,
+        *,
+        user_id: str | _Omitted = OMITTED,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> LatestSessionsPage:
+        return await self._transport.request(
+            _Request(
+                "GET",
+                "/v1/sessions/latest",
+                query=_sessions_query(user_id, cursor, limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            LatestSessionsPage,
         )
 
     async def iter(

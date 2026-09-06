@@ -718,6 +718,15 @@ class SessionsPage(ResponseModel):
     next_cursor: str | None = Field(alias="nextCursor")
 
 
+class LatestSessionListItem(Session):
+    agent_id: AgentId = Field(alias="agentId")
+
+
+class LatestSessionsPage(ResponseModel):
+    data: list[LatestSessionListItem]
+    next_cursor: str | None = Field(alias="nextCursor")
+
+
 class SessionMessagePart(ResponseModel):
     type: NonEmptyString
 

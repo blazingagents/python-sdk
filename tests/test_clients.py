@@ -47,6 +47,9 @@ from blazing_agents import (
     CompletionPromptInput,
     CompletionStream,
     JsonValue,
+    LatestSessionListItem,
+    LatestSessionsListOptions,
+    LatestSessionsPage,
     McpConnection,
     McpConnectionReconnectResult,
     McpConnectionTestResult,
@@ -278,6 +281,7 @@ SESSION: dict[str, Any] = {
     "createdAt": "2026-08-02T00:00:00.000Z",
     "updatedAt": "2026-08-02T01:00:00.000Z",
 }
+LATEST_SESSION: dict[str, Any] = {**SESSION, "agentId": "ag_0123456789abcdef"}
 SESSION_MESSAGES: list[dict[str, Any]] = [
     {
         "id": "user-message",
@@ -5031,6 +5035,84 @@ def test_async_sessions_list_and_iter_match_sync_paging() -> None:
     ]
 
 
+def test_sync_sessions_list_latest_returns_one_item_per_agent() -> None:
+    response = {
+        "data": [{**LATEST_SESSION, "futureSessionField": {"opaque": True}}],
+        "nextCursor": "next-latest",
+        "futurePageField": True,
+    }
+    with loopback(
+        Response(body=response, headers={"x-request-id": "req_sessions_latest"}),
+        Response(body={"data": [LATEST_SESSION], "nextCursor": None}),
+        Response(body={"data": [], "nextCursor": None}),
+        Response(body={"data": [], "nextCursor": None}),
+    ) as (base_url, state):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            page = client.sessions.list_latest(
+                user_id="end/user",
+                cursor="cursor value",
+                limit=25,
+            )
+            empty_user = client.sessions.list_latest(user_id="")
+            client.sessions.list_latest(cursor="next-latest")
+            client.sessions.list_latest(limit=1)
+
+    assert [request.target for request in state.requests] == [
+        "/v1/sessions/latest?userId=end%2Fuser&cursor=cursor+value&limit=25",
+        "/v1/sessions/latest?userId=",
+        "/v1/sessions/latest?cursor=next-latest",
+        "/v1/sessions/latest?limit=1",
+    ]
+    assert page.next_cursor == "next-latest"
+    assert page._request_id == "req_sessions_latest"
+    assert page.model_extra == {"futurePageField": True}
+    assert page.data[0].id == SESSION["id"]
+    assert page.data[0].agent_id == AGENT["id"]
+    assert page.data[0].metadata == {"OpaqueKey": {"nested_key": True}}
+    assert page.data[0].model_extra == {"futureSessionField": {"opaque": True}}
+    assert empty_user.data[0].agent_id == AGENT["id"]
+    assert empty_user.next_cursor is None
+
+
+def test_async_sessions_list_latest_matches_sync_serialization() -> None:
+    with loopback(
+        Response(
+            body={"data": [], "nextCursor": None},
+            headers={"x-request-id": "req_sessions_latest_empty"},
+        ),
+        Response(body={"data": [LATEST_SESSION], "nextCursor": "next-latest"}),
+        Response(body={"data": [{**LATEST_SESSION, "agentId": "wrong"}]}),
+    ) as (base_url, state):
+
+        async def exercise() -> None:
+            async with AsyncBlazingAgents(
+                api_key="ba_test",
+                base_url=base_url,
+            ) as client:
+                page = await client.sessions.list_latest(
+                    user_id="",
+                    cursor="start",
+                    limit=10,
+                )
+                assert page.data == []
+                assert page.next_cursor is None
+                assert page._request_id == "req_sessions_latest_empty"
+
+                latest = await client.sessions.list_latest()
+                assert [item.agent_id for item in latest.data] == [AGENT["id"]]
+                assert latest.next_cursor == "next-latest"
+                with pytest.raises(ValidationError):
+                    await client.sessions.list_latest()
+
+        asyncio.run(exercise())
+
+    assert [request.target for request in state.requests] == [
+        "/v1/sessions/latest?userId=&cursor=start&limit=10",
+        "/v1/sessions/latest",
+        "/v1/sessions/latest",
+    ]
+
+
 def test_sync_session_messages_preserve_stored_history_and_order() -> None:
     response = {
         "data": [
@@ -5269,11 +5351,26 @@ def test_session_models_and_request_options_are_public() -> None:
         "cursor": "next",
         "limit": 25,
     }
+    latest_options: LatestSessionsListOptions = {
+        "user_id": "",
+        "cursor": "next",
+        "limit": 25,
+    }
     message_options: SessionMessagesOptions = {
         "cursor": "older",
         "limit": 10,
     }
     session = Session.model_validate_json(json.dumps(SESSION))
+    latest = LatestSessionListItem.model_validate_json(json.dumps(LATEST_SESSION))
+    latest_page = LatestSessionsPage.model_validate_json(
+        json.dumps({"data": [LATEST_SESSION], "nextCursor": None})
+    )
+    with pytest.raises(ValidationError):
+        LatestSessionListItem.model_validate_json(json.dumps(SESSION))
+    with pytest.raises(ValidationError):
+        LatestSessionsPage.model_validate_json(
+            json.dumps({"data": [SESSION], "nextCursor": None})
+        )
     message = SessionMessage.model_validate_json(json.dumps(SESSION_MESSAGES[0]))
     part = SessionMessagePart.model_validate_json(
         json.dumps(SESSION_MESSAGES[0]["parts"][0])
@@ -5292,6 +5389,9 @@ def test_session_models_and_request_options_are_public() -> None:
     )
 
     assert list_options["user_id"] == session.user_id
+    assert latest_options["user_id"] == ""
+    assert latest.agent_id == LATEST_SESSION["agentId"]
+    assert latest_page.data == [latest]
     assert message_options["cursor"] == "older"
     assert message.parts[0].type == part.type
     assert sessions_page.data == [session]
