@@ -88,3 +88,14 @@ uv run python scripts/run_tests.py
 ## License
 
 [MIT](LICENSE)
+
+## Interactive resend
+
+Successful interactive exchanges are saved together. Failed or canceled execution
+leaves saved history unchanged, including the previous answer during regeneration;
+executed usage and Tool effects remain. Retain submitted text/images until success
+and resend edited or unchanged input through ordinary chat with a fresh message ID.
+Stop requests cancellation; a lost response can hide a saved exchange. Reuse the
+returned Session ID and load history normally on return. No outcome polling or
+automatic generation retry is needed. See the [chatbot guide](https://docs.blazingagents.com/getting-started/chatbot)
+and [working examples](https://github.com/blazingagents/examples).
