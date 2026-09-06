@@ -82,6 +82,12 @@ class SessionsListOptions(TypedDict, total=False):
     limit: int
 
 
+class LatestSessionsListOptions(TypedDict, total=False):
+    user_id: str
+    cursor: str
+    limit: int
+
+
 class SessionMessagesOptions(TypedDict, total=False):
     cursor: str
     after: str

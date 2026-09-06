@@ -22,6 +22,7 @@ from blazing_agents import (
     CompletionLiteralInput,
     CompletionStream,
     JsonValue,
+    LatestSessionsPage,
     MemoryCreate,
     MemoryResponse,
     ObjectStream,
@@ -213,6 +214,10 @@ def sync_examples(client: BlazingAgents) -> None:
         client.sessions.iter(agent_id="ag_0123456789abcdef", limit=25),
         Iterator[Session],
     )
+    assert_type(
+        client.sessions.list_latest(user_id="", cursor="next", limit=25),
+        LatestSessionsPage,
+    )
     skills = client.agent("ag_0123456789abcdef").skills
     assert_type(skills.list(limit=25), SkillsPage)
     assert_type(skills.iter(limit=25), Iterator[Skill])
@@ -321,6 +326,7 @@ async def async_examples(client: AsyncBlazingAgents) -> None:
         client.sessions.iter(agent_id="ag_0123456789abcdef", limit=25),
         AsyncIterator[Session],
     )
+    assert_type(await client.sessions.list_latest(), LatestSessionsPage)
     skills = client.agent("ag_0123456789abcdef").skills
     assert_type(await skills.list(limit=25), SkillsPage)
     assert_type(skills.iter(limit=25), AsyncIterator[Skill])
