@@ -719,7 +719,12 @@ class SessionsPage(ResponseModel):
 
 
 class LatestSessionListItem(Session):
+    """Latest Session with the Agent's current configuration and status."""
+
     agent_id: AgentId = Field(alias="agentId")
+    model: NonEmptyString | None
+    thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
+    status: NonEmptyString
 
 
 class LatestSessionsPage(ResponseModel):
