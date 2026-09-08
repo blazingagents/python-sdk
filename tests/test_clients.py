@@ -281,7 +281,13 @@ SESSION: dict[str, Any] = {
     "createdAt": "2026-08-02T00:00:00.000Z",
     "updatedAt": "2026-08-02T01:00:00.000Z",
 }
-LATEST_SESSION: dict[str, Any] = {**SESSION, "agentId": "ag_0123456789abcdef"}
+LATEST_SESSION: dict[str, Any] = {
+    **SESSION,
+    "agentId": "ag_0123456789abcdef",
+    "model": "test-model",
+    "thinkingLevel": "high",
+    "status": "disabled",
+}
 SESSION_MESSAGES: list[dict[str, Any]] = [
     {
         "id": "user-message",
@@ -5391,6 +5397,9 @@ def test_session_models_and_request_options_are_public() -> None:
     assert list_options["user_id"] == session.user_id
     assert latest_options["user_id"] == ""
     assert latest.agent_id == LATEST_SESSION["agentId"]
+    assert latest.model == "test-model"
+    assert latest.thinking_level == "high"
+    assert latest.status == "disabled"
     assert latest_page.data == [latest]
     assert message_options["cursor"] == "older"
     assert message.parts[0].type == part.type
