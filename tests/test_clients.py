@@ -221,6 +221,7 @@ MCP_CONNECTION: dict[str, Any] = {
     "updatedAt": "2026-08-02T00:00:00.000Z",
 }
 PROMPT: dict[str, Any] = {
+    "agentId": None,
     "id": "prompt_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "name": "Greeting",
@@ -3626,7 +3627,11 @@ def test_provider_and_mcp_transport_errors_never_retain_credential_requests() ->
 
 
 def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None:
-    future_prompt = {**PROMPT, "futureField": {"opaque_key": True}}
+    future_prompt = {
+        **PROMPT,
+        "agentId": "ag_0123456789abcdef",
+        "futureField": {"opaque_key": True},
+    }
     with loopback(
         Response(
             body=future_prompt,
@@ -3641,18 +3646,22 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
             created = client.prompts.create(
                 name="Greeting",
                 template="Hello {{name}}",
+                agent_id="ag_0123456789abcdef",
                 user_id="",
                 metadata={"OpaqueKey": {"nested_key": None}},
             )
-            listed = client.prompts.list(user_id="")
+            listed = client.prompts.list(user_id="", agent_id="ag_0123456789abcdef")
             fetched = client.prompts.get(prompt_id="prompt/with space")
             updated = client.prompts.update(
                 prompt_id=PROMPT["id"],
+                agent_id=None,
                 name="Renamed",
                 metadata={"OpaqueKey": {"explicit_null": None}},
             )
             client.prompts.delete(prompt_id=PROMPT["id"])
 
+    assert created.agent_id == "ag_0123456789abcdef"
+    assert updated.agent_id is None
     assert created.variables == ["name"]
     assert created._request_id == "req_prompt"
     assert created.model_extra == {"futureField": {"opaque_key": True}}
@@ -3662,12 +3671,14 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
     assert json.loads(state.requests[0].body) == {
         "name": "Greeting",
         "template": "Hello {{name}}",
+        "agentId": "ag_0123456789abcdef",
         "userId": "",
         "metadata": {"OpaqueKey": {"nested_key": None}},
     }
-    assert state.requests[1].target == "/v1/prompts?userId="
+    assert state.requests[1].target == "/v1/prompts?userId=&agentId=ag_0123456789abcdef"
     assert state.requests[2].target == "/v1/prompts/prompt%2Fwith%20space"
     assert json.loads(state.requests[3].body) == {
+        "agentId": None,
         "name": "Renamed",
         "metadata": {"OpaqueKey": {"explicit_null": None}},
     }
@@ -3696,8 +3707,10 @@ def test_async_prompts_match_every_sync_operation_and_omission() -> None:
                 await client.prompts.get(prompt_id=PROMPT["id"])
                 updated = await client.prompts.update(
                     prompt_id=PROMPT["id"],
+                    agent_id=None,
                     template="Welcome {{name}}",
                 )
+                assert updated.agent_id is None
                 assert updated.template == "Welcome {{name}}"
                 await client.prompts.delete(prompt_id=PROMPT["id"])
                 with pytest.raises(ValueError, match="At least one"):

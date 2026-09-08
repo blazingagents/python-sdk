@@ -562,6 +562,7 @@ class WorkspacesPage(ResponseModel):
 
 
 class Prompt(ResponseModel):
+    agent_id: AgentId | None = Field(alias="agentId")
     id: PromptId
     tenant_id: TenantId = Field(alias="tenantId")
     name: Annotated[

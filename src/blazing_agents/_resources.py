@@ -620,6 +620,7 @@ def _prompt_body(
     *,
     name: str | _Omitted,
     template: str | _Omitted,
+    agent_id: str | None | _Omitted,
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
 ) -> dict[str, object]:
@@ -628,6 +629,7 @@ def _prompt_body(
         for wire_name, value in (
             ("name", name),
             ("template", template),
+            ("agentId", agent_id),
             ("userId", user_id),
             ("metadata", metadata),
         )
@@ -2422,6 +2424,7 @@ class PromptsResource:
         *,
         name: str,
         template: str,
+        agent_id: str | None | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
@@ -2434,6 +2437,7 @@ class PromptsResource:
                 json_body=_prompt_body(
                     name=name,
                     template=template,
+                    agent_id=agent_id,
                     user_id=user_id,
                     metadata=metadata,
                 ),
@@ -2446,6 +2450,7 @@ class PromptsResource:
     def list(
         self,
         *,
+        agent_id: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -2454,7 +2459,11 @@ class PromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query=({} if isinstance(user_id, _Omitted) else {"userId": user_id}),
+                query={
+                    key: value
+                    for key, value in (("userId", user_id), ("agentId", agent_id))
+                    if not isinstance(value, _Omitted)
+                },
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -2482,6 +2491,7 @@ class PromptsResource:
         self,
         *,
         prompt_id: str,
+        agent_id: str | None | _Omitted = OMITTED,
         name: str | _Omitted = OMITTED,
         template: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
@@ -2491,6 +2501,7 @@ class PromptsResource:
         body = _prompt_body(
             name=name,
             template=template,
+            agent_id=agent_id,
             user_id=OMITTED,
             metadata=metadata,
         )
@@ -2535,6 +2546,7 @@ class AsyncPromptsResource:
         *,
         name: str,
         template: str,
+        agent_id: str | None | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
@@ -2547,6 +2559,7 @@ class AsyncPromptsResource:
                 json_body=_prompt_body(
                     name=name,
                     template=template,
+                    agent_id=agent_id,
                     user_id=user_id,
                     metadata=metadata,
                 ),
@@ -2559,6 +2572,7 @@ class AsyncPromptsResource:
     async def list(
         self,
         *,
+        agent_id: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -2567,7 +2581,11 @@ class AsyncPromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query=({} if isinstance(user_id, _Omitted) else {"userId": user_id}),
+                query={
+                    key: value
+                    for key, value in (("userId", user_id), ("agentId", agent_id))
+                    if not isinstance(value, _Omitted)
+                },
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -2595,6 +2613,7 @@ class AsyncPromptsResource:
         self,
         *,
         prompt_id: str,
+        agent_id: str | None | _Omitted = OMITTED,
         name: str | _Omitted = OMITTED,
         template: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
@@ -2604,6 +2623,7 @@ class AsyncPromptsResource:
         body = _prompt_body(
             name=name,
             template=template,
+            agent_id=agent_id,
             user_id=OMITTED,
             metadata=metadata,
         )
