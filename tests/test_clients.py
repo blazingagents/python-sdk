@@ -2706,7 +2706,17 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
     ).encode()
     with loopback(
         Response(body=future, headers={"x-request-id": "req_provider"}),
-        Response(body={"providers": [future]}),
+        Response(
+            body={
+                "providers": [
+                    {
+                        k: v
+                        for k, v in future.items()
+                        if k not in {"baseUrl", "keyFragment"}
+                    }
+                ]
+            }
+        ),
         Response(body=future),
         Response(body=future),
         Response(status=204, raw_body=b""),
@@ -2761,6 +2771,8 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
     assert created._request_id == "req_provider"
     assert secret not in created.model_dump_json()
     assert listed.providers[0].model_extra == {"futureField": {"OpaqueKey": True}}
+    assert not hasattr(listed.providers[0], "base_url")
+    assert not hasattr(listed.providers[0], "key_fragment")
     assert fetched.id == PROVIDER["id"]
     assert updated.base_url is None
     assert secret not in str(captured.value)
@@ -2859,7 +2871,17 @@ def test_provider_endpoint_rules_are_validated_before_transport() -> None:
 def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> None:
     responses = (
         Response(body=PROVIDER),
-        Response(body={"providers": [PROVIDER]}),
+        Response(
+            body={
+                "providers": [
+                    {
+                        k: v
+                        for k, v in PROVIDER.items()
+                        if k not in {"baseUrl", "keyFragment"}
+                    }
+                ]
+            }
+        ),
         Response(body=PROVIDER),
         Response(body=PROVIDER),
         Response(status=204, raw_body=b""),
