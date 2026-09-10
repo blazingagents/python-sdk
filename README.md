@@ -99,3 +99,18 @@ Stop requests cancellation; a lost response can hide a saved exchange. Reuse the
 returned Session ID and load history normally on return. No outcome polling or
 automatic generation retry is needed. See the [chatbot guide](https://docs.blazingagents.com/getting-started/chatbot)
 and [working examples](https://github.com/blazingagents/examples).
+
+## Automatic context compaction
+
+Agents enable automatic compaction by default with a 16,384-token reserve.
+A larger reserve compacts earlier. Settings are included in Agent Versions.
+Compaction summarizes older history for the model while retaining the full
+Session transcript; summarization calls contribute to token usage.
+
+```python
+client.agents.update(
+    "ag_...",
+    auto_compaction=True,
+    compaction_reserve_tokens=32768,
+)
+```

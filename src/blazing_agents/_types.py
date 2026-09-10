@@ -253,6 +253,8 @@ class _AgentCreateBase(TypedDict, total=False):
     thinking_level: str | None
     name: Required[str]
     workspace_id: str
+    auto_compaction: bool
+    compaction_reserve_tokens: int
     memory_injection_enabled: bool
     tools: list[AgentTool]
     instructions: str
@@ -278,6 +280,8 @@ class _AgentUpdateBase(TypedDict, total=False):
     thinking_level: str | None
     name: str
     workspace_id: str
+    auto_compaction: bool
+    compaction_reserve_tokens: int
     memory_injection_enabled: bool
     tools: list[AgentTool]
     instructions: str

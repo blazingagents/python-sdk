@@ -466,6 +466,10 @@ class Agent(ResponseModel):
     thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
     workspace_id: WorkspaceId = Field(alias="workspaceId")
+    auto_compaction: bool = Field(alias="autoCompaction")
+    compaction_reserve_tokens: int = Field(
+        alias="compactionReserveTokens", ge=0, le=9007199254740991
+    )
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
     tools: AgentTools
     instructions: AgentInstructions
@@ -498,6 +502,10 @@ class AgentVersion(ResponseModel):
     model: AgentModelId | None
     thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
+    auto_compaction: bool = Field(alias="autoCompaction")
+    compaction_reserve_tokens: int = Field(
+        alias="compactionReserveTokens", ge=0, le=9007199254740991
+    )
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
     tools: AgentTools
     instructions: AgentInstructions
