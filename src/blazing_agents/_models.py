@@ -342,8 +342,16 @@ class Provider(CredentialSafeResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
+class ProviderListItem(CredentialSafeResponseModel):
+    id: ProviderId
+    name: NonEmptyString
+    provider_type: str = Field(alias="providerType")
+    created_at: AwareDatetime = Field(alias="createdAt")
+    updated_at: AwareDatetime = Field(alias="updatedAt")
+
+
 class Providers(CredentialSafeResponseModel):
-    providers: list[Provider]
+    providers: list[ProviderListItem]
 
 
 class ProviderModel(CredentialSafeResponseModel):
