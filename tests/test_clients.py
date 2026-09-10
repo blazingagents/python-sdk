@@ -153,6 +153,8 @@ AGENT: dict[str, Any] = {
     "model": None,
     "providerId": None,
     "workspaceId": "ws_aaaaaaaaaaaaaaaa",
+    "autoCompaction": True,
+    "compactionReserveTokens": 16384,
     "memoryInjectionEnabled": False,
     "tools": ["workspace", "write_todos"],
     "instructions": "Build carefully.",
@@ -173,6 +175,8 @@ AGENT_VERSION: dict[str, Any] = {
     "name": "Historical Builder",
     "model": "anthropic/claude-sonnet-4.5",
     "providerId": "prv_0123456789abcdef",
+    "autoCompaction": True,
+    "compactionReserveTokens": 16384,
     "memoryInjectionEnabled": True,
     "tools": ["workspace", "write_todos"],
     "instructions": "Historical instructions.",
@@ -2130,6 +2134,8 @@ def test_sync_agent_versions_page_lazy_iteration_get_and_restore() -> None:
         "name": "Historical Builder",
         "model": "anthropic/claude-sonnet-4.5",
         "providerId": "prv_0123456789abcdef",
+        "autoCompaction": True,
+        "compactionReserveTokens": 16384,
         "memoryInjectionEnabled": True,
         "tools": ["workspace", "write_todos"],
         "instructions": "Historical instructions.",
@@ -7052,4 +7058,52 @@ def test_thinking_levels_omit_clear_custom_and_capabilities(asynchronous: bool) 
     )
     assert parse_qs(urlsplit(state.requests[3].target).query) == {
         "model": ["vendor/model + custom"]
+    }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_agent_compaction_configuration(asynchronous: bool) -> None:
+    configured = {**AGENT, "autoCompaction": False, "compactionReserveTokens": 32000}
+    with loopback(Response(body=configured), Response(body=configured)) as (
+        base_url,
+        state,
+    ):
+        if asynchronous:
+
+            async def run() -> None:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    created = await client.agents.create(
+                        name="Builder",
+                        auto_compaction=False,
+                        compaction_reserve_tokens=32000,
+                    )
+                    assert created.auto_compaction is False
+                    assert created.compaction_reserve_tokens == 32000
+                    await client.agents.update(
+                        AGENT["id"], auto_compaction=True, compaction_reserve_tokens=0
+                    )
+
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                created = client.agents.create(
+                    name="Builder",
+                    auto_compaction=False,
+                    compaction_reserve_tokens=32000,
+                )
+                assert created.auto_compaction is False
+                assert created.compaction_reserve_tokens == 32000
+                client.agents.update(
+                    AGENT["id"], auto_compaction=True, compaction_reserve_tokens=0
+                )
+    assert json.loads(state.requests[0].body) == {
+        "name": "Builder",
+        "autoCompaction": False,
+        "compactionReserveTokens": 32000,
+    }
+    assert json.loads(state.requests[1].body) == {
+        "autoCompaction": True,
+        "compactionReserveTokens": 0,
     }
