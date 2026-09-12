@@ -114,3 +114,61 @@ client.agents.update(
     compaction_reserve_tokens=32768,
 )
 ```
+
+### Tool approval policies (0.5.0)
+
+Both `BlazingAgents` and `AsyncBlazingAgents` accept separate `approval_in_chat`
+and `approval_in_tasks` policies on `agents.create()` and `agents.update()`:
+
+```python
+from blazing_agents import ApprovalPolicyInput, BlazingAgents
+
+client = BlazingAgents()
+policy: ApprovalPolicyInput = {
+    "default": "full",
+    "overrides": [
+        {"tool": {"type": "builtin", "name": "bash"}, "decision": "manual"},
+        {
+            "tool": {
+                "type": "mcp",
+                "connection_id": "mcp_0123456789abcdef",
+                "name": "send_mail",
+            },
+            "decision": "auto",
+        },
+    ],
+}
+agent = client.agents.update(
+    "ag_0123456789abcdef",
+    approval_in_chat=policy,
+    approval_in_tasks={"default": "deny", "overrides": []},
+)
+print(agent.approval_in_chat.default)
+```
+
+Exact tool overrides take precedence over `default`. Both accept `full`, `deny`,
+`manual`, and `auto`. The initial policy is `full` with no overrides; `full` still
+requires tool availability and access. `manual` requires human review. `auto`
+uses the backend LLM reviewer and blocks on review failure or escalation without
+an available human. The reviewer receives structured tool identity, runtime name,
+arguments and conversation; tool descriptions are excluded.
+
+Omitting either update argument preserves that policy. Supplying it replaces the
+whole policy; omitted `overrides` or `overrides=[]` clears overrides. Python
+`connection_id` is serialized as `connectionId`. Agent reads, version reads and
+`restore_version()` include both policies.
+
+Interactive Sessions use the existing `client.sessions.tool_approvals()`,
+`decide_tool_approval()` and `join_tool_approval_continuation()` methods (await them
+with the async client). Human review requires the backend Session reviewer path
+and `TOOL_APPROVAL_SECRET`. Tasks and stateless generations have no human
+continuation path and block manual or escalated calls. Stateless generations use
+the chat policy; Tasks use the task policy.
+
+`ToolApproval.tool` is a `BuiltinToolReference`, `McpToolReference`, or `None`
+(admin approvals may have no ordinary tool reference). Approval records expose
+`assistant_message_id`, `created_at`, and `decided_at` for correlation. These
+metadata fields may be absent; only `tool` and `decided_at` also accept explicit
+null. Use `model_fields_set` to distinguish absence from null. Persisted
+`ToolApproval.decision` values are `pending`, `approved`, and `denied`; resolving
+one still sends the existing `approved` boolean, with an optional `reason`.

@@ -72,6 +72,7 @@ from ._transport import (
 )
 from ._types import (
     AgentTool,
+    ApprovalPolicyInput,
     McpConnectionAuthType,
     ProviderType,
     QuotaUpdate,
@@ -121,6 +122,8 @@ def _agent_body(
     compaction_reserve_tokens: int | _Omitted,
     memory_injection_enabled: bool | _Omitted,
     tools: Sequence[str] | _Omitted,
+    approval_in_chat: ApprovalPolicyInput | _Omitted,
+    approval_in_tasks: ApprovalPolicyInput | _Omitted,
     instructions: str | _Omitted,
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
@@ -144,6 +147,33 @@ def _agent_body(
     ):
         if not isinstance(value, _Omitted):
             body[wire_name] = value
+    for wire_name, policy in (
+        ("approvalInChat", approval_in_chat),
+        ("approvalInTasks", approval_in_tasks),
+    ):
+        if not isinstance(policy, _Omitted):
+            body[wire_name] = _approval_policy_body(policy)
+    return body
+
+
+def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
+    body: dict[str, object] = {"default": policy["default"]}
+    if "overrides" in policy:
+        body["overrides"] = [
+            {
+                "tool": (
+                    {"type": "builtin", "name": rule["tool"]["name"]}
+                    if rule["tool"]["type"] == "builtin"
+                    else {
+                        "type": "mcp",
+                        "connectionId": rule["tool"]["connection_id"],
+                        "name": rule["tool"]["name"],
+                    }
+                ),
+                "decision": rule["decision"],
+            }
+            for rule in policy["overrides"]
+        ]
     return body
 
 
@@ -460,6 +490,12 @@ def _restored_agent_body(version: AgentVersion) -> dict[str, object]:
         compaction_reserve_tokens=version.compaction_reserve_tokens,
         memory_injection_enabled=version.memory_injection_enabled,
         tools=version.tools,
+        approval_in_chat=cast(
+            ApprovalPolicyInput, version.approval_in_chat.model_dump()
+        ),
+        approval_in_tasks=cast(
+            ApprovalPolicyInput, version.approval_in_tasks.model_dump()
+        ),
         instructions=version.instructions,
         user_id=OMITTED,
         metadata=version.metadata,
@@ -799,6 +835,8 @@ class AgentsResource:
         compaction_reserve_tokens: int | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: list[AgentTool] | _Omitted = OMITTED,
+        approval_in_chat: ApprovalPolicyInput | _Omitted = OMITTED,
+        approval_in_tasks: ApprovalPolicyInput | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
@@ -821,6 +859,8 @@ class AgentsResource:
                     compaction_reserve_tokens=compaction_reserve_tokens,
                     memory_injection_enabled=memory_injection_enabled,
                     tools=tools,
+                    approval_in_chat=approval_in_chat,
+                    approval_in_tasks=approval_in_tasks,
                     instructions=instructions,
                     user_id=user_id,
                     metadata=metadata,
@@ -1012,6 +1052,8 @@ class AgentsResource:
         compaction_reserve_tokens: int | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: Sequence[AgentTool] | _Omitted = OMITTED,
+        approval_in_chat: ApprovalPolicyInput | _Omitted = OMITTED,
+        approval_in_tasks: ApprovalPolicyInput | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
         mcp_connection_ids: Sequence[str] | _Omitted = OMITTED,
@@ -1029,6 +1071,8 @@ class AgentsResource:
             compaction_reserve_tokens=compaction_reserve_tokens,
             memory_injection_enabled=memory_injection_enabled,
             tools=tools,
+            approval_in_chat=approval_in_chat,
+            approval_in_tasks=approval_in_tasks,
             instructions=instructions,
             user_id=OMITTED,
             metadata=metadata,
@@ -1161,6 +1205,8 @@ class AsyncAgentsResource:
         compaction_reserve_tokens: int | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: list[AgentTool] | _Omitted = OMITTED,
+        approval_in_chat: ApprovalPolicyInput | _Omitted = OMITTED,
+        approval_in_tasks: ApprovalPolicyInput | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
@@ -1183,6 +1229,8 @@ class AsyncAgentsResource:
                     compaction_reserve_tokens=compaction_reserve_tokens,
                     memory_injection_enabled=memory_injection_enabled,
                     tools=tools,
+                    approval_in_chat=approval_in_chat,
+                    approval_in_tasks=approval_in_tasks,
                     instructions=instructions,
                     user_id=user_id,
                     metadata=metadata,
@@ -1375,6 +1423,8 @@ class AsyncAgentsResource:
         compaction_reserve_tokens: int | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
         tools: Sequence[AgentTool] | _Omitted = OMITTED,
+        approval_in_chat: ApprovalPolicyInput | _Omitted = OMITTED,
+        approval_in_tasks: ApprovalPolicyInput | _Omitted = OMITTED,
         instructions: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
         mcp_connection_ids: Sequence[str] | _Omitted = OMITTED,
@@ -1392,6 +1442,8 @@ class AsyncAgentsResource:
             compaction_reserve_tokens=compaction_reserve_tokens,
             memory_injection_enabled=memory_injection_enabled,
             tools=tools,
+            approval_in_chat=approval_in_chat,
+            approval_in_tasks=approval_in_tasks,
             instructions=instructions,
             user_id=OMITTED,
             metadata=metadata,
