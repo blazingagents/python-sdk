@@ -172,3 +172,9 @@ metadata fields may be absent; only `tool` and `decided_at` also accept explicit
 null. Use `model_fields_set` to distinguish absence from null. Persisted
 `ToolApproval.decision` values are `pending`, `approved`, and `denied`; resolving
 one still sends the existing `approved` boolean, with an optional `reason`.
+
+## Slack and Telegram
+
+Use the [connection example](https://github.com/blazingagents/python-sdk/blob/main/examples/chat-integrations.md) to connect an existing
+Agent through REST. BA hosts the Chat SDK runtime, conversation history, and
+approval cards; no additional SDK resource is required.
