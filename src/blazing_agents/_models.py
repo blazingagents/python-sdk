@@ -20,6 +20,8 @@ from pydantic import (
     model_validator,
 )
 
+from ._types import ApprovalDecision, BuiltinToolName
+
 SkillId: TypeAlias = Annotated[
     str,
     StringConstraints(pattern=r"^skill_[0-9A-Za-z]{16}$"),
@@ -458,6 +460,32 @@ class McpConnectionReconnectResult(CredentialSafeResponseModel):
     connection: McpConnection
 
 
+class BuiltinToolReference(ResponseModel):
+    type: Literal["builtin"]
+    name: BuiltinToolName
+
+
+class McpToolReference(ResponseModel):
+    type: Literal["mcp"]
+    connection_id: McpConnectionId = Field(alias="connectionId")
+    name: NonEmptyString
+
+
+ToolReference: TypeAlias = Annotated[
+    BuiltinToolReference | McpToolReference, Field(discriminator="type")
+]
+
+
+class ApprovalOverride(ResponseModel):
+    tool: ToolReference
+    decision: ApprovalDecision
+
+
+class ApprovalPolicy(ResponseModel):
+    default: ApprovalDecision
+    overrides: list[ApprovalOverride] = Field(default_factory=list[ApprovalOverride])
+
+
 class Agent(ResponseModel):
     id: AgentId
     tenant_id: TenantId = Field(alias="tenantId")
@@ -472,6 +500,12 @@ class Agent(ResponseModel):
     )
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
     tools: AgentTools
+    approval_in_chat: ApprovalPolicy = Field(
+        default_factory=lambda: ApprovalPolicy(default="full"), alias="approvalInChat"
+    )
+    approval_in_tasks: ApprovalPolicy = Field(
+        default_factory=lambda: ApprovalPolicy(default="full"), alias="approvalInTasks"
+    )
     instructions: AgentInstructions
     user_id: str = Field(alias="userId")
     metadata: dict[str, object]
@@ -508,6 +542,12 @@ class AgentVersion(ResponseModel):
     )
     memory_injection_enabled: bool = Field(alias="memoryInjectionEnabled")
     tools: AgentTools
+    approval_in_chat: ApprovalPolicy = Field(
+        default_factory=lambda: ApprovalPolicy(default="full"), alias="approvalInChat"
+    )
+    approval_in_tasks: ApprovalPolicy = Field(
+        default_factory=lambda: ApprovalPolicy(default="full"), alias="approvalInTasks"
+    )
     instructions: AgentInstructions
     metadata: dict[str, object]
     mcp_connection_ids: McpConnectionIds = Field(alias="mcpConnectionIds")
@@ -901,11 +941,25 @@ class TaskRunMessagesPage(SessionMessagesPage):
 
 
 class ToolApproval(ResponseModel):
+    tool: ToolReference | None = None
+    assistant_message_id: NonEmptyString | None = Field(
+        default=None, alias="assistantMessageId"
+    )
+    created_at: AwareDatetime | None = Field(default=None, alias="createdAt")
+    decided_at: AwareDatetime | None = Field(default=None, alias="decidedAt")
+
+    @field_validator("assistant_message_id", "created_at")
+    @classmethod
+    def _reject_explicit_null(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("Field may be omitted but cannot be null")
+        return value
+
     approval_id: NonEmptyString = Field(alias="approvalId")
     tool_name: NonEmptyString = Field(alias="toolName")
     tool_call_id: NonEmptyString = Field(alias="toolCallId")
     input: object
-    decision: str
+    decision: Literal["pending", "approved", "denied"]
     reason: str | None
 
 

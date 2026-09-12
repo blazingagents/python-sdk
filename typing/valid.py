@@ -8,6 +8,7 @@ from blazing_agents import (
     Agent,
     AgentCreate,
     AgentUpdate,
+    ApprovalPolicyInput,
     Artifact,
     ArtifactDownloadUrl,
     ArtifactsListOptions,
@@ -354,3 +355,30 @@ async def async_examples(client: AsyncBlazingAgents) -> None:
         assert_type(chunks.__aiter__(), AsyncIterator[bytes])
     async with client as entered:
         assert_type(entered, AsyncBlazingAgents)
+
+
+def approval_examples(client: BlazingAgents) -> None:
+    policy: ApprovalPolicyInput = {
+        "default": "deny",
+        "overrides": [
+            {
+                "tool": {"type": "mcp", "connection_id": "mcp_example", "name": "mail"},
+                "decision": "auto",
+            }
+        ],
+    }
+    create: AgentCreate = {"name": "Reviewer", "approval_in_chat": policy}
+    update: AgentUpdate = {"approval_in_tasks": {"default": "manual"}}
+    client.agents.create(**create)
+    client.agents.update("ag_example", **update)
+
+
+async def async_approval_examples(client: AsyncBlazingAgents) -> None:
+    policy: ApprovalPolicyInput = {
+        "default": "full",
+        "overrides": [
+            {"tool": {"type": "builtin", "name": "bash"}, "decision": "manual"},
+        ],
+    }
+    await client.agents.create(name="Reviewer", approval_in_chat=policy)
+    await client.agents.update("ag_example", approval_in_tasks=policy)

@@ -2131,6 +2131,8 @@ def test_sync_agent_versions_page_lazy_iteration_get_and_restore() -> None:
     assert state.requests[3].target.endswith("/versions/3")
     assert json.loads(state.requests[5].body) == {
         "thinkingLevel": "high",
+        "approvalInChat": {"default": "full", "overrides": []},
+        "approvalInTasks": {"default": "full", "overrides": []},
         "name": "Historical Builder",
         "model": "anthropic/claude-sonnet-4.5",
         "providerId": "prv_0123456789abcdef",

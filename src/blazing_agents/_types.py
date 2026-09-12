@@ -14,6 +14,49 @@ JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
 AgentTool = Literal["workspace", "write_todos", "memory"]
+ApprovalDecision = Literal["full", "deny", "manual", "auto"]
+BuiltinToolName = Literal[
+    "read",
+    "write",
+    "edit",
+    "grep",
+    "glob",
+    "bash",
+    "publish_artifacts",
+    "write_todos",
+    "save_memory",
+    "get_memory",
+    "search_memories",
+    "update_memory",
+    "delete_memory",
+    "activate_skill",
+]
+
+
+class BuiltinToolReferenceInput(TypedDict):
+    type: Literal["builtin"]
+    name: BuiltinToolName
+
+
+class McpToolReferenceInput(TypedDict):
+    type: Literal["mcp"]
+    connection_id: str
+    name: str
+
+
+ToolReferenceInput: TypeAlias = BuiltinToolReferenceInput | McpToolReferenceInput
+
+
+class ApprovalOverrideInput(TypedDict):
+    tool: ToolReferenceInput
+    decision: ApprovalDecision
+
+
+class ApprovalPolicyInput(TypedDict, total=False):
+    default: Required[ApprovalDecision]
+    overrides: list[ApprovalOverrideInput]
+
+
 UploadFile = bytes | str | PathLike[str] | BinaryIO
 SkillArchiveType = Literal["zip", "tar", "tar.gz"]
 WorkspaceDeletionOutcome = Literal["completed", "pending"]
@@ -257,6 +300,8 @@ class _AgentCreateBase(TypedDict, total=False):
     compaction_reserve_tokens: int
     memory_injection_enabled: bool
     tools: list[AgentTool]
+    approval_in_chat: ApprovalPolicyInput
+    approval_in_tasks: ApprovalPolicyInput
     instructions: str
     user_id: str
     metadata: dict[str, object]
@@ -284,6 +329,8 @@ class _AgentUpdateBase(TypedDict, total=False):
     compaction_reserve_tokens: int
     memory_injection_enabled: bool
     tools: list[AgentTool]
+    approval_in_chat: ApprovalPolicyInput
+    approval_in_tasks: ApprovalPolicyInput
     instructions: str
     metadata: dict[str, object]
     mcp_connection_ids: list[str]
