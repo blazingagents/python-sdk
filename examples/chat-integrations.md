@@ -9,8 +9,9 @@ BA hosts the Chat SDK runtime and handles incoming messages and approvals.
 Use an existing configured Agent. Set `BLAZING_AGENTS_BASE_URL` to the API origin
 (without `/v1`), `BLAZING_AGENTS_API_KEY`, `BA_AGENT_ID`, `TELEGRAM_BOT_ID`,
 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `CHAT_WEBHOOK_URL`.
-See [setup and the callback URL limitation](https://docs.blazingagents.com/platform/chat-integrations) before
-choosing `CHAT_WEBHOOK_URL`. Run this once on a trusted backend.
+See [callback setup](https://docs.blazingagents.com/platform/chat-integrations) for the create-and-update sequence. Use an initial HTTPS URL for
+`CHAT_WEBHOOK_URL`; the example saves the final callback after creation.
+Run this once on a trusted backend.
 
 ```python
 import json
@@ -42,10 +43,22 @@ request = Request(
 )
 with urlopen(request, timeout=30) as response:
     connection = json.load(response)
-print(connection["id"])
+webhook_url = (
+    f"{os.environ['BLAZING_AGENTS_BASE_URL']}/v1/chat/webhooks/telegram/"
+    f"{connection['id']}"
+)
+update = Request(
+    f"{os.environ['BLAZING_AGENTS_BASE_URL']}/v1/chat-connections/{connection['id']}",
+    method="PATCH",
+    headers=request.headers,
+    data=json.dumps({"webhookUrl": webhook_url}).encode(),
+)
+with urlopen(update, timeout=30) as response:
+    json.load(response)
+print(webhook_url)
 ```
 
-Register the returned ID's webhook URL with Telegram, then start a DM with the
+Register the printed webhook URL with Telegram, run a fresh health check, then DM the
 bot. See [Slack and Telegram setup](https://docs.blazingagents.com/platform/chat-integrations) for registration,
 permissions, health checks, and conversation behavior.
 
