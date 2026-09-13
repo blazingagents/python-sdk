@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Configure Slack and Telegram Chat Connections with synchronous and asynchronous clients: list, get, create, update, rotate credentials, check health, enable, disable, and delete.
+- Export typed platform configuration, credential inputs, and safe connection responses.
+
 ## 0.5.0
 
 - Add typed chat and task tool approval policies to synchronous and asynchronous

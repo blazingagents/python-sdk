@@ -382,3 +382,20 @@ async def async_approval_examples(client: AsyncBlazingAgents) -> None:
     }
     await client.agents.create(name="Reviewer", approval_in_chat=policy)
     await client.agents.update("ag_example", approval_in_tasks=policy)
+
+
+# Chat Connection platform fields remain paired by create/rotation overloads.
+def chat_connection_examples(client: BlazingAgents) -> None:
+    connection = client.chat_connections.create(
+        name="Support",
+        agent_id="ag_0123456789abcdef",
+        platform="telegram",
+        configuration={"bot_id": "123", "webhook_url": "https://example.com/hook"},
+        credentials={"bot_token": "123:secret", "webhook_secret": "secret"},
+        enabled=False,
+    )
+    client.chat_connections.rotate_credentials(
+        connection.id,
+        platform="slack",
+        credentials={"bot_token": "token", "signing_secret": "secret"},
+    )

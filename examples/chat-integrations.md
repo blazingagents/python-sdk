@@ -1,67 +1,54 @@
-
 # Chat integrations
 
-The existing SDK manages your Agent. Use REST to connect it to Slack or Telegram;
-BA hosts the Chat SDK runtime and handles incoming messages and approvals.
+Use `client.chat_connections` (0.6.0+) to connect an existing Agent to Slack or
+Telegram. BA handles incoming messages and approvals.
 
 ## Create a Telegram connection
 
-Use an existing configured Agent. Set `BLAZING_AGENTS_BASE_URL` to the API origin
-(without `/v1`), `BLAZING_AGENTS_API_KEY`, `BA_AGENT_ID`, `TELEGRAM_BOT_ID`,
-`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and `CHAT_WEBHOOK_URL`.
-See [callback setup](https://docs.blazingagents.com/platform/chat-integrations) for the create-and-update sequence. Use an initial HTTPS URL for
-`CHAT_WEBHOOK_URL`; the example saves the final callback after creation.
-Run this once on a trusted backend.
+Set `BLAZING_AGENTS_API_KEY`, `BA_AGENT_ID`, `TELEGRAM_BOT_ID`,
+`TELEGRAM_BOT_TOKEN`, and `TELEGRAM_WEBHOOK_SECRET` in your environment.
+Run setup once in a trusted environment.
 
 ```python
-import json
 import os
-from urllib.request import Request, urlopen
+from blazing_agents import BlazingAgents
 
-request = Request(
-    f"{os.environ['BLAZING_AGENTS_BASE_URL']}/v1/chat-connections",
-    method="POST",
-    headers={
-        "Authorization": f"Bearer {os.environ['BLAZING_AGENTS_API_KEY']}",
-        "Content-Type": "application/json",
-    },
-    data=json.dumps(
-        {
-            "name": "Support on Telegram",
-            "agentId": os.environ["BA_AGENT_ID"],
-            "platform": "telegram",
-            "configuration": {
-                "botId": os.environ["TELEGRAM_BOT_ID"],
-                "webhookUrl": os.environ["CHAT_WEBHOOK_URL"],
-            },
-            "credentials": {
-                "botToken": os.environ["TELEGRAM_BOT_TOKEN"],
-                "webhookSecret": os.environ["TELEGRAM_WEBHOOK_SECRET"],
-            },
-        }
-    ).encode(),
-)
-with urlopen(request, timeout=30) as response:
-    connection = json.load(response)
-webhook_url = (
-    f"{os.environ['BLAZING_AGENTS_BASE_URL']}/v1/chat/webhooks/telegram/"
-    f"{connection['id']}"
-)
-update = Request(
-    f"{os.environ['BLAZING_AGENTS_BASE_URL']}/v1/chat-connections/{connection['id']}",
-    method="PATCH",
-    headers=request.headers,
-    data=json.dumps({"webhookUrl": webhook_url}).encode(),
-)
-with urlopen(update, timeout=30) as response:
-    json.load(response)
-print(webhook_url)
+base_url = "https://api.blazingagents.com"
+with BlazingAgents(base_url=base_url) as client:
+    connection = client.chat_connections.create(
+        name="Support on Telegram",
+        agent_id=os.environ["BA_AGENT_ID"],
+        platform="telegram",
+        enabled=False,
+        configuration={
+            "bot_id": os.environ["TELEGRAM_BOT_ID"],
+            "webhook_url": f"{base_url}/v1/chat/webhooks/telegram/pending",
+        },
+        credentials={
+            "bot_token": os.environ["TELEGRAM_BOT_TOKEN"],
+            "webhook_secret": os.environ["TELEGRAM_WEBHOOK_SECRET"],
+        },
+    )
+    webhook_url = f"{base_url}/v1/chat/webhooks/telegram/{connection.id}"
+    client.chat_connections.update(connection.id, webhook_url=webhook_url)
+    print(webhook_url)
 ```
 
-Register the printed webhook URL with Telegram, run a fresh health check, then DM the
-bot. See [Slack and Telegram setup](https://docs.blazingagents.com/platform/chat-integrations) for registration,
-permissions, health checks, and conversation behavior.
+Register the printed URL with Telegram using the same webhook secret. Then call
+`client.chat_connections.check_health(connection.id)`, review the checks, and
+call `client.chat_connections.enable(connection.id)` when setup is complete.
+See [Slack and Telegram setup](https://docs.blazingagents.com/platform/chat-integrations)
+for external registration and Slack permissions.
 
-If creation times out, list your connections and reconcile before retrying.
-Connection management has no dedicated SDK methods; use the
-[REST reference](https://docs.blazingagents.com/api-reference/rest-api/chat-connections) for lifecycle and repair.
+For Slack, use `platform="slack"`, configuration fields `team_id`, `app_id`,
+`webhook_url`, and optional `channel_ids`, with `bot_token` and `signing_secret`
+credentials. Telegram accepts optional `chat_ids`. These IDs are health-check
+targets, not access restrictions.
+
+Use `list().chat_connections`, `get(id)`, `update(id, name=...)`,
+`rotate_credentials(id, platform=..., credentials=...)`, `disable(id)`, and
+`delete(id)` to manage connections. `AsyncBlazingAgents` supports the same
+methods with `await`. Responses never return credentials.
+
+If creation times out, list and reconcile before retrying. If the callback
+update fails, retry it using the existing connection ID.
