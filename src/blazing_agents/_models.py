@@ -289,6 +289,12 @@ class CredentialSafeResponseModel(ResponseModel):
     _credential_fields: ClassVar[frozenset[str]] = frozenset(
         {
             "apiKey",
+            "botToken",
+            "bot_token",
+            "signingSecret",
+            "signing_secret",
+            "webhookSecret",
+            "webhook_secret",
             "api_key",
             "bearerToken",
             "bearer_token",
@@ -981,3 +987,63 @@ class ToolApprovalDecision(ResponseModel):
 class ArtifactDownloadUrl(ResponseModel):
     url: AnyUrl
     expires_at: AwareDatetime = Field(alias="expiresAt")
+
+
+class ChatHealthCheck(CredentialSafeResponseModel):
+    code: str
+    status: Literal["pass", "fail", "unknown"]
+    subject: str | None = None
+
+
+class ChatHealth(CredentialSafeResponseModel):
+    checked_at: str = Field(alias="checkedAt")
+    token_valid: bool = Field(alias="tokenValid")
+    identity_verified: bool = Field(alias="identityVerified")
+    checks: list[ChatHealthCheck]
+
+
+class ChatIdentity(CredentialSafeResponseModel):
+    bot_id: str = Field(alias="botId")
+    bot_user_id: str = Field(alias="botUserId")
+    team_id: str | None = Field(alias="teamId")
+    app_id: str | None = Field(alias="appId")
+
+
+class SlackChatConfiguration(CredentialSafeResponseModel):
+    platform: Literal["slack"]
+    team_id: str = Field(alias="teamId")
+    app_id: str = Field(alias="appId")
+    webhook_url: str = Field(alias="webhookUrl")
+    channel_ids: list[str] = Field(alias="channelIds")
+
+
+class TelegramChatConfiguration(CredentialSafeResponseModel):
+    platform: Literal["telegram"]
+    bot_id: str = Field(alias="botId")
+    webhook_url: str = Field(alias="webhookUrl")
+    chat_ids: list[str] = Field(alias="chatIds")
+
+
+ChatConfiguration: TypeAlias = Annotated[
+    SlackChatConfiguration | TelegramChatConfiguration, Field(discriminator="platform")
+]
+
+
+class ChatConnection(CredentialSafeResponseModel):
+    id: Annotated[str, StringConstraints(pattern=r"^cc_[0-9A-Za-z]{16}$")]
+    tenant_id: TenantId = Field(alias="tenantId")
+    agent_id: AgentId = Field(alias="agentId")
+    name: str
+    platform: Literal["slack", "telegram"]
+    enabled: bool
+    configuration: ChatConfiguration
+    identity: ChatIdentity
+    health: ChatHealth
+    credential_fragment: str = Field(alias="credentialFragment", max_length=4)
+    credential_version: int = Field(alias="credentialVersion", ge=0)
+    created_at: str = Field(alias="createdAt")
+    updated_at: str = Field(alias="updatedAt")
+
+
+class ChatConnections(CredentialSafeResponseModel):
+    chat_connections: list[ChatConnection] = Field(alias="chatConnections")
