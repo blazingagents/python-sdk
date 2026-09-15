@@ -129,6 +129,7 @@ class LatestSessionsListOptions(TypedDict, total=False):
     user_id: str
     cursor: str
     limit: int
+    by_agent: bool | None
 
 
 class SessionMessagesOptions(TypedDict, total=False):
@@ -535,6 +536,12 @@ class UsageQuery(TypedDict, total=False):
     session_id: str
     user_id: str
     group_by: UsageGroupBy
+    limit: int
+
+
+class UsageOverviewQuery(TypedDict, total=False):
+    from_: str
+    to: str
     limit: int
 
 

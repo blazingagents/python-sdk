@@ -56,6 +56,7 @@ from ._models import (
     ToolApprovalDecision,
     ToolApprovals,
     Usage,
+    UsageOverview,
     Workspace,
     WorkspacesPage,
     _validate_cron,
@@ -223,6 +224,7 @@ def _sessions_query(
     user_id: str | _Omitted,
     cursor: str | _Omitted,
     limit: int | _Omitted,
+    by_agent: bool | None = None,
 ) -> dict[str, str | int]:
     query: dict[str, str | int] = {}
     for wire_name, value in (
@@ -232,6 +234,8 @@ def _sessions_query(
     ):
         if not isinstance(value, _Omitted):
             query[wire_name] = value
+    if by_agent is not None:
+        query["byAgent"] = str(by_agent).lower()
     return query
 
 
@@ -3062,6 +3066,19 @@ def _usage_query(
     return query
 
 
+def _usage_overview_query(
+    *,
+    from_: str | _Omitted,
+    to: str | _Omitted,
+    limit: int | _Omitted,
+) -> dict[str, str | int]:
+    query: dict[str, str | int] = {}
+    for wire_name, value in (("from", from_), ("to", to), ("limit", limit)):
+        if not isinstance(value, _Omitted):
+            query[wire_name] = value
+    return query
+
+
 class TenantResource:
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
@@ -3212,6 +3229,26 @@ class UsageResource:
             Usage,
         )
 
+    def overview(
+        self,
+        *,
+        from_: str | _Omitted = OMITTED,
+        to: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> UsageOverview:
+        return self._transport.request(
+            _Request(
+                "GET",
+                "/v1/usage/overview",
+                query=_usage_overview_query(from_=from_, to=to, limit=limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            UsageOverview,
+        )
+
 
 class AsyncUsageResource:
     def __init__(self, transport: AsyncTransport) -> None:
@@ -3281,6 +3318,26 @@ class AsyncUsageResource:
                 timeout=timeout,
             ),
             Usage,
+        )
+
+    async def overview(
+        self,
+        *,
+        from_: str | _Omitted = OMITTED,
+        to: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> UsageOverview:
+        return await self._transport.request(
+            _Request(
+                "GET",
+                "/v1/usage/overview",
+                query=_usage_overview_query(from_=from_, to=to, limit=limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            UsageOverview,
         )
 
 
@@ -3974,6 +4031,7 @@ class SessionsResource:
         user_id: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
         limit: int | _Omitted = OMITTED,
+        by_agent: bool | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> LatestSessionsPage:
@@ -3981,7 +4039,7 @@ class SessionsResource:
             _Request(
                 "GET",
                 "/v1/sessions/latest",
-                query=_sessions_query(user_id, cursor, limit),
+                query=_sessions_query(user_id, cursor, limit, by_agent),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -4155,6 +4213,7 @@ class AsyncSessionsResource:
         user_id: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
         limit: int | _Omitted = OMITTED,
+        by_agent: bool | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> LatestSessionsPage:
@@ -4162,7 +4221,7 @@ class AsyncSessionsResource:
             _Request(
                 "GET",
                 "/v1/sessions/latest",
-                query=_sessions_query(user_id, cursor, limit),
+                query=_sessions_query(user_id, cursor, limit, by_agent),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

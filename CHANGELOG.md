@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+- Add synchronous and asynchronous dashboard usage overviews with totals, daily
+  activity, bounded Agent, End-user, and Model rankings, and active Agent counts.
+- Let latest Session queries choose between Tenant-wide recency and one result
+  per Agent with `by_agent`.
+
 ## 0.6.0
 
 - Configure Slack and Telegram Chat Connections with synchronous and asynchronous clients: list, get, create, update, rotate credentials, check health, enable, disable, and delete.
