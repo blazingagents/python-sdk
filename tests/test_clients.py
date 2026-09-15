@@ -112,6 +112,8 @@ from blazing_agents import (
     ToolApprovalDecision,
     ToolApprovalDecisionInput,
     ToolApprovals,
+    UsageOverview,
+    UsageOverviewQuery,
     __version__,
 )
 
@@ -144,6 +146,14 @@ USAGE = {
         "requestCount": 1,
         "durationMs": 100,
     },
+}
+USAGE_OVERVIEW = {
+    "totals": USAGE["totals"],
+    "daily": USAGE["buckets"],
+    "byAgent": USAGE["buckets"],
+    "byUser": USAGE["buckets"],
+    "byModel": USAGE["buckets"],
+    "activeAgentCount": 1,
 }
 AGENT: dict[str, Any] = {
     "id": "ag_0123456789abcdef",
@@ -1508,6 +1518,54 @@ def test_sync_usage_queries_translate_only_owned_names() -> None:
     assert usage.buckets[0].user_id == ""
     assert usage.totals.request_count == 1
     assert agent_usage.totals.input_tokens == 10
+
+
+def test_sync_usage_overview_serializes_the_bounded_query() -> None:
+    with loopback(Response(body=USAGE_OVERVIEW)) as (base_url, state):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            overview = client.usage.overview(
+                from_="2026-08-01",
+                to="2026-08-07",
+                limit=5,
+            )
+
+    assert state.requests[0].target == (
+        "/v1/usage/overview?from=2026-08-01&to=2026-08-07&limit=5"
+    )
+    assert overview.active_agent_count == 1
+    assert overview.totals.request_count == 1
+    assert overview.daily[0].day == "2026-08-01"
+    assert overview.by_agent[0].agent_id == "ag_0123456789abcdef"
+    assert overview.by_user[0].user_id == ""
+    assert overview.by_model[0].model == "future-model"
+
+
+def test_async_usage_overview_omits_unspecified_query_values() -> None:
+    with loopback(Response(body=USAGE_OVERVIEW)) as (base_url, state):
+
+        async def exercise() -> None:
+            async with AsyncBlazingAgents(
+                api_key="ba_test",
+                base_url=base_url,
+            ) as client:
+                overview = await client.usage.overview()
+                assert overview.active_agent_count == 1
+
+        asyncio.run(exercise())
+
+    assert state.requests[0].target == "/v1/usage/overview"
+
+
+def test_usage_overview_public_types_validate_wire_names() -> None:
+    query: UsageOverviewQuery = {
+        "from_": "2026-08-01",
+        "to": "2026-08-07",
+        "limit": 5,
+    }
+    overview = UsageOverview.model_validate_json(json.dumps(USAGE_OVERVIEW))
+
+    assert query["limit"] == 5
+    assert overview.by_model[0].provider == "future-provider"
 
 
 def test_async_clients_match_tenant_and_usage_behavior(
@@ -5084,7 +5142,7 @@ def test_async_sessions_list_and_iter_match_sync_paging() -> None:
     ]
 
 
-def test_sync_sessions_list_latest_returns_one_item_per_agent() -> None:
+def test_sync_sessions_list_latest_serializes_by_agent() -> None:
     response = {
         "data": [{**LATEST_SESSION, "futureSessionField": {"opaque": True}}],
         "nextCursor": "next-latest",
@@ -5101,14 +5159,15 @@ def test_sync_sessions_list_latest_returns_one_item_per_agent() -> None:
                 user_id="end/user",
                 cursor="cursor value",
                 limit=25,
+                by_agent=True,
             )
-            empty_user = client.sessions.list_latest(user_id="")
+            empty_user = client.sessions.list_latest(user_id="", by_agent=False)
             client.sessions.list_latest(cursor="next-latest")
             client.sessions.list_latest(limit=1)
 
     assert [request.target for request in state.requests] == [
-        "/v1/sessions/latest?userId=end%2Fuser&cursor=cursor+value&limit=25",
-        "/v1/sessions/latest?userId=",
+        "/v1/sessions/latest?userId=end%2Fuser&cursor=cursor+value&limit=25&byAgent=true",
+        "/v1/sessions/latest?userId=&byAgent=false",
         "/v1/sessions/latest?cursor=next-latest",
         "/v1/sessions/latest?limit=1",
     ]
@@ -5142,6 +5201,7 @@ def test_async_sessions_list_latest_matches_sync_serialization() -> None:
                     user_id="",
                     cursor="start",
                     limit=10,
+                    by_agent=False,
                 )
                 assert page.data == []
                 assert page.next_cursor is None
@@ -5156,7 +5216,7 @@ def test_async_sessions_list_latest_matches_sync_serialization() -> None:
         asyncio.run(exercise())
 
     assert [request.target for request in state.requests] == [
-        "/v1/sessions/latest?userId=&cursor=start&limit=10",
+        "/v1/sessions/latest?userId=&cursor=start&limit=10&byAgent=false",
         "/v1/sessions/latest",
         "/v1/sessions/latest",
     ]

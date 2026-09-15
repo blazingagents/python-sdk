@@ -49,6 +49,30 @@ with BlazingAgents(api_key="ba_...") as client:
 Use `AsyncBlazingAgents` for asynchronous applications; it exposes the same
 resources and generation methods.
 
+## Usage dashboards
+
+Load a bounded dashboard overview in one request. The server defaults rankings
+to five entries and accepts at most 20.
+
+```python
+overview = client.usage.overview(
+    from_="2026-09-01",
+    to="2026-09-07",
+    limit=5,
+)
+print(overview.totals.request_count)
+print(overview.by_agent)
+```
+
+For a Tenant-wide recent Session feed, allow multiple Sessions from the same
+Agent. Set `by_agent=True` when the caller needs at most one latest Session per
+Agent instead.
+
+```python
+recent = client.sessions.list_latest(limit=10, by_agent=False)
+latest_per_agent = client.sessions.list_latest(limit=10, by_agent=True)
+```
+
 ## Documentation
 
 Read the [Python SDK documentation](https://docs.blazingagents.com/sdk/python)

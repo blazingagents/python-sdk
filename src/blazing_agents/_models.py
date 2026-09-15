@@ -340,6 +340,15 @@ class Usage(ResponseModel):
     totals: UsageTotals
 
 
+class UsageOverview(ResponseModel):
+    totals: UsageTotals
+    daily: list[UsageBucket]
+    by_agent: list[UsageBucket] = Field(alias="byAgent")
+    by_user: list[UsageBucket] = Field(alias="byUser")
+    by_model: list[UsageBucket] = Field(alias="byModel")
+    active_agent_count: int = Field(alias="activeAgentCount", ge=0)
+
+
 class Provider(CredentialSafeResponseModel):
     id: ProviderId
     name: NonEmptyString
