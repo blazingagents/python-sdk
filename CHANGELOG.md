@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.2
+
+- Address Skill files with the `path` query parameter to match the platform's
+  `?path=` Skill file routes.
+
 ## 0.6.1
 
 - Add synchronous and asynchronous dashboard usage overviews with totals, daily
