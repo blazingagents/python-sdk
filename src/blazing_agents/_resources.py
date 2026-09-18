@@ -616,11 +616,6 @@ def _artifacts_query(
     }
 
 
-def _skill_file_path(agent_id: str, skill_id: str, path: str) -> str:
-    encoded_path = "/".join(quote(segment, safe="") for segment in path.split("/"))
-    return f"{_skill_path(agent_id, skill_id)}/files/{encoded_path}"
-
-
 def _skills_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
@@ -4596,7 +4591,8 @@ class AgentSkillsResource:
         return self._transport.request(
             _Request(
                 "GET",
-                _skill_file_path(self._agent_id, skill_id, path),
+                f"{_skill_path(self._agent_id, skill_id)}/files",
+                query={"path": path},
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -4615,7 +4611,8 @@ class AgentSkillsResource:
         return self._transport.request(
             _Request(
                 "PUT",
-                _skill_file_path(self._agent_id, skill_id, path),
+                f"{_skill_path(self._agent_id, skill_id)}/files",
+                query={"path": path},
                 content=content,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -4634,7 +4631,8 @@ class AgentSkillsResource:
         return self._transport.request(
             _Request(
                 "DELETE",
-                _skill_file_path(self._agent_id, skill_id, path),
+                f"{_skill_path(self._agent_id, skill_id)}/files",
+                query={"path": path},
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -4794,7 +4792,8 @@ class AsyncAgentSkillsResource:
         return await self._transport.request(
             _Request(
                 "GET",
-                _skill_file_path(self._agent_id, skill_id, path),
+                f"{_skill_path(self._agent_id, skill_id)}/files",
+                query={"path": path},
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -4813,7 +4812,8 @@ class AsyncAgentSkillsResource:
         return await self._transport.request(
             _Request(
                 "PUT",
-                _skill_file_path(self._agent_id, skill_id, path),
+                f"{_skill_path(self._agent_id, skill_id)}/files",
+                query={"path": path},
                 content=content,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -4832,7 +4832,8 @@ class AsyncAgentSkillsResource:
         return await self._transport.request(
             _Request(
                 "DELETE",
-                _skill_file_path(self._agent_id, skill_id, path),
+                f"{_skill_path(self._agent_id, skill_id)}/files",
+                query={"path": path},
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
