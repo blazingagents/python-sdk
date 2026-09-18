@@ -4220,7 +4220,7 @@ def test_sync_skills_manage_files_pagination_and_partial_copies() -> None:
     assert state.requests[3].target.endswith("?cursor=next&limit=1")
     encoded_file = (
         "/v1/agents/ag_0123456789abcdef/"
-        "skills/skill_0123456789abcdef/files/assets/%25%20weird/%C2%B5.bin"
+        "skills/skill_0123456789abcdef/files?path=assets%2F%25+weird%2F%C2%B5.bin"
     )
     assert state.requests[5].target == encoded_file
     assert state.requests[6].target == encoded_file
@@ -4476,7 +4476,7 @@ def test_async_skills_match_lifecycle_upload_and_file_ownership(
     assert b"async-bytes-archive" in state.requests[1].body
     assert b"async-path-archive" in state.requests[2].body
     assert b"async-caller-archive" in state.requests[4].body
-    assert state.requests[10].target.endswith("/files/references/space%20name.md")
+    assert state.requests[10].target.endswith("/files?path=references%2Fspace+name.md")
     assert state.requests[11].body == b"replacement"
     assert json.loads(state.requests[13].body) == {
         "agentIds": [destination, failed_destination]
