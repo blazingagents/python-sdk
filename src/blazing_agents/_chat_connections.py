@@ -136,17 +136,26 @@ class ChatConnectionsResource:
         chat_connection_id: str,
         *,
         name: str | _Omitted = OMITTED,
-        webhook_url: str | _Omitted = OMITTED,
+        configuration: SlackChatConfigurationInput
+        | TelegramChatConfigurationInput
+        | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
         body: dict[str, object] = {}
         if not isinstance(name, _Omitted):
             body["name"] = name
-        if not isinstance(webhook_url, _Omitted):
-            body["webhookUrl"] = webhook_url
+        if not isinstance(configuration, _Omitted):
+            configuration_body = _wire(configuration)
+            if not configuration_body or not set(configuration_body) <= {
+                "businessMode",
+                "channelIds",
+                "chatIds",
+            }:
+                raise ValueError("Configuration contains unsupported fields")
+            body["configuration"] = configuration_body
         if not body:
-            raise ValueError("Provide a name or webhook URL")
+            raise ValueError("Provide a name or configuration change")
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -165,7 +174,7 @@ class ChatConnectionsResource:
         name: str,
         agent_id: str,
         platform: Literal["slack"],
-        configuration: SlackChatConfigurationInput,
+        configuration: SlackChatConfigurationInput | _Omitted = OMITTED,
         credentials: SlackChatCredentialsInput,
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
@@ -179,7 +188,7 @@ class ChatConnectionsResource:
         name: str,
         agent_id: str,
         platform: Literal["telegram"],
-        configuration: TelegramChatConfigurationInput,
+        configuration: TelegramChatConfigurationInput | _Omitted = OMITTED,
         credentials: TelegramChatCredentialsInput,
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
@@ -193,40 +202,35 @@ class ChatConnectionsResource:
         credentials: SlackChatCredentialsInput | TelegramChatCredentialsInput,
         name: str,
         agent_id: str,
-        configuration: SlackChatConfigurationInput | TelegramChatConfigurationInput,
+        configuration: SlackChatConfigurationInput
+        | TelegramChatConfigurationInput
+        | _Omitted = OMITTED,
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
         credentials_body = _wire(credentials)
         required = (
-            {"botToken", "signingSecret"}
-            if platform == "slack"
-            else {"botToken", "webhookSecret"}
+            {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
         )
         if platform not in {"slack", "telegram"} or set(credentials_body) != required:
             raise ValueError("Credentials must match the selected platform")
-        configuration_body = _wire(configuration)
-        required_configuration = (
-            {"teamId", "appId", "webhookUrl"}
-            if platform == "slack"
-            else {"botId", "webhookUrl"}
+        configuration_body = (
+            {} if isinstance(configuration, _Omitted) else _wire(configuration)
         )
-        optional_configuration = {"channelIds"} if platform == "slack" else {"chatIds"}
-        if (
-            not required_configuration <= configuration_body.keys()
-            or configuration_body.keys()
-            - required_configuration
-            - optional_configuration
-        ):
+        allowed_configuration = (
+            {"channelIds"} if platform == "slack" else {"businessMode", "chatIds"}
+        )
+        if not configuration_body.keys() <= allowed_configuration:
             raise ValueError("Configuration must match the selected platform")
         body: dict[str, object] = {
             "name": name,
             "agentId": agent_id,
             "platform": platform,
-            "configuration": configuration_body,
             "credentials": credentials_body,
         }
+        if not isinstance(configuration, _Omitted):
+            body["configuration"] = configuration_body
         if not isinstance(enabled, _Omitted):
             body["enabled"] = enabled
         return self._transport.request(
@@ -278,9 +282,7 @@ class ChatConnectionsResource:
     ) -> ChatConnection:
         credentials_body = _wire(credentials)
         required = (
-            {"botToken", "signingSecret"}
-            if platform == "slack"
-            else {"botToken", "webhookSecret"}
+            {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
         )
         if platform not in {"slack", "telegram"} or set(credentials_body) != required:
             raise ValueError("Credentials must match the selected platform")
@@ -412,17 +414,26 @@ class AsyncChatConnectionsResource:
         chat_connection_id: str,
         *,
         name: str | _Omitted = OMITTED,
-        webhook_url: str | _Omitted = OMITTED,
+        configuration: SlackChatConfigurationInput
+        | TelegramChatConfigurationInput
+        | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
         body: dict[str, object] = {}
         if not isinstance(name, _Omitted):
             body["name"] = name
-        if not isinstance(webhook_url, _Omitted):
-            body["webhookUrl"] = webhook_url
+        if not isinstance(configuration, _Omitted):
+            configuration_body = _wire(configuration)
+            if not configuration_body or not set(configuration_body) <= {
+                "businessMode",
+                "channelIds",
+                "chatIds",
+            }:
+                raise ValueError("Configuration contains unsupported fields")
+            body["configuration"] = configuration_body
         if not body:
-            raise ValueError("Provide a name or webhook URL")
+            raise ValueError("Provide a name or configuration change")
         return await self._transport.request(
             _Request(
                 "PATCH",
@@ -441,7 +452,7 @@ class AsyncChatConnectionsResource:
         name: str,
         agent_id: str,
         platform: Literal["slack"],
-        configuration: SlackChatConfigurationInput,
+        configuration: SlackChatConfigurationInput | _Omitted = OMITTED,
         credentials: SlackChatCredentialsInput,
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
@@ -455,7 +466,7 @@ class AsyncChatConnectionsResource:
         name: str,
         agent_id: str,
         platform: Literal["telegram"],
-        configuration: TelegramChatConfigurationInput,
+        configuration: TelegramChatConfigurationInput | _Omitted = OMITTED,
         credentials: TelegramChatCredentialsInput,
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
@@ -469,40 +480,35 @@ class AsyncChatConnectionsResource:
         credentials: SlackChatCredentialsInput | TelegramChatCredentialsInput,
         name: str,
         agent_id: str,
-        configuration: SlackChatConfigurationInput | TelegramChatConfigurationInput,
+        configuration: SlackChatConfigurationInput
+        | TelegramChatConfigurationInput
+        | _Omitted = OMITTED,
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
         credentials_body = _wire(credentials)
         required = (
-            {"botToken", "signingSecret"}
-            if platform == "slack"
-            else {"botToken", "webhookSecret"}
+            {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
         )
         if platform not in {"slack", "telegram"} or set(credentials_body) != required:
             raise ValueError("Credentials must match the selected platform")
-        configuration_body = _wire(configuration)
-        required_configuration = (
-            {"teamId", "appId", "webhookUrl"}
-            if platform == "slack"
-            else {"botId", "webhookUrl"}
+        configuration_body = (
+            {} if isinstance(configuration, _Omitted) else _wire(configuration)
         )
-        optional_configuration = {"channelIds"} if platform == "slack" else {"chatIds"}
-        if (
-            not required_configuration <= configuration_body.keys()
-            or configuration_body.keys()
-            - required_configuration
-            - optional_configuration
-        ):
+        allowed_configuration = (
+            {"channelIds"} if platform == "slack" else {"businessMode", "chatIds"}
+        )
+        if not configuration_body.keys() <= allowed_configuration:
             raise ValueError("Configuration must match the selected platform")
         body: dict[str, object] = {
             "name": name,
             "agentId": agent_id,
             "platform": platform,
-            "configuration": configuration_body,
             "credentials": credentials_body,
         }
+        if not isinstance(configuration, _Omitted):
+            body["configuration"] = configuration_body
         if not isinstance(enabled, _Omitted):
             body["enabled"] = enabled
         return await self._transport.request(
@@ -554,9 +560,7 @@ class AsyncChatConnectionsResource:
     ) -> ChatConnection:
         credentials_body = _wire(credentials)
         required = (
-            {"botToken", "signingSecret"}
-            if platform == "slack"
-            else {"botToken", "webhookSecret"}
+            {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
         )
         if platform not in {"slack", "telegram"} or set(credentials_body) != required:
             raise ValueError("Credentials must match the selected platform")

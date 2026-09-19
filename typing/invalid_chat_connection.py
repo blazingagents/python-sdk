@@ -5,8 +5,8 @@ client.chat_connections.create(
     name="invalid",
     agent_id="ag_0123456789abcdef",
     platform="slack",
-    configuration={"bot_id": "123", "webhook_url": "https://example.com/hook"},
-    credentials={"bot_token": "123:secret", "webhook_secret": "secret"},
+    configuration={"business_mode": False},
+    credentials={"bot_token": "123:secret"},
 )
 client.chat_connections.rotate_credentials(
     "cc_0123456789abcdef",

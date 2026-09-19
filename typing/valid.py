@@ -390,8 +390,8 @@ def chat_connection_examples(client: BlazingAgents) -> None:
         name="Support",
         agent_id="ag_0123456789abcdef",
         platform="telegram",
-        configuration={"bot_id": "123", "webhook_url": "https://example.com/hook"},
-        credentials={"bot_token": "123:secret", "webhook_secret": "secret"},
+        configuration={"business_mode": False},
+        credentials={"bot_token": "123:secret"},
         enabled=False,
     )
     client.chat_connections.rotate_credentials(

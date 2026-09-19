@@ -1020,16 +1020,12 @@ class ChatIdentity(CredentialSafeResponseModel):
 
 class SlackChatConfiguration(CredentialSafeResponseModel):
     platform: Literal["slack"]
-    team_id: str = Field(alias="teamId")
-    app_id: str = Field(alias="appId")
-    webhook_url: str = Field(alias="webhookUrl")
     channel_ids: list[str] = Field(alias="channelIds")
 
 
 class TelegramChatConfiguration(CredentialSafeResponseModel):
     platform: Literal["telegram"]
-    bot_id: str = Field(alias="botId")
-    webhook_url: str = Field(alias="webhookUrl")
+    business_mode: bool = Field(alias="businessMode")
     chat_ids: list[str] = Field(alias="chatIds")
 
 
@@ -1046,6 +1042,7 @@ class ChatConnection(CredentialSafeResponseModel):
     platform: Literal["slack", "telegram"]
     enabled: bool
     configuration: ChatConfiguration
+    webhook_url: str = Field(alias="webhookUrl")
     identity: ChatIdentity
     health: ChatHealth
     credential_fragment: str = Field(alias="credentialFragment", max_length=4)
