@@ -18,10 +18,10 @@ CONNECTION: dict[str, Any] = {
     "enabled": False,
     "configuration": {
         "platform": "telegram",
-        "botId": "123",
-        "webhookUrl": "https://example.com/hook",
+        "businessMode": False,
         "chatIds": [],
     },
+    "webhookUrl": "https://example.com/hook",
     "identity": {"botId": "123", "botUserId": "123", "teamId": None, "appId": None},
     "health": {
         "checkedAt": "",
@@ -55,25 +55,16 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
                     name="Support",
                     agent_id=CONNECTION["agentId"],
                     platform="telegram",
-                    configuration={
-                        "bot_id": "123",
-                        "webhook_url": "https://example.com/hook",
-                    },
-                    credentials={"bot_token": "123:secret", "webhook_secret": "secret"},
+                    credentials={"bot_token": "123:secret"},
                     enabled=False,
                 )
                 assert created.configuration.platform == "telegram"
                 assert created.health.checks[0].status == "unknown"
-                await resource.update(
-                    created.id, webhook_url="https://example.com/final"
-                )
+                await resource.update(created.id, configuration={"chat_ids": ["123"]})
                 await resource.rotate_credentials(
                     created.id,
                     platform="telegram",
-                    credentials={
-                        "bot_token": "123:newsecret",
-                        "webhook_secret": "newsecret",
-                    },
+                    credentials={"bot_token": "123:newsecret"},
                 )
                 await resource.get(created.id)
                 await resource.check_health(created.id)
@@ -93,23 +84,16 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
                     name="Support",
                     agent_id=CONNECTION["agentId"],
                     platform="telegram",
-                    configuration={
-                        "bot_id": "123",
-                        "webhook_url": "https://example.com/hook",
-                    },
-                    credentials={"bot_token": "123:secret", "webhook_secret": "secret"},
+                    credentials={"bot_token": "123:secret"},
                     enabled=False,
                 )
                 assert created.configuration.platform == "telegram"
                 assert created.health.checks[0].status == "unknown"
-                resource.update(created.id, webhook_url="https://example.com/final")
+                resource.update(created.id, configuration={"chat_ids": ["123"]})
                 resource.rotate_credentials(
                     created.id,
                     platform="telegram",
-                    credentials={
-                        "bot_token": "123:newsecret",
-                        "webhook_secret": "newsecret",
-                    },
+                    credentials={"bot_token": "123:newsecret"},
                 )
                 resource.get(created.id)
                 resource.check_health(created.id)
@@ -124,15 +108,13 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
         "name": "Support",
         "agentId": CONNECTION["agentId"],
         "platform": "telegram",
-        "configuration": {"botId": "123", "webhookUrl": "https://example.com/hook"},
-        "credentials": {"botToken": "123:secret", "webhookSecret": "secret"},
+        "credentials": {"botToken": "123:secret"},
         "enabled": False,
     }
-    assert bodies[1] == {"webhookUrl": "https://example.com/final"}
+    assert bodies[1] == {"configuration": {"chatIds": ["123"]}}
     assert bodies[2] == {
         "platform": "telegram",
         "botToken": "123:newsecret",
-        "webhookSecret": "newsecret",
     }
     assert [(request.method, request.target) for request in state.requests] == [
         (method, "/v1/chat-connections" + path)
@@ -162,12 +144,7 @@ def test_slack_and_secret_error_redaction() -> None:
                     name="Slack",
                     agent_id=CONNECTION["agentId"],
                     platform="slack",
-                    configuration={
-                        "team_id": "T123",
-                        "app_id": "A123",
-                        "webhook_url": "https://example.com/hook",
-                        "channel_ids": ["C123"],
-                    },
+                    configuration={"channel_ids": ["C123"]},
                     credentials={"bot_token": token, "signing_secret": secret},
                 )
             assert token not in str(error.value)
@@ -187,9 +164,6 @@ def test_slack_rotation_and_update_validation(asynchronous: bool) -> None:
         "platform": "slack",
         "configuration": {
             "platform": "slack",
-            "teamId": "T123",
-            "appId": "A123",
-            "webhookUrl": "https://example.com/hook",
             "channelIds": [],
         },
     }
@@ -199,13 +173,10 @@ def test_slack_rotation_and_update_validation(asynchronous: bool) -> None:
             "name": "Support",
             "agent_id": CONNECTION["agentId"],
             "platform": "slack",
-            "configuration": {
-                "bot_id": "123",
-                "webhook_url": "https://example.com/hook",
-            },
+            "configuration": {"business_mode": True},
             "credentials": {"bot_token": "token", "signing_secret": "a" * 32},
         }
-        wrong_credentials: Any = {"bot_token": "token", "webhook_secret": "secret"}
+        wrong_credentials: Any = {"bot_token": "token"}
 
         async def run_async() -> None:
             async with AsyncBlazingAgents(api_key="test", base_url=base_url) as client:
@@ -214,11 +185,7 @@ def test_slack_rotation_and_update_validation(asynchronous: bool) -> None:
                     name="Support",
                     agent_id=CONNECTION["agentId"],
                     platform="slack",
-                    configuration={
-                        "team_id": "T123",
-                        "app_id": "A123",
-                        "webhook_url": "https://example.com/hook",
-                    },
+                    configuration={"channel_ids": []},
                     credentials={"bot_token": "token", "signing_secret": "a" * 32},
                 )
                 assert created.configuration.platform == "slack"
@@ -249,11 +216,7 @@ def test_slack_rotation_and_update_validation(asynchronous: bool) -> None:
                     name="Support",
                     agent_id=CONNECTION["agentId"],
                     platform="slack",
-                    configuration={
-                        "team_id": "T123",
-                        "app_id": "A123",
-                        "webhook_url": "https://example.com/hook",
-                    },
+                    configuration={"channel_ids": []},
                     credentials={"bot_token": "token", "signing_secret": "a" * 32},
                 )
                 assert created.configuration.platform == "slack"

@@ -546,15 +546,11 @@ class UsageOverviewQuery(TypedDict, total=False):
 
 
 class SlackChatConfigurationInput(TypedDict, total=False):
-    team_id: Required[str]
-    app_id: Required[str]
-    webhook_url: Required[str]
     channel_ids: list[str]
 
 
 class TelegramChatConfigurationInput(TypedDict, total=False):
-    bot_id: Required[str]
-    webhook_url: Required[str]
+    business_mode: bool
     chat_ids: list[str]
 
 
@@ -565,4 +561,3 @@ class SlackChatCredentialsInput(TypedDict):
 
 class TelegramChatCredentialsInput(TypedDict):
     bot_token: str
-    webhook_secret: str
