@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Type `Agent.tools` and `AgentVersion.tools` as `list[AgentTool]` to match the
+  platform contract, so tools read from a response type-check when passed back
+  to `agents.create()` or `agents.update()`. Responses with tools outside
+  `workspace`, `write_todos`, and `memory` now fail validation.
+
 ## 0.6.2
 
 - Address Skill files with the `path` query parameter to match the platform's

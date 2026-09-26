@@ -122,7 +122,7 @@ def _agent_body(
     auto_compaction: bool | _Omitted,
     compaction_reserve_tokens: int | _Omitted,
     memory_injection_enabled: bool | _Omitted,
-    tools: Sequence[str] | _Omitted,
+    tools: Sequence[AgentTool] | _Omitted,
     approval_in_chat: ApprovalPolicyInput | _Omitted,
     approval_in_tasks: ApprovalPolicyInput | _Omitted,
     instructions: str | _Omitted,
