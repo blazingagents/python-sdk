@@ -27,7 +27,7 @@ class APIStatusError(BlazingAgentsError):
         request_id: str | None,
         response_body: str,
     ) -> None:
-        super().__init__(message)
+        super().__init__(f"[{code}] {message}")
         self.status_code = status_code
         self.headers = headers
         self.code = code

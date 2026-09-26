@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Prefix `APIStatusError` text with the server error code, for example
+  `[model_validation_unavailable] Provider model discovery is unavailable`, so
+  the code can be looked up in the error catalog. `error.code` is unchanged.
 - Type `Agent.tools` and `AgentVersion.tools` as `list[AgentTool]` to match the
   platform contract, so tools read from a response type-check when passed back
   to `agents.create()` or `agents.update()`. Responses with tools outside

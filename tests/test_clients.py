@@ -1728,7 +1728,7 @@ def test_api_status_errors_preserve_server_metadata_without_retry() -> None:
         client.close()
 
     exception = captured.value
-    assert str(exception) == "Slow down"
+    assert str(exception) == "[future_domain_code] Slow down"
     assert exception.status_code == 429
     assert exception.code == "future_domain_code"
     assert exception.details == {"opaque_Key": {"NestedKey": True}}
@@ -1740,6 +1740,24 @@ def test_api_status_errors_preserve_server_metadata_without_retry() -> None:
     assert len(state.requests) == 1
 
 
+def test_api_status_error_text_includes_code_for_catalog_lookup() -> None:
+    error = {
+        "error": {
+            "code": "model_validation_unavailable",
+            "message": "Provider model discovery is unavailable",
+        }
+    }
+    with loopback(Response(status=503, body=error)) as (base_url, _state):
+        client = BlazingAgents(api_key="ba_test", base_url=base_url)
+        with pytest.raises(APIStatusError) as captured:
+            client.tenant.get()
+        client.close()
+    assert str(captured.value) == (
+        "[model_validation_unavailable] Provider model discovery is unavailable"
+    )
+    assert captured.value.code == "model_validation_unavailable"
+
+
 def test_malformed_api_status_error_is_still_actionable() -> None:
     with loopback(
         Response(status=502, raw_body=b"not-json", headers={"x-request-id": "req"})
@@ -1748,6 +1766,9 @@ def test_malformed_api_status_error_is_still_actionable() -> None:
         with pytest.raises(APIStatusError) as captured:
             client.tenant.get()
         client.close()
+    assert str(captured.value) == (
+        "[invalid_response] The server returned an invalid error response."
+    )
     assert captured.value.status_code == 502
     assert captured.value.code == "invalid_response"
     assert captured.value.request_id == "req"
@@ -3533,7 +3554,7 @@ def test_short_provider_credentials_redact_only_exact_values_sync_and_async() ->
 
     expected_details = {"echo": "[REDACTED]", "safe": "monkey-request"}
     for exception in (sync_error.value, async_error):
-        assert str(exception) == "monkey failure"
+        assert str(exception) == "[provider_rejected] monkey failure"
         assert exception.request_id == "req_short_provider"
         assert exception.headers["x-echo-secret"] == "[REDACTED]"
         assert exception.headers["x-safe-value"] == "monkey-request"
