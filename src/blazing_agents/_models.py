@@ -20,7 +20,7 @@ from pydantic import (
     model_validator,
 )
 
-from ._types import ApprovalDecision, BuiltinToolName
+from ._types import AgentTool, ApprovalDecision, BuiltinToolName
 
 SkillId: TypeAlias = Annotated[
     str,
@@ -176,7 +176,7 @@ MediaType: TypeAlias = Annotated[
 
 
 AgentTools: TypeAlias = Annotated[
-    list[NonEmptyString],
+    list[AgentTool],
     AfterValidator(_unique_strings),
 ]
 McpConnectionIds: TypeAlias = Annotated[

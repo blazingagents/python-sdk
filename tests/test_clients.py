@@ -2049,7 +2049,6 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
             body={
                 **attributed,
                 "status": "future-status",
-                "tools": ["future-tool"],
             },
             headers={"x-request-id": "req_agent"},
         ),
@@ -2099,7 +2098,6 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
     assert created.metadata == {"OpaqueKey": {"nested_key": True}}
     assert created.model_extra == {"futureField": "retained"}
     assert created.status == "future-status"
-    assert created.tools == ["future-tool"]
     assert created._request_id == "req_agent"
     assert listed.agents[0].workspace_id == "ws_0123456789abcdef"
     assert fetched.id == "ag_0123456789abcdef"
@@ -2488,6 +2486,8 @@ def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
     for invalid_version in (
         {**AGENT_VERSION, "model": None},
         {**AGENT_VERSION, "providerId": None},
+        {**AGENT_VERSION, "tools": ["future_tool"]},
+        {**AGENT_VERSION, "tools": ["memory", "memory"]},
     ):
         with pytest.raises(ValidationError):
             AgentVersion.model_validate_json(json.dumps(invalid_version))
@@ -2504,6 +2504,7 @@ def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
         {**AGENT, "workspaceId": None},
         {key: value for key, value in AGENT.items() if key != "workspaceId"},
         {**AGENT, "tools": ["write_todos", "write_todos"]},
+        {**AGENT, "tools": ["future_tool"]},
         {**AGENT, "instructions": "x" * 3_001},
         {**AGENT, "mcpConnectionIds": ["wrong"]},
         {**AGENT, "avatarUrl": "not a URL"},
