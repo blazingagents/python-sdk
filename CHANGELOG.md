@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0
 
 - Prefix `APIStatusError` text with the server error code, for example
   `[model_validation_unavailable] Provider model discovery is unavailable`, so
