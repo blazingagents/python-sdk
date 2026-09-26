@@ -10,6 +10,17 @@
   to `agents.create()` or `agents.update()`. Responses with tools outside
   `workspace`, `write_todos`, and `memory` now fail validation.
 
+## 0.7.0
+
+- Adopt server-owned chat callbacks. Chat Connection creation now uses bot
+  credentials without client-supplied callback URLs or Telegram webhook
+  secrets; responses include the computed `webhook_url`.
+- Breaking: remove `team_id`, `app_id`, and `webhook_url` from
+  `SlackChatConfigurationInput`, `bot_id` and `webhook_url` from
+  `TelegramChatConfigurationInput`, and `webhook_secret` from
+  `TelegramChatCredentialsInput`. Remove the `webhook_url` parameter from
+  `chat_connections.update()`.
+
 ## 0.6.2
 
 - Address Skill files with the `path` query parameter to match the platform's
