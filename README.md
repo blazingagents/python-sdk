@@ -18,7 +18,7 @@ Blazing Agents `/v1` API. It supports CPython 3.11 and newer.
 - Typed Pydantic request and response models.
 - Matching synchronous and asynchronous APIs.
 - Agent, Workspace, Skill, Provider, Prompt, Memory, Session, Artifact, Task,
-  usage, and Tenant management.
+  Chat Connection and delivery, usage, and Tenant management.
 - Chat, text, and structured-object generation streams.
 - Lazy pagination and binary transfers.
 - Request correlation with configurable timeouts and observability.
@@ -203,3 +203,14 @@ Use the [connection example](https://github.com/blazingagents/python-sdk/blob/ma
 Agent using `client.chat_connections` (0.6.0+). Create and manage connections,
 replace credentials, check health, and enable or disable them. BA handles
 incoming messages, conversation history, and approval cards.
+
+`client.chat_deliveries.list` (and the lazy `iter`) reads the Tenant-wide
+delivery feed across all Chat Connections, newest first — for example, the
+failed and ambiguous deliveries since a timestamp:
+
+```python
+page = client.chat_deliveries.list(
+    status=["failed", "ambiguous"],
+    since="2026-09-01T00:00:00.000Z",
+)
+```

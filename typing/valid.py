@@ -18,6 +18,8 @@ from blazing_agents import (
     AsyncCompletionStream,
     AsyncObjectStream,
     BlazingAgents,
+    ChatDeliveriesListOptions,
+    ChatDeliveriesPage,
     ChatMessageInput,
     ChatStream,
     Completion,
@@ -38,6 +40,7 @@ from blazing_agents import (
     TaskRunStatus,
     TaskRunSubmission,
     TasksPage,
+    TenantChatDelivery,
     ToolApprovalDecisionInput,
 )
 
@@ -78,6 +81,18 @@ def sync_examples(client: BlazingAgents) -> None:
         "cursor": "next-page-token",
     }
     client.artifacts.list(**artifact_options)
+    delivery_options: ChatDeliveriesListOptions = {
+        "status": ["failed", "ambiguous"],
+        "since": "2026-09-01T00:00:00.000Z",
+    }
+    assert_type(
+        client.chat_deliveries.list(**delivery_options),
+        ChatDeliveriesPage,
+    )
+    assert_type(
+        client.chat_deliveries.iter(limit=25),
+        Iterator[TenantChatDelivery],
+    )
     agent_request: AgentCreate = {
         "name": "Release agent",
         "tools": ["workspace"],
@@ -329,6 +344,11 @@ async def async_examples(client: AsyncBlazingAgents) -> None:
         AsyncIterator[Session],
     )
     assert_type(await client.sessions.list_latest(), LatestSessionsPage)
+    assert_type(await client.chat_deliveries.list(), ChatDeliveriesPage)
+    assert_type(
+        client.chat_deliveries.iter(limit=25),
+        AsyncIterator[TenantChatDelivery],
+    )
     skills = client.agent("ag_0123456789abcdef").skills
     assert_type(await skills.list(limit=25), SkillsPage)
     assert_type(skills.iter(limit=25), AsyncIterator[Skill])
