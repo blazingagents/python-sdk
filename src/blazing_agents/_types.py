@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from os import PathLike
 from typing import Any, BinaryIO, Literal, Never, Required, TypeAlias, TypedDict
 
@@ -12,6 +12,8 @@ JsonValue: TypeAlias = (
 )
 JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
+ChatDeliveryStatus = Literal["pending", "confirmed", "failed", "ambiguous"]
+ChatDeliveryListStatus = Literal["failed", "ambiguous"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
 AgentTool = Literal["workspace", "write_todos", "memory"]
 ApprovalDecision = Literal["full", "deny", "manual", "auto"]
@@ -561,3 +563,10 @@ class SlackChatCredentialsInput(TypedDict):
 
 class TelegramChatCredentialsInput(TypedDict):
     bot_token: str
+
+
+class ChatDeliveriesListOptions(TypedDict, total=False):
+    status: Sequence[ChatDeliveryListStatus]
+    since: str
+    cursor: str
+    limit: int

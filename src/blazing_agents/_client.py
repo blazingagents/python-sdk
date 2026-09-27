@@ -8,6 +8,7 @@ import httpx
 
 from ._chat import AsyncChatStream, ChatStream, chat_request
 from ._chat_connections import AsyncChatConnectionsResource, ChatConnectionsResource
+from ._chat_deliveries import AsyncChatDeliveriesResource, ChatDeliveriesResource
 from ._completion import AsyncCompletionStream, CompletionStream, generation_request
 from ._object import (
     AsyncObjectStream,
@@ -122,6 +123,7 @@ class BlazingAgents:
         self.artifacts = ArtifactsResource(transport)
         self.providers = ProvidersResource(transport)
         self.chat_connections = ChatConnectionsResource(transport)
+        self.chat_deliveries = ChatDeliveriesResource(transport)
         self.mcp_connections = McpConnectionsResource(transport)
         self.memories = MemoriesResource(transport)
         self.prompts = PromptsResource(transport)
@@ -472,6 +474,7 @@ class AsyncBlazingAgents:
         self.artifacts = AsyncArtifactsResource(transport)
         self.providers = AsyncProvidersResource(transport)
         self.chat_connections = AsyncChatConnectionsResource(transport)
+        self.chat_deliveries = AsyncChatDeliveriesResource(transport)
         self.mcp_connections = AsyncMcpConnectionsResource(transport)
         self.memories = AsyncMemoriesResource(transport)
         self.prompts = AsyncPromptsResource(transport)
