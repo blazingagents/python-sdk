@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0
+
+- Add `client.chat_deliveries.list()` and lazy `iter()` on the sync and async
+  clients for `GET /v1/chat-deliveries`, the Tenant-wide chat delivery feed
+  across all Chat Connections, newest first. Filter by `status` (`failed`
+  and/or `ambiguous`; omitting it returns both), `since`, `cursor`, and
+  `limit`. New public types: `ChatDelivery`, `TenantChatDelivery`,
+  `ChatDeliveriesPage`, `ChatDeliveryStatus`, `ChatDeliveryListStatus`, and
+  `ChatDeliveriesListOptions`.
+
 ## 0.8.0
 
 - Prefix `APIStatusError` text with the server error code, for example
