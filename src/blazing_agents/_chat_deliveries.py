@@ -4,11 +4,11 @@ from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 
 from ._models import ChatDeliveriesPage, TenantChatDelivery
 from ._transport import OMITTED, AsyncTransport, SyncTransport, _Omitted, _Request
-from ._types import ChatDeliveryStatus, Timeout
+from ._types import ChatDeliveryListStatus, Timeout
 
 
 def _chat_deliveries_query(
-    status: Sequence[ChatDeliveryStatus] | _Omitted,
+    status: Sequence[ChatDeliveryListStatus] | _Omitted,
     since: str | _Omitted,
     cursor: str | _Omitted,
     limit: int | _Omitted,
@@ -34,7 +34,7 @@ class ChatDeliveriesResource:
     def list(
         self,
         *,
-        status: Sequence[ChatDeliveryStatus] | _Omitted = OMITTED,
+        status: Sequence[ChatDeliveryListStatus] | _Omitted = OMITTED,
         since: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
         limit: int | _Omitted = OMITTED,
@@ -55,7 +55,7 @@ class ChatDeliveriesResource:
     def iter(
         self,
         *,
-        status: Sequence[ChatDeliveryStatus] | _Omitted = OMITTED,
+        status: Sequence[ChatDeliveryListStatus] | _Omitted = OMITTED,
         since: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
         limit: int | _Omitted = OMITTED,
@@ -85,7 +85,7 @@ class AsyncChatDeliveriesResource:
     async def list(
         self,
         *,
-        status: Sequence[ChatDeliveryStatus] | _Omitted = OMITTED,
+        status: Sequence[ChatDeliveryListStatus] | _Omitted = OMITTED,
         since: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
         limit: int | _Omitted = OMITTED,
@@ -106,7 +106,7 @@ class AsyncChatDeliveriesResource:
     async def iter(
         self,
         *,
-        status: Sequence[ChatDeliveryStatus] | _Omitted = OMITTED,
+        status: Sequence[ChatDeliveryListStatus] | _Omitted = OMITTED,
         since: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
         limit: int | _Omitted = OMITTED,

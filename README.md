@@ -205,7 +205,8 @@ replace credentials, check health, and enable or disable them. BA handles
 incoming messages, conversation history, and approval cards.
 
 `client.chat_deliveries.list` (and the lazy `iter`) reads the Tenant-wide
-delivery feed across all Chat Connections, newest first — for example, the
+delivery feed across all Chat Connections, newest first. `status` accepts
+`failed` and/or `ambiguous`; omitting it returns both — for example, the
 failed and ambiguous deliveries since a timestamp:
 
 ```python

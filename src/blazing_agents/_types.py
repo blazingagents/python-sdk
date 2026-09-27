@@ -13,6 +13,7 @@ JsonValue: TypeAlias = (
 JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
 ChatDeliveryStatus = Literal["pending", "confirmed", "failed", "ambiguous"]
+ChatDeliveryListStatus = Literal["failed", "ambiguous"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
 AgentTool = Literal["workspace", "write_todos", "memory"]
 ApprovalDecision = Literal["full", "deny", "manual", "auto"]
@@ -565,7 +566,7 @@ class TelegramChatCredentialsInput(TypedDict):
 
 
 class ChatDeliveriesListOptions(TypedDict, total=False):
-    status: Sequence[ChatDeliveryStatus]
+    status: Sequence[ChatDeliveryListStatus]
     since: str
     cursor: str
     limit: int
