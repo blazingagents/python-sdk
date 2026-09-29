@@ -365,6 +365,8 @@ AgentUpdate: TypeAlias = (
 
 
 class AgentsListOptions(TypedDict, total=False):
+    cursor: str
+    limit: int
     user_id: str
     workspace_id: str
 
@@ -501,6 +503,9 @@ class PromptUpdate(TypedDict, total=False):
 
 
 class PromptsListOptions(TypedDict, total=False):
+    agent_id: str
+    cursor: str
+    limit: int
     user_id: str
 
 

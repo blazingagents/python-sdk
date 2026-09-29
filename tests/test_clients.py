@@ -65,8 +65,8 @@ from blazing_agents import (
     ObjectValidationError,
     Prompt,
     PromptCreate,
-    Prompts,
     PromptsListOptions,
+    PromptsPage,
     PromptUpdate,
     Provider,
     ProviderModels,
@@ -2073,7 +2073,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
             },
             headers={"x-request-id": "req_agent"},
         ),
-        Response(body={"agents": [attributed]}),
+        Response(body={"data": [attributed], "nextCursor": "next-agent"}),
         Response(body=attributed),
         Response(
             body={
@@ -2100,6 +2100,8 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
                 mcp_connection_ids=[],
             )
             listed = client.agents.list(
+                cursor="first-agent",
+                limit=25,
                 user_id="end-user",
                 workspace_id="ws_0123456789abcdef",
             )
@@ -2120,7 +2122,8 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
     assert created.model_extra == {"futureField": "retained"}
     assert created.status == "future-status"
     assert created._request_id == "req_agent"
-    assert listed.agents[0].workspace_id == "ws_0123456789abcdef"
+    assert listed.data[0].workspace_id == "ws_0123456789abcdef"
+    assert listed.next_cursor == "next-agent"
     assert fetched.id == "ag_0123456789abcdef"
     assert updated.workspace_id == "ws_fedcba9876543210"
     assert disabled.status == "disabled"
@@ -2147,7 +2150,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
         "mcpConnectionIds": [],
     }
     assert state.requests[1].target.endswith(
-        "?userId=end-user&workspaceId=ws_0123456789abcdef"
+        "?userId=end-user&workspaceId=ws_0123456789abcdef&cursor=first-agent&limit=25"
     )
     assert json.loads(state.requests[3].body) == {
         "name": "Renamed",
@@ -2320,7 +2323,7 @@ def test_async_agents_match_every_sync_operation() -> None:
     page = {"data": [AGENT_VERSION], "nextCursor": None}
     with loopback(
         Response(body=AGENT),
-        Response(body={"agents": [AGENT]}),
+        Response(body={"data": [AGENT], "nextCursor": None}),
         Response(body=AGENT),
         Response(body={**AGENT, "workspaceId": "ws_0123456789abcdef"}),
         Response(body={**AGENT, "status": "disabled"}),
@@ -2350,7 +2353,9 @@ def test_async_agents_match_every_sync_operation() -> None:
                 base_url=base_url,
             ) as client:
                 assert (await client.agents.create(name="Builder")).id == AGENT["id"]
-                assert (await client.agents.list()).agents[0].name == "Builder"
+                assert (await client.agents.list(cursor="next-agent", limit=10)).data[
+                    0
+                ].name == "Builder"
                 assert (await client.agents.get("ag_0123456789abcdef")).version == 1
                 updated = await client.agents.update(
                     "ag_0123456789abcdef",
@@ -2573,7 +2578,7 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
         Response(body=WORKSPACE),
         Response(body=updated),
         Response(body=attached_agent),
-        Response(body={"agents": [attached_agent]}),
+        Response(body={"data": [attached_agent], "nextCursor": None}),
         Response(body=AGENT),
         Response(status=202, raw_body=b""),
         Response(status=204, raw_body=b""),
@@ -2628,7 +2633,7 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
     assert renamed.name is None
     assert renamed.model_extra == {"futureField": "retained"}
     assert attached.workspace_id == WORKSPACE["id"]
-    assert listed_agents.agents[0].workspace_id == WORKSPACE["id"]
+    assert listed_agents.data[0].workspace_id == WORKSPACE["id"]
     assert reassigned.workspace_id == AGENT["workspaceId"]
     assert pending == "pending"
     assert completed == "completed"
@@ -3747,7 +3752,7 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
             body=future_prompt,
             headers={"x-request-id": "req_prompt"},
         ),
-        Response(body={"prompts": [PROMPT]}),
+        Response(body={"data": [PROMPT], "nextCursor": "next-prompt"}),
         Response(body=PROMPT),
         Response(body={**PROMPT, "name": "Renamed"}),
         Response(status=204, raw_body=b""),
@@ -3760,7 +3765,12 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
                 user_id="",
                 metadata={"OpaqueKey": {"nested_key": None}},
             )
-            listed = client.prompts.list(user_id="", agent_id="ag_0123456789abcdef")
+            listed = client.prompts.list(
+                user_id="",
+                agent_id="ag_0123456789abcdef",
+                cursor="first-prompt",
+                limit=25,
+            )
             fetched = client.prompts.get(prompt_id="prompt/with space")
             updated = client.prompts.update(
                 prompt_id=PROMPT["id"],
@@ -3775,7 +3785,8 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
     assert created.variables == ["name"]
     assert created._request_id == "req_prompt"
     assert created.model_extra == {"futureField": {"opaque_key": True}}
-    assert listed.prompts[0].user_id == ""
+    assert listed.data[0].user_id == ""
+    assert listed.next_cursor == "next-prompt"
     assert fetched.id == PROMPT["id"]
     assert updated.name == "Renamed"
     assert json.loads(state.requests[0].body) == {
@@ -3785,7 +3796,10 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
         "userId": "",
         "metadata": {"OpaqueKey": {"nested_key": None}},
     }
-    assert state.requests[1].target == "/v1/prompts?userId=&agentId=ag_0123456789abcdef"
+    assert (
+        state.requests[1].target == "/v1/prompts?userId=&agentId=ag_0123456789abcdef"
+        "&cursor=first-prompt&limit=25"
+    )
     assert state.requests[2].target == "/v1/prompts/prompt%2Fwith%20space"
     assert json.loads(state.requests[3].body) == {
         "agentId": None,
@@ -3798,7 +3812,7 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
 def test_async_prompts_match_every_sync_operation_and_omission() -> None:
     with loopback(
         Response(body=PROMPT),
-        Response(body={"prompts": [PROMPT]}),
+        Response(body={"data": [PROMPT], "nextCursor": None}),
         Response(body=PROMPT),
         Response(body={**PROMPT, "template": "Welcome {{name}}"}),
         Response(status=204, raw_body=b""),
@@ -3813,7 +3827,8 @@ def test_async_prompts_match_every_sync_operation_and_omission() -> None:
                     name="Greeting",
                     template="Hello {{name}}",
                 )
-                await client.prompts.list()
+                page = await client.prompts.list(cursor="next-prompt", limit=10)
+                assert page.data[0].id == PROMPT["id"]
                 await client.prompts.get(prompt_id=PROMPT["id"])
                 updated = await client.prompts.update(
                     prompt_id=PROMPT["id"],
@@ -3832,7 +3847,7 @@ def test_async_prompts_match_every_sync_operation_and_omission() -> None:
         "name": "Greeting",
         "template": "Hello {{name}}",
     }
-    assert state.requests[1].target == "/v1/prompts"
+    assert state.requests[1].target == "/v1/prompts?cursor=next-prompt&limit=10"
     assert state.requests[-1].method == "DELETE"
 
 
@@ -3996,7 +4011,7 @@ def test_prompt_and_memory_public_types_ship_in_the_installed_wheel() -> None:
     assert memory_update["text"] == "Prefers light mode"
     assert memory_list["limit"] == 25
     assert issubclass(Prompt, object)
-    assert issubclass(Prompts, object)
+    assert issubclass(PromptsPage, object)
     assert issubclass(Memory, object)
     assert issubclass(MemoryResponse, object)
     assert issubclass(MemoriesPage, object)
@@ -4048,7 +4063,7 @@ def test_prompt_and_memory_boundaries_preserve_errors_and_reject_malformed() -> 
             status=404,
             headers={"x-request-id": "req_missing_prompt"},
         ),
-        Response(body={"prompts": "wrong"}),
+        Response(body={"data": "wrong", "nextCursor": None}),
         Response(
             body=memory_error,
             status=404,

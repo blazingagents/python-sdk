@@ -13,7 +13,7 @@ from urllib.parse import quote
 from ._downloads import AsyncByteStream, ByteStream
 from ._models import (
     Agent,
-    Agents,
+    AgentsPage,
     AgentVersion,
     AgentVersionsPage,
     Artifact,
@@ -31,7 +31,7 @@ from ._models import (
     Memory,
     MemoryResponse,
     Prompt,
-    Prompts,
+    PromptsPage,
     Provider,
     ProviderModels,
     Providers,
@@ -874,20 +874,25 @@ class AgentsResource:
     def list(
         self,
         *,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> Agents:
+    ) -> AgentsPage:
         return self._transport.request(
             _Request(
                 "GET",
                 "/v1/agents",
-                query=_agents_query(user_id, workspace_id),
+                query={
+                    **_agents_query(user_id, workspace_id),
+                    **_cursor_limit_query(cursor, limit),
+                },
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agents,
+            AgentsPage,
         )
 
     def get(
@@ -1244,20 +1249,25 @@ class AsyncAgentsResource:
     async def list(
         self,
         *,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> Agents:
+    ) -> AgentsPage:
         return await self._transport.request(
             _Request(
                 "GET",
                 "/v1/agents",
-                query=_agents_query(user_id, workspace_id),
+                query={
+                    **_agents_query(user_id, workspace_id),
+                    **_cursor_limit_query(cursor, limit),
+                },
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agents,
+            AgentsPage,
         )
 
     async def get(
@@ -2523,11 +2533,13 @@ class PromptsResource:
     def list(
         self,
         *,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
         agent_id: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> Prompts:
+    ) -> PromptsPage:
         return self._transport.request(
             _Request(
                 "GET",
@@ -2536,11 +2548,12 @@ class PromptsResource:
                     key: value
                     for key, value in (("userId", user_id), ("agentId", agent_id))
                     if not isinstance(value, _Omitted)
-                },
+                }
+                | _cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompts,
+            PromptsPage,
         )
 
     def get(
@@ -2645,11 +2658,13 @@ class AsyncPromptsResource:
     async def list(
         self,
         *,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
         agent_id: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> Prompts:
+    ) -> PromptsPage:
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2658,11 +2673,12 @@ class AsyncPromptsResource:
                     key: value
                     for key, value in (("userId", user_id), ("agentId", agent_id))
                     if not isinstance(value, _Omitted)
-                },
+                }
+                | _cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompts,
+            PromptsPage,
         )
 
     async def get(
