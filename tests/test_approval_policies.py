@@ -76,7 +76,7 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
         Response(body=agent),
         Response(body=agent),
         Response(body=agent),
-        Response(body={"agents": [agent]}),
+        Response(body={"data": [agent], "nextCursor": None}),
         Response(body={"data": [version], "nextCursor": None}),
         Response(body=version),
         Response(body=version),
@@ -108,7 +108,7 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
                 assert (
                     await client.agents.get(AGENT["id"])
                 ).approval_in_tasks.default == "auto"
-                assert (await client.agents.list()).agents[
+                assert (await client.agents.list()).data[
                     0
                 ].approval_in_chat.default == "deny"
                 assert (await client.agents.list_versions(AGENT["id"])).data[
@@ -142,7 +142,7 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
                 assert (
                     client.agents.get(AGENT["id"]).approval_in_tasks.default == "auto"
                 )
-                assert client.agents.list().agents[0].approval_in_chat.default == "deny"
+                assert client.agents.list().data[0].approval_in_chat.default == "deny"
                 assert (
                     client.agents.list_versions(AGENT["id"])
                     .data[0]

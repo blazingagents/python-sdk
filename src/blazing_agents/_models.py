@@ -539,8 +539,9 @@ class Agent(ResponseModel):
         return self
 
 
-class Agents(ResponseModel):
-    agents: list[Agent]
+class AgentsPage(ResponseModel):
+    data: list[Agent]
+    next_cursor: str | None = Field(alias="nextCursor")
 
 
 class AgentVersion(ResponseModel):
@@ -669,8 +670,9 @@ class Prompt(ResponseModel):
         return self
 
 
-class Prompts(ResponseModel):
-    prompts: list[Prompt]
+class PromptsPage(ResponseModel):
+    data: list[Prompt]
+    next_cursor: str | None = Field(alias="nextCursor")
 
 
 class Memory(ResponseModel):
