@@ -23,7 +23,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from blazing_agents import (
-    AgentVersion,
+    AgentConfig,
     APIConnectionError,
     APIStatusError,
     APITimeoutError,
@@ -75,6 +75,7 @@ from blazing_agents import (
     SessionMessagePart,
     SessionMessagesOptions,
     SessionMessagesPage,
+    SessionResponse,
     SessionsListOptions,
     SessionsPage,
     Skill,
@@ -174,26 +175,28 @@ AGENT: dict[str, Any] = {
     "avatarUrl": None,
     "createdAt": "2026-08-02T00:00:00.000Z",
     "updatedAt": "2026-08-02T00:00:00.000Z",
-    "version": 1,
     "status": "active",
 }
-AGENT_VERSION: dict[str, Any] = {
-    "agentId": "ag_0123456789abcdef",
-    "tenantId": "ten_0123456789abcdef",
-    "version": 3,
-    "thinkingLevel": "high",
-    "name": "Historical Builder",
-    "model": "anthropic/claude-sonnet-4.5",
-    "providerId": "prv_0123456789abcdef",
-    "autoCompaction": True,
-    "compactionReserveTokens": 16384,
-    "memoryInjectionEnabled": True,
-    "tools": ["workspace", "write_todos"],
-    "instructions": "Historical instructions.",
-    "metadata": {"source": "version-3"},
-    "mcpConnectionIds": ["mcp_0123456789abcdef"],
-    "createdAt": "2026-08-01T00:00:00.000Z",
+AGENT_CONFIG: dict[str, Any] = {
+    key: value
+    for key, value in AGENT.items()
+    if key
+    in {
+        "name",
+        "model",
+        "thinkingLevel",
+        "providerId",
+        "autoCompaction",
+        "compactionReserveTokens",
+        "memoryInjectionEnabled",
+        "tools",
+        "instructions",
+        "metadata",
+        "mcpConnectionIds",
+    }
 }
+AGENT_CONFIG["approvalInChat"] = {"default": "full", "overrides": []}
+AGENT_CONFIG["approvalInTasks"] = {"default": "full", "overrides": []}
 MCP_ATTACHMENT: dict[str, Any] = {
     "mcpConnectionId": "mcp_0123456789abcdef",
     "forwardUserId": False,
@@ -288,7 +291,6 @@ ARTIFACT: dict[str, Any] = {
 }
 SESSION: dict[str, Any] = {
     "id": "ss_0123456789abcdef",
-    "agentVersion": None,
     "messageCount": 2,
     "lastMessagePreview": "Done",
     "userId": "end-user",
@@ -333,7 +335,6 @@ TASK: dict[str, Any] = {
     "id": "tk_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "agentId": "ag_0123456789abcdef",
-    "agentVersion": 3,
     "name": "Nightly report",
     "prompt": "Produce the nightly report.",
     "schedule": {
@@ -366,7 +367,7 @@ TASK_RUN: dict[str, Any] = {
     "taskId": "tk_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "agentId": "ag_0123456789abcdef",
-    "agentVersion": 3,
+    "agentConfig": AGENT_CONFIG,
     "sessionId": "ss_0123456789abcdef",
     "turnId": "turn_0123456789abcdef",
     "status": "blocked",
@@ -602,7 +603,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
         Response(body={"data": [TASK_LIST_ITEM], "nextCursor": "tasks-next"}),
         Response(body={"data": [second_task], "nextCursor": None}),
         Response(body=TASK),
-        Response(body={**TASK, "agentVersion": None, "schedule": None}),
+        Response(body={**TASK, "schedule": None}),
         Response(
             body={
                 **TASK,
@@ -637,7 +638,6 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
                 agent_id=TASK["agentId"],
                 name="Nightly report",
                 prompt="Produce the nightly report.",
-                agent_version=3,
                 schedule={
                     "kind": "interval",
                     "config": {"every_ms": 60_000},
@@ -663,7 +663,6 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
             fetched = client.tasks.get("task/with space")
             unpinned = client.tasks.update(
                 TASK["id"],
-                agent_version=None,
                 schedule=None,
                 enabled=False,
                 metadata={"OpaqueKey": {"explicit_null": None}},
@@ -729,7 +728,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert page._request_id == "req_tasks_page"
     assert isinstance(page.data[0].schedule, TaskCronSchedule)
     assert fetched.id == TASK["id"]
-    assert unpinned.agent_version is None
+    assert unpinned.schedule is None
     assert unpinned.schedule is None
     assert isinstance(once.schedule, TaskOnceSchedule)
     assert isinstance(cron.schedule, TaskCronSchedule)
@@ -753,7 +752,6 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
 
     assert json.loads(state.requests[0].body) == {
         "agentId": TASK["agentId"],
-        "agentVersion": 3,
         "name": "Nightly report",
         "prompt": "Produce the nightly report.",
         "schedule": {"kind": "interval", "config": {"everyMs": 60_000}},
@@ -775,7 +773,6 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     )
     assert state.requests[4].target == "/v1/tasks/task%2Fwith%20space"
     assert json.loads(state.requests[5].body) == {
-        "agentVersion": None,
         "enabled": False,
         "metadata": {"OpaqueKey": {"explicit_null": None}},
         "schedule": None,
@@ -897,7 +894,7 @@ def test_async_tasks_match_sync_resources_and_lazy_pagination() -> None:
             assert isinstance(created.task.schedule, TaskIntervalSchedule)
             assert created.run_id is None
             assert isinstance(page, TasksPage)
-            assert fetched.agent_version == 3
+            assert fetched.agent_id == TASK["agentId"]
             assert isinstance(updated.schedule, TaskOnceSchedule)
             assert submitted.run_id == TASK_RUN["id"]
             assert isinstance(runs_page, TaskRunsPage)
@@ -940,7 +937,7 @@ def test_task_public_request_types_are_available_from_installed_wheel() -> None:
         "prompt": "Produce it.",
         "schedule": schedule,
     }
-    update: TaskUpdate = {"agent_version": None, "schedule": None}
+    update: TaskUpdate = {"schedule": None}
     listed: TasksListOptions = {"agent_id": TASK["agentId"], "limit": 50}
     submit: TaskRunCreate = {"idempotency_key": "stable-key"}
     runs: TaskRunsListOptions = {"cursor": "opaque", "limit": 25}
@@ -948,7 +945,7 @@ def test_task_public_request_types_are_available_from_installed_wheel() -> None:
 
     assert cron["kind"] == "cron"
     assert create["schedule"] == schedule
-    assert update["agent_version"] is None
+    assert update["schedule"] is None
     assert listed["limit"] == 50
     assert submit["idempotency_key"] == "stable-key"
     assert runs["cursor"] == "opaque"
@@ -1248,7 +1245,7 @@ def test_task_boundaries_preserve_api_errors_and_reject_malformed_responses() ->
     }
     missing_turn_id = {key: value for key, value in TASK_RUN.items() if key != "turnId"}
     malformed: list[dict[str, Any]] = [
-        {"task": {**TASK, "agentVersion": 0}, "runId": None},
+        {"task": {**TASK, "name": " "}, "runId": None},
         {**TASK_RUN, "id": "wrong"},
         missing_turn_id,
         {**TASK_RUN, "turnId": 1},
@@ -2160,72 +2157,6 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
     }
 
 
-def test_sync_agent_versions_page_lazy_iteration_get_and_restore() -> None:
-    first_version = {**AGENT_VERSION, "version": 4, "name": "Latest"}
-    restored_agent = {**AGENT, "name": AGENT_VERSION["name"], "version": 5}
-    with loopback(
-        Response(
-            body={"data": [first_version], "nextCursor": "next"},
-            headers={"x-request-id": "req_versions"},
-        ),
-        Response(body={"data": [first_version], "nextCursor": "next"}),
-        Response(body={"data": [AGENT_VERSION], "nextCursor": None}),
-        Response(body={**AGENT_VERSION, "futureVersionField": True}),
-        Response(body=AGENT_VERSION),
-        Response(body=restored_agent),
-    ) as (base_url, state):
-        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            page = client.agents.list_versions(
-                "ag_0123456789abcdef",
-                cursor="opaque page",
-                limit=1,
-            )
-            versions = client.agents.iter_versions(
-                "ag_0123456789abcdef",
-                limit=1,
-            )
-            assert len(state.requests) == 1
-            assert next(versions).version == 4
-            assert len(state.requests) == 2
-            assert next(versions).version == 3
-            assert len(state.requests) == 3
-            with pytest.raises(StopIteration):
-                next(versions)
-            historical = client.agents.get_version("ag_0123456789abcdef", 3)
-            restored = client.agents.restore_version(
-                "ag_0123456789abcdef",
-                3,
-            )
-
-    assert page.next_cursor == "next"
-    assert page._request_id == "req_versions"
-    assert historical.model_extra == {"futureVersionField": True}
-    assert restored.name == "Historical Builder"
-    first_target = urlsplit(state.requests[0].target)
-    assert first_target.path == ("/v1/agents/ag_0123456789abcdef/versions")
-    assert parse_qs(first_target.query) == {
-        "cursor": ["opaque page"],
-        "limit": ["1"],
-    }
-    assert state.requests[2].target.endswith("?cursor=next&limit=1")
-    assert state.requests[3].target.endswith("/versions/3")
-    assert json.loads(state.requests[5].body) == {
-        "thinkingLevel": "high",
-        "approvalInChat": {"default": "full", "overrides": []},
-        "approvalInTasks": {"default": "full", "overrides": []},
-        "name": "Historical Builder",
-        "model": "anthropic/claude-sonnet-4.5",
-        "providerId": "prv_0123456789abcdef",
-        "autoCompaction": True,
-        "compactionReserveTokens": 16384,
-        "memoryInjectionEnabled": True,
-        "tools": ["workspace", "write_todos"],
-        "instructions": "Historical instructions.",
-        "metadata": {"source": "version-3"},
-        "mcpConnectionIds": ["mcp_0123456789abcdef"],
-    }
-
-
 def test_sync_agent_mcp_attachment_settings() -> None:
     with loopback(
         Response(body={"mcpAttachments": [MCP_ATTACHMENT]}),
@@ -2320,7 +2251,6 @@ def test_sync_agent_avatar_upload_sources_and_removal(tmp_path: Path) -> None:
 
 
 def test_async_agents_match_every_sync_operation() -> None:
-    page = {"data": [AGENT_VERSION], "nextCursor": None}
     with loopback(
         Response(body=AGENT),
         Response(body={"data": [AGENT], "nextCursor": None}),
@@ -2328,17 +2258,6 @@ def test_async_agents_match_every_sync_operation() -> None:
         Response(body={**AGENT, "workspaceId": "ws_0123456789abcdef"}),
         Response(body={**AGENT, "status": "disabled"}),
         Response(body=AGENT),
-        Response(body=page),
-        Response(
-            body={
-                "data": [{**AGENT_VERSION, "version": 4}],
-                "nextCursor": "next",
-            }
-        ),
-        Response(body=page),
-        Response(body=AGENT_VERSION),
-        Response(body=AGENT_VERSION),
-        Response(body={**AGENT, "version": 4}),
         Response(body={"mcpAttachments": [MCP_ATTACHMENT]}),
         Response(body={**MCP_ATTACHMENT, "forwardUserId": True}),
         Response(body={**AGENT, "avatarUrl": "https://signed.example/avatar.png"}),
@@ -2356,7 +2275,9 @@ def test_async_agents_match_every_sync_operation() -> None:
                 assert (await client.agents.list(cursor="next-agent", limit=10)).data[
                     0
                 ].name == "Builder"
-                assert (await client.agents.get("ag_0123456789abcdef")).version == 1
+                assert (
+                    await client.agents.get("ag_0123456789abcdef")
+                ).name == "Builder"
                 updated = await client.agents.update(
                     "ag_0123456789abcdef",
                     workspace_id="ws_0123456789abcdef",
@@ -2368,34 +2289,6 @@ def test_async_agents_match_every_sync_operation() -> None:
                 assert (
                     await client.agents.enable("ag_0123456789abcdef")
                 ).status == "active"
-                assert (
-                    await client.agents.list_versions(
-                        "ag_0123456789abcdef",
-                    )
-                ).data[0].version == 3
-                versions = client.agents.iter_versions(
-                    "ag_0123456789abcdef",
-                    limit=1,
-                )
-                assert len(state.requests) == 7
-                assert (await anext(versions)).version == 4
-                assert len(state.requests) == 8
-                assert (await anext(versions)).version == 3
-                assert len(state.requests) == 9
-                with pytest.raises(StopAsyncIteration):
-                    await anext(versions)
-                assert (
-                    await client.agents.get_version(
-                        "ag_0123456789abcdef",
-                        3,
-                    )
-                ).name == "Historical Builder"
-                assert (
-                    await client.agents.restore_version(
-                        "ag_0123456789abcdef",
-                        3,
-                    )
-                ).version == 4
                 assert (
                     await client.agents.list_mcp_attachments(
                         "ag_0123456789abcdef",
@@ -2426,97 +2319,55 @@ def test_async_agents_match_every_sync_operation() -> None:
 
         asyncio.run(exercise())
 
-    assert len(state.requests) == 17
+    assert len(state.requests) == 11
     assert json.loads(state.requests[0].body) == {"name": "Builder"}
-    assert json.loads(state.requests[11].body)["memoryInjectionEnabled"] is True
     assert state.requests[-1].method == "DELETE"
 
 
 def test_agent_boundaries_reject_invalid_inputs_and_responses() -> None:
-    error = {
-        "error": {
-            "code": "agent_version_not_found",
-            "message": "Agent Version not found",
-        }
-    }
-    with loopback(
-        Response(body={**AGENT, "version": "wrong"}),
-        Response(body=error, status=404, headers={"x-request-id": "req_version"}),
-        Response(body={"error": "wrong"}, status=500),
-        Response(body={"error": {"code": 1, "message": False}}, status=500),
-        Response(body={"data": "wrong", "nextCursor": None}),
-        Response(body={"data": [], "nextCursor": None}),
-    ) as (base_url, state):
-        client = BlazingAgents(api_key="ba_test", base_url=base_url)
-        with pytest.raises(ValueError, match="At least one"):
-            client.agents.update("ag_0123456789abcdef")
-        with pytest.raises(ValueError, match="both be provided"):
-            client.agents.create(name="Builder", model="openai/gpt-5")
-        with pytest.raises(ValueError, match="requires model"):
-            client.agents.update(
-                "ag_0123456789abcdef",
-                provider_id="prv_0123456789abcdef",
-            )
-        with pytest.raises(ValueError, match="both be null"):
-            client.agents.update(
-                "ag_0123456789abcdef",
-                model="openai/gpt-5",
-                provider_id=None,
-            )
-        with pytest.raises(ValidationError):
-            client.agents.get("ag_0123456789abcdef")
-        with pytest.raises(APIStatusError) as captured:
-            client.agents.get_version("ag_0123456789abcdef", 99)
-        for _ in range(2):
-            with pytest.raises(APIStatusError) as malformed:
-                client.agents.get("ag_0123456789abcdef")
-            assert malformed.value.code == "invalid_response"
-        client.close()
-
-        assert captured.value.code == "agent_version_not_found"
-        assert captured.value.request_id == "req_version"
-
-        async def exercise() -> None:
-            async_client = AsyncBlazingAgents(
-                api_key="ba_test",
-                base_url=base_url,
-            )
+    with loopback(Response(body={**AGENT, "name": " "})) as (base_url, _):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
             with pytest.raises(ValueError, match="At least one"):
-                await async_client.agents.update("ag_0123456789abcdef")
-            with pytest.raises(ValueError, match="At least one"):
-                await async_client.agents.update_mcp_attachment(
-                    "ag_0123456789abcdef",
-                    "mcp_0123456789abcdef",
+                client.agents.update(AGENT["id"])
+            with pytest.raises(ValueError, match="both be provided"):
+                client.agents.create(name="Builder", model="openai/gpt-5")
+            with pytest.raises(ValueError, match="requires model"):
+                client.agents.update(AGENT["id"], provider_id=PROVIDER["id"])
+            with pytest.raises(ValueError, match="both be null"):
+                client.agents.update(
+                    AGENT["id"], model="openai/gpt-5", provider_id=None
                 )
             with pytest.raises(ValidationError):
-                await async_client.agents.list_versions(
-                    "ag_0123456789abcdef",
-                )
-            versions = async_client.agents.iter_versions(
-                "ag_0123456789abcdef",
-            )
-            with pytest.raises(StopAsyncIteration):
-                await anext(versions)
-            await async_client.aclose()
+                client.agents.get(AGENT["id"])
+
+        async def exercise() -> None:
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                with pytest.raises(ValueError, match="At least one"):
+                    await client.agents.update(AGENT["id"])
 
         asyncio.run(exercise())
 
-    assert len(state.requests) == 6
-
 
 def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
-    unconfigured_version = AgentVersion.model_validate_json(
-        json.dumps({**AGENT_VERSION, "model": None, "providerId": None})
+    unconfigured_config = AgentConfig.model_validate_json(
+        json.dumps({**AGENT_CONFIG, "model": None, "providerId": None})
     )
-    assert unconfigured_version.model is None
-    for invalid_version in (
-        {**AGENT_VERSION, "model": None},
-        {**AGENT_VERSION, "providerId": None},
-        {**AGENT_VERSION, "tools": ["future_tool"]},
-        {**AGENT_VERSION, "tools": ["memory", "memory"]},
+    assert unconfigured_config.model is None
+    configured = {
+        **AGENT_CONFIG,
+        "model": "anthropic/claude-sonnet-4.5",
+        "providerId": "prv_0123456789abcdef",
+    }
+    for invalid_config in (
+        {**configured, "model": None},
+        {**configured, "providerId": None},
+        {**AGENT_CONFIG, "tools": ["future_tool"]},
+        {**AGENT_CONFIG, "tools": ["memory", "memory"]},
     ):
         with pytest.raises(ValidationError):
-            AgentVersion.model_validate_json(json.dumps(invalid_version))
+            AgentConfig.model_validate_json(json.dumps(invalid_config))
 
     invalid_agents = [
         {**AGENT, "id": "wrong"},
@@ -2996,7 +2847,7 @@ def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> Non
                 await client.providers.get(PROVIDER["id"])
                 await client.providers.update(PROVIDER["id"], name="Renamed")
                 await client.providers.delete(
-                    PROVIDER["id"], confirm_version_invalidation=True
+                    PROVIDER["id"], confirm_snapshot_invalidation=True
                 )
                 with pytest.raises(ValidationError):
                     await client.providers.get(PROVIDER["id"])
@@ -3005,7 +2856,7 @@ def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> Non
 
     assert len(state.requests) == 6
     assert state.requests[4].target == (
-        f"/v1/providers/{PROVIDER['id']}?confirmVersionInvalidation=true"
+        f"/v1/providers/{PROVIDER['id']}?confirmSnapshotInvalidation=true"
     )
     client = BlazingAgents(api_key="ba_test", base_url="http://127.0.0.1:1")
     with pytest.raises(ValueError, match="provider_type"):
@@ -4794,6 +4645,29 @@ def test_generic_byte_stream_maps_incomplete_errors_and_connection_failures() ->
     asyncio.run(reject_connection())
 
 
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_session_get_returns_saved_agent_config(asynchronous: bool) -> None:
+    detail = {**SESSION, "agentConfig": AGENT_CONFIG}
+    with loopback(Response(body=detail)) as (base_url, state):
+        if asynchronous:
+
+            async def exercise() -> SessionResponse:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    return await client.sessions.get(AGENT["id"], SESSION["id"])
+
+            result = asyncio.run(exercise())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                result = client.sessions.get(AGENT["id"], SESSION["id"])
+    assert isinstance(result, SessionResponse)
+    assert result.agent_config.name == AGENT["name"]
+    assert (
+        state.requests[0].target == f"/v1/agents/{AGENT['id']}/sessions/{SESSION['id']}"
+    )
+
+
 def test_sync_sessions_list_returns_a_correlated_forward_compatible_page() -> None:
     response = {
         "data": [{**SESSION, "futureSessionField": {"opaque": True}}],
@@ -5583,7 +5457,6 @@ def test_sync_chat_create_relays_exact_bytes_and_exposes_headers_immediately() -
                     "role": "user",
                     "parts": [{"type": "text", "text": "hello"}],
                 },
-                version=3,
                 user_id="end-user",
                 metadata={"OpaqueKey": {"nested_key": True}},
                 extra_headers={"x-client-request-id": "caller-attempt"},
@@ -5611,7 +5484,6 @@ def test_sync_chat_create_relays_exact_bytes_and_exposes_headers_immediately() -
             "role": "user",
             "parts": [{"type": "text", "text": "hello"}],
         },
-        "version": 3,
         "userId": "end-user",
         "metadata": {"OpaqueKey": {"nested_key": True}},
     }
@@ -5696,13 +5568,6 @@ def test_sync_chat_validates_create_location_and_request_shapes() -> None:
                     agent_id=AGENT["id"],
                     message={"role": "user"},
                     variables={"name": "Ada"},
-                )
-            with pytest.raises(ValueError, match="Version Pin"):
-                client.chat(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                    message={"role": "user"},
-                    version=3,
                 )
             with pytest.raises(ValueError, match="regenerate"):
                 cast(Any, client).chat(
@@ -5870,7 +5735,6 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
                     agent_id=AGENT["id"],
                     prompt_id=PROMPT["id"],
                     variables={"name": "Ada"},
-                    version=4,
                     user_id="end-user",
                     metadata={"OpaqueKey": True},
                 )
@@ -5970,7 +5834,6 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
     assert json.loads(state.requests[0].body) == {
         "promptId": "prompt_0123456789abcdef",
         "variables": {"name": "Ada"},
-        "version": 4,
         "userId": "end-user",
         "metadata": {"OpaqueKey": True},
     }
@@ -5984,7 +5847,6 @@ def test_chat_input_types_ship_in_the_installed_wheel() -> None:
     message: ChatMessageInput = {
         "agent_id": AGENT["id"],
         "message": {"role": "user", "parts": []},
-        "version": 3,
         "user_id": "end-user",
         "metadata": {"OpaqueKey": True},
     }
@@ -5997,7 +5859,7 @@ def test_chat_input_types_ship_in_the_installed_wheel() -> None:
         "message_id": "user-message",
     }
 
-    assert message["version"] == 3
+    assert message["agent_id"] == AGENT["id"]
     assert prompt["prompt_id"] == PROMPT["id"]
     assert callable(_sync_chat_context_typing)
     assert callable(_async_chat_context_typing)
@@ -6033,7 +5895,6 @@ def test_sync_buffered_completion_accepts_literal_and_stored_prompt() -> None:
             literal = client.completion(
                 agent_id="ag_0123456789abcdef",
                 prompt="Say hello",
-                version=4,
                 user_id="end-user",
                 metadata={"OpaqueKey": {"nested_key": True}},
             )
@@ -6051,7 +5912,6 @@ def test_sync_buffered_completion_accepts_literal_and_stored_prompt() -> None:
     assert json.loads(state.requests[0].body) == {
         "prompt": "Say hello",
         "output": {"type": "text"},
-        "version": 4,
         "userId": "end-user",
         "metadata": {"OpaqueKey": {"nested_key": True}},
     }
@@ -6418,7 +6278,6 @@ def test_completion_types_ship_in_the_installed_wheel() -> None:
     literal: CompletionLiteralInput = {
         "agent_id": AGENT["id"],
         "prompt": "Hello",
-        "version": 2,
         "user_id": "end-user",
         "metadata": {"OpaqueKey": True},
     }
@@ -6499,7 +6358,6 @@ def test_sync_buffered_objects_validate_typed_and_raw_modes() -> None:
                 agent_id=AGENT["id"],
                 prompt="Invent a person",
                 output_type=GeneratedPerson,
-                version=3,
                 user_id="end-user",
                 metadata={"OpaqueKey": {"nested_key": True}},
             )
@@ -6542,7 +6400,6 @@ def test_sync_buffered_objects_validate_typed_and_raw_modes() -> None:
         "title": "Name",
         "type": "string",
     }
-    assert typed_body["version"] == 3
     assert typed_body["userId"] == "end-user"
     assert typed_body["metadata"] == {"OpaqueKey": {"nested_key": True}}
     assert state.requests[1].target == "/v1/agents/agent%2Fwith%20space/generation"

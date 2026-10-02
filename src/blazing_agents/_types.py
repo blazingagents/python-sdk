@@ -190,7 +190,6 @@ class TaskCreate(TypedDict, total=False):
     agent_id: Required[str]
     name: Required[str]
     prompt: Required[str]
-    agent_version: int | None
     schedule: TaskScheduleInput | None
     enabled: bool
     submit: bool
@@ -199,7 +198,6 @@ class TaskCreate(TypedDict, total=False):
 
 
 class TaskUpdate(TypedDict, total=False):
-    agent_version: int | None
     name: str
     prompt: str
     schedule: TaskScheduleInput | None
@@ -256,13 +254,11 @@ class _ChatPromptInput(_ChatInput, total=False):
 
 class _NewChatInput(TypedDict, total=False):
     trigger: Literal["submit-message"]
-    version: int
 
 
 class _ExistingChatInput(TypedDict, total=False):
     session_id: Required[str]
     trigger: ChatTrigger
-    version: Never
 
 
 class _NewChatMessageInput(_ChatMessageInput, _NewChatInput):
@@ -287,7 +283,6 @@ ChatPromptInput: TypeAlias = _NewChatPromptInput | _ExistingChatPromptInput
 
 class _CompletionInput(TypedDict, total=False):
     agent_id: Required[str]
-    version: int
     user_id: str
     metadata: dict[str, object]
 
@@ -382,11 +377,6 @@ class AgentsListOptions(TypedDict, total=False):
     limit: int
     user_id: str
     workspace_id: str
-
-
-class AgentVersionsListOptions(TypedDict, total=False):
-    cursor: str
-    limit: int
 
 
 class McpAttachmentUpdate(TypedDict, total=False):

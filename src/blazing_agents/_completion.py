@@ -126,7 +126,6 @@ def generation_request(
     prompt: str | _Omitted = OMITTED,
     prompt_id: str | _Omitted = OMITTED,
     variables: dict[str, str] | _Omitted = OMITTED,
-    version: int | _Omitted = OMITTED,
     user_id: str | _Omitted = OMITTED,
     metadata: dict[str, object] | _Omitted = OMITTED,
     client_request_id: str | None = None,
@@ -148,7 +147,6 @@ def generation_request(
         if not isinstance(variables, _Omitted):
             body["variables"] = variables
     for wire_name, value in (
-        ("version", version),
         ("userId", user_id),
         ("metadata", metadata),
     ):
