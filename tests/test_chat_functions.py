@@ -1560,3 +1560,58 @@ def test_result_retries_send_a_snapshot_not_the_mutable_return_value() -> None:
         assert shared["status"] == "mutated"
         assert first == retry
         assert retry["outcome"] == {"kind": "output", "value": {"status": "first"}}
+
+
+FUNCTION_APPROVALS = {
+    "data": [
+        {
+            "approvalId": "apr_1",
+            "toolName": "getOrder",
+            "toolCallId": "call_1",
+            "input": {"order_id": "o1"},
+            "decision": "approved",
+            "reason": None,
+            "tool": {"type": "function", "name": "getOrder"},
+            "assistantMessageId": "message-1",
+            "createdAt": "2026-10-02T02:59:31Z",
+            "decidedAt": "2026-10-02T02:59:32Z",
+        }
+    ],
+    "continuation": {"id": CONTINUATION_ID, "state": "queued"},
+}
+
+
+def test_resume_chat_after_a_function_approval() -> None:
+    """The approval list carries the function reference the platform reports."""
+    executions: list[tuple[Order, FunctionContext]] = []
+    platform = FakePlatform(
+        [ready(), Wait(CALL_ID), TEXT], approvals=FUNCTION_APPROVALS
+    )
+    with platform.sync_client() as client:
+        stream = client.resume_chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            functions={"getOrder": get_order(executions)},
+        )
+        assert b"".join(stream) == TEXT
+    assert platform.requests[1].path.endswith(f"/{CONTINUATION_ID}/resume")
+    assert platform.calls[CALL_ID].outcome == {
+        "kind": "output",
+        "value": {"status": "shipped o1"},
+    }
+
+    async def exercise() -> None:
+        platform = FakePlatform(
+            [ready(), Wait(CALL_ID), TEXT], approvals=FUNCTION_APPROVALS
+        )
+        async with platform.async_client() as client:
+            stream = await client.resume_chat(
+                agent_id=AGENT_ID,
+                session_id=SESSION_ID,
+                functions={"getOrder": get_order(executions)},
+            )
+            assert await drain(stream) == [TEXT]
+        assert platform.requests[1].path.endswith(f"/{CONTINUATION_ID}/resume")
+
+    asyncio.run(exercise())
+    assert len(executions) == 2
