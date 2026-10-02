@@ -10,6 +10,7 @@ from ._downloads import AsyncByteStream, ByteStream
 from ._errors import StreamError
 from ._functions import (
     AsyncFunctionRunner,
+    FunctionEventObserver,
     SseFrames,
     SyncFunctionRunner,
     function_call,
@@ -32,7 +33,9 @@ class ChatStream(ByteStream):
         self,
         response: httpx.Response,
         session_id: str | None,
-        functions: Callable[[str], SyncFunctionRunner] | None = None,
+        functions: (
+            Callable[[str], SyncFunctionRunner | FunctionEventObserver] | None
+        ) = None,
     ) -> None:
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
@@ -78,7 +81,9 @@ class AsyncChatStream(AsyncByteStream):
         self,
         response: httpx.Response,
         session_id: str | None,
-        functions: Callable[[str], AsyncFunctionRunner] | None = None,
+        functions: (
+            Callable[[str], AsyncFunctionRunner | FunctionEventObserver] | None
+        ) = None,
     ) -> None:
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id

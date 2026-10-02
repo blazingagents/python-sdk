@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 import blazing_agents._functions as functions_module
 from blazing_agents import (
@@ -151,8 +151,10 @@ class FakePlatform:
             Recorded(request.method, request.url.path, body, request.headers)
         )
         path = request.url.path
-        if request.method == "GET":
+        if request.method == "GET" and path.endswith("/tool-approvals"):
             return httpx.Response(200, json=self.approvals)
+        if request.method == "GET":
+            return None
         action = path.rsplit("/", 1)[-1]
         if action not in {"claim", "result"}:
             return None
@@ -1255,3 +1257,143 @@ def test_async_resume_chat_and_local_validation() -> None:
         }
 
     asyncio.run(exercise())
+
+
+class Exploding(float):
+    def __eq__(self, other: object) -> bool:
+        raise RuntimeError("secret-eq")
+
+    __hash__ = float.__hash__
+
+
+def returns_exploding(order: Order, context: FunctionContext) -> object:
+    return Exploding(1.5)
+
+
+def test_sync_result_serializer_exceptions_become_invalid_result() -> None:
+    platform = FakePlatform([ready(), Wait(CALL_ID), TEXT])
+    function = define_function(
+        description="d", input_schema=Order, execute=returns_exploding
+    )
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": function},
+        )
+        assert b"".join(stream) == TEXT
+    assert platform.calls[CALL_ID].outcome == {
+        "kind": "error",
+        "message": "Function returned an invalid result.",
+    }
+
+
+class Exploded(BaseModel):
+    order_id: str
+
+    @field_validator("order_id")
+    @classmethod
+    def explode(cls, value: str) -> str:
+        raise RuntimeError("secret-validator")
+
+
+def test_validator_exceptions_become_invalid_input_without_running_handler(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    executions: list[object] = []
+
+    def execute(order: Exploded, context: FunctionContext) -> str:
+        executions.append(order)
+        return "never"
+
+    async def async_execute(order: Exploded, context: FunctionContext) -> str:
+        executions.append(order)
+        return "never"
+
+    invalid = {"kind": "error", "message": "Invalid function input."}
+    platform = FakePlatform([ready(), Wait(CALL_ID), TEXT])
+    function = define_function(description="d", input_schema=Exploded, execute=execute)
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": function},
+        )
+        assert b"".join(stream) == TEXT
+    assert platform.calls[CALL_ID].outcome == invalid
+
+    async def exercise() -> None:
+        platform = FakePlatform([ready(), Wait(CALL_ID), TEXT])
+        function = define_function(
+            description="d", input_schema=Exploded, execute=async_execute
+        )
+        async with platform.async_client() as client:
+            stream = await client.chat(
+                agent_id=AGENT_ID,
+                session_id=SESSION_ID,
+                message=MESSAGE,
+                functions={"getOrder": function},
+            )
+            assert await drain(stream) == [TEXT]
+        assert platform.calls[CALL_ID].outcome == invalid
+
+    asyncio.run(exercise())
+    assert executions == []
+    assert "secret-validator" not in caplog.text
+
+
+def test_observer_join_strips_private_events_without_claiming() -> None:
+    script: list[Step] = [HEARTBEAT, ready(), TEXT, b"tail"]
+    platform = FakePlatform(list(script))
+    with platform.sync_client() as client:
+        joined = client.sessions.join_tool_approval_continuation(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            continuation_id=CONTINUATION_ID,
+        )
+        assert b"".join(joined) == HEARTBEAT + TEXT + b"tail"
+        malformed = FakePlatform([HEARTBEAT, ready("fc_short"), TEXT])
+    assert platform.bodies("/claim") == []
+
+    async def exercise() -> None:
+        platform = FakePlatform(list(script))
+        async with platform.async_client() as client:
+            joined = await client.sessions.join_tool_approval_continuation(
+                agent_id=AGENT_ID,
+                session_id=SESSION_ID,
+                continuation_id=CONTINUATION_ID,
+            )
+            assert await drain(joined) == [HEARTBEAT, TEXT, b"tail"]
+        assert platform.bodies("/claim") == []
+
+    asyncio.run(exercise())
+    with malformed.sync_client() as client:
+        joined = client.sessions.join_tool_approval_continuation(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            continuation_id=CONTINUATION_ID,
+        )
+        with pytest.raises(StreamError, match="malformed function call"):
+            b"".join(joined)
+    assert malformed.requests[0].path.endswith(
+        f"/tool-approval-continuations/{CONTINUATION_ID}"
+    )
+
+
+def test_sync_permanent_claim_failure_fails_stream_at_end() -> None:
+    platform = FakePlatform(
+        [ready(), Claims(1), Pause(0.05)],
+        failures={f"{CALL_ID}/claim": [403]},
+    )
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": get_order([])},
+        )
+        with pytest.raises(APIStatusError) as failure:
+            b"".join(stream)
+    assert failure.value.status_code == 403

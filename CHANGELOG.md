@@ -23,7 +23,10 @@
   queued or running tool approval continuation after human approval and
   reattaches handlers by name. `chat()` and `resume_chat()` forward
   `extra_headers`, including `X-BA-User-Id`, to the claim and result requests.
-  New public types: `ChatFunction` and `FunctionContext`.
+  `sessions.join_tool_approval_continuation()` stays an observer: it removes
+  function control events and never runs functions, so it relays complete SSE
+  events rather than raw chunks. New public types: `ChatFunction` and
+  `FunctionContext`.
 
 ## 0.9.0
 

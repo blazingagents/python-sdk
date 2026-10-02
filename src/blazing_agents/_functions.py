@@ -215,7 +215,7 @@ def _prepare(
         return _error(_unknown_function(call.name))
     try:
         return function, function._adapter.validate_python(call.input)
-    except ValidationError:
+    except Exception:
         return _error(INVALID_INPUT)
 
 
@@ -232,7 +232,7 @@ def _output(name: str, value: object) -> dict[str, object]:
             outcome, separators=(",", ":"), ensure_ascii=False, allow_nan=False
         )
         plain = json.loads(encoded) == outcome
-    except (TypeError, ValueError, RecursionError):
+    except Exception:
         plain = False
     if not plain:
         _LOGGER.warning("Function %s returned a non-JSON value", name)
@@ -281,6 +281,25 @@ class _CallScope:
 
 def _log_execution_failure(call: _FunctionCall) -> None:
     _LOGGER.warning("Function %s (%s) raised an exception", call.name, call.id)
+
+
+class FunctionEventObserver:
+    """Strips private function events from an observer stream without claiming.
+
+    Observers replay continuation output; only an explicit backend resume may
+    execute functions.
+    """
+
+    failure: BlazingAgentsError | None = None
+
+    def dispatch(self, call: _FunctionCall) -> None:
+        _LOGGER.debug("Observer skipped function call %s", call.id)
+
+    def close(self) -> None:
+        pass
+
+    async def aclose(self) -> None:
+        pass
 
 
 class _Runner:
