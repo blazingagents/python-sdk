@@ -227,11 +227,13 @@ def _output(name: str, value: object) -> dict[str, object]:
     """Accept only plain JSON: no NaN, Infinity, tuples, non-str keys or objects."""
     outcome: dict[str, object] = {"kind": "output", "value": value}
     encoded = ""
+    snapshot: dict[str, object] = {}
     try:
         encoded = json.dumps(
             outcome, separators=(",", ":"), ensure_ascii=False, allow_nan=False
         )
-        plain = json.loads(encoded) == outcome
+        snapshot = json.loads(encoded)
+        plain = snapshot == outcome
     except Exception:
         plain = False
     if not plain:
@@ -240,7 +242,7 @@ def _output(name: str, value: object) -> dict[str, object]:
     if len(encoded.encode()) > MAX_PAYLOAD_BYTES:
         _LOGGER.warning("Function %s result exceeds %s bytes", name, MAX_PAYLOAD_BYTES)
         return _error(INVALID_RESULT)
-    return outcome
+    return snapshot
 
 
 def _retry_delay(error: BlazingAgentsError, attempt: int) -> float | None:
@@ -384,6 +386,8 @@ class SyncFunctionRunner(_Runner):
         if isinstance(prepared, dict):
             return prepared
         function, value = prepared
+        if self._closed.is_set() or time.time() >= deadline:
+            return None
         timer = threading.Timer(max(0.0, deadline - time.time()), cancelled.set)
         timer.daemon = True
         timer.start()
@@ -499,6 +503,8 @@ class AsyncFunctionRunner(_Runner):
         if isinstance(prepared, dict):
             return prepared
         function, value = prepared
+        if self._closed or time.time() >= deadline:
+            return None
         cancelled = threading.Event()
         context = FunctionContext(call.id, call.deadline_at, cancelled)
         limit = asyncio.timeout_at(

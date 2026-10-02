@@ -107,6 +107,10 @@ class Later:
 Step = bytes | Wait | Until | Claims | Pause | Later
 
 
+Failure = int | str | Callable[[], None]
+"""A status, "drop"/"slow", or a hook run before answering 500."""
+
+
 @dataclass
 class Call:
     state: str = "pending"
@@ -129,8 +133,8 @@ class FakePlatform:
 
     script: list[Step]
     approvals: object = None
-    failures: dict[str, list[int | str]] = field(
-        default_factory=lambda: dict[str, list[int | str]]()
+    failures: dict[str, list[Failure]] = field(
+        default_factory=lambda: dict[str, list[Failure]]()
     )
     calls: dict[str, Call] = field(default_factory=lambda: dict[str, Call]())
     requests: list[Recorded] = field(default_factory=lambda: list[Recorded]())
@@ -166,6 +170,9 @@ class FakePlatform:
                 raise httpx.ConnectError("dropped", request=request)
             if failure == "slow":
                 time.sleep(0.3)
+            if callable(failure):
+                failure()
+                failure = 500
             if isinstance(failure, int):
                 return httpx.Response(
                     failure,
@@ -1397,3 +1404,159 @@ def test_sync_permanent_claim_failure_fails_stream_at_end() -> None:
         with pytest.raises(APIStatusError) as failure:
             b"".join(stream)
     assert failure.value.status_code == 403
+
+
+def test_sync_handler_does_not_start_after_slow_validation_crosses_deadline() -> None:
+    executions: list[object] = []
+
+    class SlowOrder(BaseModel):
+        order_id: str
+
+        @field_validator("order_id")
+        @classmethod
+        def slow(cls, value: str) -> str:
+            time.sleep(0.3)
+            return value
+
+    def execute(order: SlowOrder, context: FunctionContext) -> str:
+        executions.append(order)
+        return "late"
+
+    platform = FakePlatform([Later(0.2), Claims(1), Pause(0.5), TEXT])
+    function = define_function(description="d", input_schema=SlowOrder, execute=execute)
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": function},
+        )
+        assert b"".join(stream) == TEXT
+    assert executions == []
+    assert platform.bodies("/result") == []
+
+
+def test_sync_handler_does_not_start_when_stream_closes_during_validation() -> None:
+    executions: list[object] = []
+    validating, closed = threading.Event(), threading.Event()
+
+    class GatedOrder(BaseModel):
+        order_id: str
+
+        @field_validator("order_id")
+        @classmethod
+        def gated(cls, value: str) -> str:
+            validating.set()
+            closed.wait(5)
+            return value
+
+    def execute(order: GatedOrder, context: FunctionContext) -> str:
+        executions.append(order)
+        return "late"
+
+    platform = FakePlatform([ready(), HEARTBEAT, Until(threading.Event())])
+    function = define_function(
+        description="d", input_schema=GatedOrder, execute=execute
+    )
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": function},
+        )
+        body = iter(stream)
+        assert next(body) == HEARTBEAT
+        assert validating.wait(5)
+        stream.close()
+        closed.set()
+        time.sleep(0.1)
+    assert executions == []
+    assert platform.bodies("/result") == []
+
+
+def test_async_handler_does_not_start_after_slow_validation_crosses_deadline() -> None:
+    executions: list[object] = []
+
+    class SlowOrder(BaseModel):
+        order_id: str
+
+        @field_validator("order_id")
+        @classmethod
+        def slow(cls, value: str) -> str:
+            time.sleep(0.3)
+            return value
+
+    async def execute(order: SlowOrder, context: FunctionContext) -> str:
+        executions.append(order)
+        return "late"
+
+    async def exercise() -> None:
+        platform = FakePlatform([Later(0.2), Claims(1), Pause(0.5), TEXT])
+        function = define_function(
+            description="d", input_schema=SlowOrder, execute=execute
+        )
+        async with platform.async_client() as client:
+            stream = await client.chat(
+                agent_id=AGENT_ID,
+                session_id=SESSION_ID,
+                message=MESSAGE,
+                functions={"getOrder": function},
+            )
+            assert await drain(stream) == [TEXT]
+        assert platform.bodies("/result") == []
+
+    asyncio.run(exercise())
+    assert executions == []
+
+
+def test_result_retries_send_a_snapshot_not_the_mutable_return_value() -> None:
+    shared: dict[str, object] = {"status": "first"}
+
+    def execute(order: Order, context: FunctionContext) -> object:
+        return shared
+
+    def mutate() -> None:
+        shared["status"] = "mutated"
+
+    async def async_execute(order: Order, context: FunctionContext) -> object:
+        return shared
+
+    for sync in (True, False):
+        shared["status"] = "first"
+        platform = FakePlatform(
+            [ready(), Wait(CALL_ID), TEXT],
+            failures={f"{CALL_ID}/result": [mutate]},
+        )
+        if sync:
+            function = define_function(
+                description="d", input_schema=Order, execute=execute
+            )
+            with platform.sync_client() as client:
+                stream = client.chat(
+                    agent_id=AGENT_ID,
+                    session_id=SESSION_ID,
+                    message=MESSAGE,
+                    functions={"getOrder": function},
+                )
+                assert b"".join(stream) == TEXT
+        else:
+            function = define_function(
+                description="d", input_schema=Order, execute=async_execute
+            )
+
+            async def exercise(platform: FakePlatform, function: ChatFunction) -> None:
+                async with platform.async_client() as client:
+                    stream = await client.chat(
+                        agent_id=AGENT_ID,
+                        session_id=SESSION_ID,
+                        message=MESSAGE,
+                        functions={"getOrder": function},
+                    )
+                    assert await drain(stream) == [TEXT]
+
+            asyncio.run(exercise(platform, function))
+        first, retry = platform.bodies("/result")
+        assert shared["status"] == "mutated"
+        assert first == retry
+        assert retry["outcome"] == {"kind": "output", "value": {"status": "first"}}
