@@ -489,6 +489,23 @@ class McpToolReference(ResponseModel):
 ToolReference: TypeAlias = Annotated[
     BuiltinToolReference | McpToolReference, Field(discriminator="type")
 ]
+"""A tool an approval policy may configure: built-in or MCP only."""
+
+
+class FunctionToolReference(ResponseModel):
+    type: Literal["function"]
+    name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
+
+
+ToolExecutionReference: TypeAlias = Annotated[
+    BuiltinToolReference | McpToolReference | FunctionToolReference,
+    Field(discriminator="type"),
+]
+"""The tool behind one execution or approval record.
+
+Backend functions appear here for display and audit only; approval policies
+use ``ToolReference``, so function names never become Agent configuration.
+"""
 
 
 class ApprovalOverride(ResponseModel):
@@ -958,7 +975,7 @@ class TaskRunMessagesPage(SessionMessagesPage):
 
 
 class ToolApproval(ResponseModel):
-    tool: ToolReference | None = None
+    tool: ToolExecutionReference | None = None
     assistant_message_id: NonEmptyString | None = Field(
         default=None, alias="assistantMessageId"
     )

@@ -44,6 +44,7 @@ from blazing_agents import (
     TasksPage,
     TenantChatDelivery,
     ToolApprovalDecisionInput,
+    ToolExecutionReference,
     define_function,
 )
 
@@ -494,3 +495,13 @@ async def async_function_examples(client: AsyncBlazingAgents) -> None:
         ),
         AsyncChatStream,
     )
+
+
+def approval_reference_examples(client: BlazingAgents) -> None:
+    approvals = client.sessions.tool_approvals(
+        agent_id="ag_example", session_id="ss_example"
+    )
+    for approval in approvals.data:
+        assert_type(approval.tool, ToolExecutionReference | None)
+        if approval.tool is not None and approval.tool.type == "function":
+            assert_type(approval.tool.name, str)

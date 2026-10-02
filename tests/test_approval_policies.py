@@ -17,8 +17,11 @@ from blazing_agents import (
     AsyncBlazingAgents,
     BlazingAgents,
     BuiltinToolReference,
+    FunctionToolReference,
     McpToolReference,
     ToolApproval,
+    ToolApprovals,
+    ToolExecutionReference,
     ToolReference,
 )
 from blazing_agents._transport import OMITTED
@@ -330,3 +333,73 @@ def test_existing_approval_lifecycle_with_metadata(asynchronous: bool) -> None:
     assert state.requests[2].target.endswith(
         "/tool-approval-continuations/continuation-1"
     )
+
+
+FUNCTION_REFERENCE: dict[str, Any] = {"type": "function", "name": "getOrder"}
+
+
+def test_approval_state_references_backend_functions() -> None:
+    approval = ToolApproval.model_validate_json(
+        json.dumps({**APPROVAL, "toolName": "getOrder", "tool": FUNCTION_REFERENCE})
+    )
+    assert isinstance(approval.tool, FunctionToolReference)
+    assert approval.tool.name == "getOrder"
+    assert approval.model_dump(by_alias=True)["tool"] == FUNCTION_REFERENCE
+    for bad in [
+        {"type": "function", "name": ""},
+        {"type": "function", "name": "1getOrder"},
+        {"type": "function"},
+    ]:
+        with pytest.raises(ValidationError):
+            TypeAdapter(ToolExecutionReference).validate_python(bad)
+
+
+def test_approval_policies_never_reference_backend_functions() -> None:
+    with pytest.raises(ValidationError):
+        TypeAdapter(ToolReference).validate_python(FUNCTION_REFERENCE)
+    with pytest.raises(ValidationError):
+        ApprovalPolicy.model_validate(
+            {
+                "default": "full",
+                "overrides": [{"tool": FUNCTION_REFERENCE, "decision": "manual"}],
+            }
+        )
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_tool_approvals_response_with_function_reference(asynchronous: bool) -> None:
+    approval = {
+        **APPROVAL,
+        "toolName": "getOrder",
+        "input": {"orderId": "o1"},
+        "tool": FUNCTION_REFERENCE,
+        "assistantMessageId": "message-1",
+        "createdAt": "2026-10-02T02:59:31Z",
+        "decidedAt": None,
+    }
+    body = {
+        "data": [approval],
+        "continuation": {"id": "tac_1", "state": "waiting"},
+    }
+    with loopback(Response(body=body)) as (base_url, _):
+
+        async def run_async() -> object:
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                return await client.sessions.tool_approvals(
+                    agent_id=AGENT["id"], session_id="session-1"
+                )
+
+        if asynchronous:
+            result = asyncio.run(run_async())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                result = client.sessions.tool_approvals(
+                    agent_id=AGENT["id"], session_id="session-1"
+                )
+    assert isinstance(result, ToolApprovals)
+    [pending] = result.data
+    assert isinstance(pending.tool, FunctionToolReference)
+    assert pending.tool.name == "getOrder"
+    assert pending.decision == "pending"
