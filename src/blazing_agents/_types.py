@@ -2,9 +2,21 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from os import PathLike
-from typing import Any, BinaryIO, Literal, Never, Required, TypeAlias, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    Literal,
+    Never,
+    Required,
+    TypeAlias,
+    TypedDict,
+)
 
 import httpx
+
+if TYPE_CHECKING:
+    from ._functions import ChatFunction
 
 Timeout = float | httpx.Timeout | None
 JsonValue: TypeAlias = (
@@ -230,6 +242,7 @@ class _ChatInput(TypedDict, total=False):
     user_id: str
     metadata: dict[str, object]
     message_id: str
+    functions: Mapping[str, ChatFunction]
 
 
 class _ChatMessageInput(_ChatInput, total=False):

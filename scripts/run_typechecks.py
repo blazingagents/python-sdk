@@ -37,6 +37,7 @@ def main() -> None:
         project / "typing" / "invalid_chat_regenerate_client.py",
         project / "typing" / "invalid_chat_regenerate.py",
         project / "typing" / "invalid_chat_version.py",
+        project / "typing" / "invalid_function_input.py",
         project / "typing" / "invalid_agent_configuration.py",
         project / "typing" / "invalid_request_literal.py",
         project / "typing" / "invalid_request_unknown.py",

@@ -20,11 +20,13 @@ from blazing_agents import (
     BlazingAgents,
     ChatDeliveriesListOptions,
     ChatDeliveriesPage,
+    ChatFunction,
     ChatMessageInput,
     ChatStream,
     Completion,
     CompletionLiteralInput,
     CompletionStream,
+    FunctionContext,
     JsonValue,
     LatestSessionsPage,
     MemoryCreate,
@@ -42,6 +44,7 @@ from blazing_agents import (
     TasksPage,
     TenantChatDelivery,
     ToolApprovalDecisionInput,
+    define_function,
 )
 
 
@@ -433,4 +436,61 @@ def chat_connection_examples(client: BlazingAgents) -> None:
         connection.id,
         platform="slack",
         credentials={"bot_token": "token", "signing_secret": "secret"},
+    )
+
+
+class OrderLookup(BaseModel):
+    order_id: str
+
+
+def lookup_order(order: OrderLookup, context: FunctionContext) -> dict[str, str]:
+    assert_type(context.idempotency_key, str)
+    assert_type(context.deadline_at, datetime)
+    return {"id": order.order_id}
+
+
+async def async_lookup_order(
+    order: OrderLookup, context: FunctionContext
+) -> dict[str, str]:
+    return {"id": order.order_id, "cancelled": str(context.cancelled.is_set())}
+
+
+def function_examples(client: BlazingAgents) -> None:
+    function = define_function(
+        description="Look up an order",
+        input_schema=OrderLookup,
+        execute=lookup_order,
+    )
+    assert_type(function, ChatFunction)
+    assert_type(
+        client.chat(
+            agent_id="ag_0123456789abcdef",
+            message={"id": "m", "role": "user", "parts": []},
+            functions={"lookupOrder": function},
+        ),
+        ChatStream,
+    )
+    assert_type(
+        client.resume_chat(
+            agent_id="ag_0123456789abcdef",
+            session_id="ss_0123456789abcdef",
+            functions={"lookupOrder": function},
+        ),
+        ChatStream,
+    )
+
+
+async def async_function_examples(client: AsyncBlazingAgents) -> None:
+    function = define_function(
+        description="Look up an order",
+        input_schema=OrderLookup,
+        execute=async_lookup_order,
+    )
+    assert_type(
+        await client.resume_chat(
+            agent_id="ag_0123456789abcdef",
+            session_id="ss_0123456789abcdef",
+            functions={"lookupOrder": function},
+        ),
+        AsyncChatStream,
     )
