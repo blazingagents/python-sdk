@@ -143,7 +143,6 @@ def _chat_body(
     variables: dict[str, str] | _Omitted,
     trigger: ChatTrigger | _Omitted,
     message_id: str | _Omitted,
-    version: int | _Omitted,
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
     functions: dict[str, object] | _Omitted,
@@ -172,7 +171,6 @@ def _chat_body(
     for wire_name, value in (
         ("trigger", trigger),
         ("messageId", message_id),
-        ("version", version),
         ("userId", user_id),
         ("metadata", metadata),
         ("functions", functions),
@@ -191,7 +189,6 @@ def chat_request(
     trigger: ChatTrigger | _Omitted = OMITTED,
     message_id: str | _Omitted = OMITTED,
     session_id: str | _Omitted = OMITTED,
-    version: int | _Omitted = OMITTED,
     user_id: str | _Omitted = OMITTED,
     metadata: dict[str, object] | _Omitted = OMITTED,
     functions: dict[str, object] | _Omitted = OMITTED,
@@ -205,8 +202,6 @@ def chat_request(
         if trigger == "regenerate-message":
             raise ValueError("regenerate-message can only resume an existing Session.")
     else:
-        if not isinstance(version, _Omitted):
-            raise ValueError("A Version Pin can only be set when creating a Session.")
         resolved_session_id = session_id
         path = f"{path}/{quote(resolved_session_id, safe='')}"
     return (
@@ -220,7 +215,6 @@ def chat_request(
                 variables=variables,
                 trigger=trigger,
                 message_id=message_id,
-                version=version,
                 user_id=user_id,
                 metadata=metadata,
                 functions=functions,

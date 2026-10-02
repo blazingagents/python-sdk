@@ -413,9 +413,7 @@ def agent_tools_round_trip_examples(client: BlazingAgents) -> None:
     agent = client.agents.get("ag_0123456789abcdef")
     assert_type(agent.tools, list[AgentTool])
     client.agents.update(agent.id, tools=[*agent.tools, "workspace"])
-    version = client.agents.get_version(agent.id, 1)
-    assert_type(version.tools, list[AgentTool])
-    client.agents.create(name="Copy", tools=version.tools)
+    client.agents.create(name="Copy", tools=agent.tools)
 
 
 async def async_agent_tools_round_trip_examples(client: AsyncBlazingAgents) -> None:

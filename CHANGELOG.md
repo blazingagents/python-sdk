@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+
+- Add `AgentConfig` to Session detail and TaskRun responses. Use
+  `sessions.get(agent_id, session_id)` to read the configuration saved for a
+  Session.
+- Remove Agent Version catalog methods and version pin inputs from chat,
+  generation, and Tasks. Provider deletion now accepts
+  `confirm_snapshot_invalidation=True`.
+
 ## 0.10.0
 
 - Add backend functions to `chat()` on the sync and async clients. Define each

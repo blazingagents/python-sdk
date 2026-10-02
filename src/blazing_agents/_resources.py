@@ -16,8 +16,6 @@ from ._functions import FunctionEventObserver
 from ._models import (
     Agent,
     AgentsPage,
-    AgentVersion,
-    AgentVersionsPage,
     Artifact,
     ArtifactDownloadUrl,
     ArtifactsPage,
@@ -39,6 +37,7 @@ from ._models import (
     Providers,
     Session,
     SessionMessagesPage,
+    SessionResponse,
     SessionsPage,
     Skill,
     SkillCopyResult,
@@ -351,7 +350,6 @@ def _task_schedule(schedule: TaskScheduleInput) -> dict[str, object]:
 def _task_body(
     *,
     agent_id: str | _Omitted,
-    agent_version: int | None | _Omitted,
     name: str | _Omitted,
     prompt: str | _Omitted,
     schedule: TaskScheduleInput | None | _Omitted,
@@ -363,7 +361,6 @@ def _task_body(
     body: dict[str, object] = {}
     for wire_name, value in (
         ("agentId", agent_id),
-        ("agentVersion", agent_version),
         ("name", name),
         ("prompt", prompt),
         ("enabled", enabled),
@@ -483,30 +480,6 @@ def _workspaces_query(
         )
         if not isinstance(value, _Omitted)
     }
-
-
-def _restored_agent_body(version: AgentVersion) -> dict[str, object]:
-    return _agent_body(
-        name=version.name,
-        model=version.model,
-        thinking_level=version.thinking_level,
-        provider_id=version.provider_id,
-        workspace_id=OMITTED,
-        auto_compaction=version.auto_compaction,
-        compaction_reserve_tokens=version.compaction_reserve_tokens,
-        memory_injection_enabled=version.memory_injection_enabled,
-        tools=version.tools,
-        approval_in_chat=cast(
-            ApprovalPolicyInput, version.approval_in_chat.model_dump()
-        ),
-        approval_in_tasks=cast(
-            ApprovalPolicyInput, version.approval_in_tasks.model_dump()
-        ),
-        instructions=version.instructions,
-        user_id=OMITTED,
-        metadata=version.metadata,
-        mcp_connection_ids=version.mcp_connection_ids,
-    )
 
 
 def _mcp_attachment_body(
@@ -914,93 +887,6 @@ class AgentsResource:
             Agent,
         )
 
-    def list_versions(
-        self,
-        agent_id: str,
-        *,
-        cursor: str | _Omitted = OMITTED,
-        limit: int | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AgentVersionsPage:
-        return self._transport.request(
-            _Request(
-                "GET",
-                f"{_agent_path(agent_id)}/versions",
-                query=_cursor_limit_query(cursor, limit),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            AgentVersionsPage,
-        )
-
-    def iter_versions(
-        self,
-        agent_id: str,
-        *,
-        cursor: str | _Omitted = OMITTED,
-        limit: int | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> Iterator[AgentVersion]:
-        next_cursor = cursor
-        while True:
-            page = self.list_versions(
-                agent_id,
-                cursor=next_cursor,
-                limit=limit,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
-            yield from page.data
-            if page.next_cursor is None:
-                return
-            next_cursor = page.next_cursor
-
-    def get_version(
-        self,
-        agent_id: str,
-        version: int,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AgentVersion:
-        return self._transport.request(
-            _Request(
-                "GET",
-                f"{_agent_path(agent_id)}/versions/{version}",
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            AgentVersion,
-        )
-
-    def restore_version(
-        self,
-        agent_id: str,
-        version: int,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> Agent:
-        """Copy an immutable Version into a new latest Agent Version."""
-        historical = self.get_version(
-            agent_id,
-            version,
-            extra_headers=extra_headers,
-            timeout=timeout,
-        )
-        return self._transport.request(
-            _Request(
-                "PUT",
-                _agent_path(agent_id),
-                json_body=_restored_agent_body(historical),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            Agent,
-        )
-
     def list_mcp_attachments(
         self,
         agent_id: str,
@@ -1283,94 +1169,6 @@ class AsyncAgentsResource:
             _Request(
                 "GET",
                 _agent_path(agent_id),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            Agent,
-        )
-
-    async def list_versions(
-        self,
-        agent_id: str,
-        *,
-        cursor: str | _Omitted = OMITTED,
-        limit: int | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AgentVersionsPage:
-        return await self._transport.request(
-            _Request(
-                "GET",
-                f"{_agent_path(agent_id)}/versions",
-                query=_cursor_limit_query(cursor, limit),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            AgentVersionsPage,
-        )
-
-    async def iter_versions(
-        self,
-        agent_id: str,
-        *,
-        cursor: str | _Omitted = OMITTED,
-        limit: int | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AsyncIterator[AgentVersion]:
-        next_cursor = cursor
-        while True:
-            page = await self.list_versions(
-                agent_id,
-                cursor=next_cursor,
-                limit=limit,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
-            for version in page.data:
-                yield version
-            if page.next_cursor is None:
-                return
-            next_cursor = page.next_cursor
-
-    async def get_version(
-        self,
-        agent_id: str,
-        version: int,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AgentVersion:
-        return await self._transport.request(
-            _Request(
-                "GET",
-                f"{_agent_path(agent_id)}/versions/{version}",
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            AgentVersion,
-        )
-
-    async def restore_version(
-        self,
-        agent_id: str,
-        version: int,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> Agent:
-        """Copy an immutable Version into a new latest Agent Version."""
-        historical = await self.get_version(
-            agent_id,
-            version,
-            extra_headers=extra_headers,
-            timeout=timeout,
-        )
-        return await self._transport.request(
-            _Request(
-                "PUT",
-                _agent_path(agent_id),
-                json_body=_restored_agent_body(historical),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -1695,7 +1493,7 @@ class ProvidersResource:
         self,
         provider_id: str,
         *,
-        confirm_version_invalidation: bool = False,
+        confirm_snapshot_invalidation: bool = False,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
@@ -1704,8 +1502,8 @@ class ProvidersResource:
                 "DELETE",
                 _provider_path(provider_id),
                 query=(
-                    {"confirmVersionInvalidation": "true"}
-                    if confirm_version_invalidation
+                    {"confirmSnapshotInvalidation": "true"}
+                    if confirm_snapshot_invalidation
                     else {}
                 ),
                 extra_headers=extra_headers,
@@ -1839,7 +1637,7 @@ class AsyncProvidersResource:
         self,
         provider_id: str,
         *,
-        confirm_version_invalidation: bool = False,
+        confirm_snapshot_invalidation: bool = False,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
@@ -1848,8 +1646,8 @@ class AsyncProvidersResource:
                 "DELETE",
                 _provider_path(provider_id),
                 query=(
-                    {"confirmVersionInvalidation": "true"}
-                    if confirm_version_invalidation
+                    {"confirmSnapshotInvalidation": "true"}
+                    if confirm_snapshot_invalidation
                     else {}
                 ),
                 extra_headers=extra_headers,
@@ -3463,7 +3261,6 @@ class TasksResource:
         agent_id: str,
         name: str,
         prompt: str,
-        agent_version: int | None | _Omitted = OMITTED,
         schedule: TaskScheduleInput | None | _Omitted = OMITTED,
         enabled: bool | _Omitted = OMITTED,
         submit: bool | _Omitted = OMITTED,
@@ -3478,7 +3275,6 @@ class TasksResource:
                 _task_path(),
                 json_body=_task_body(
                     agent_id=agent_id,
-                    agent_version=agent_version,
                     name=name,
                     prompt=prompt,
                     schedule=schedule,
@@ -3560,7 +3356,6 @@ class TasksResource:
         self,
         task_id: str,
         *,
-        agent_version: int | None | _Omitted = OMITTED,
         name: str | _Omitted = OMITTED,
         prompt: str | _Omitted = OMITTED,
         schedule: TaskScheduleInput | None | _Omitted = OMITTED,
@@ -3571,7 +3366,6 @@ class TasksResource:
     ) -> Task:
         body = _task_body(
             agent_id=OMITTED,
-            agent_version=agent_version,
             name=name,
             prompt=prompt,
             schedule=schedule,
@@ -3742,7 +3536,6 @@ class AsyncTasksResource:
         agent_id: str,
         name: str,
         prompt: str,
-        agent_version: int | None | _Omitted = OMITTED,
         schedule: TaskScheduleInput | None | _Omitted = OMITTED,
         enabled: bool | _Omitted = OMITTED,
         submit: bool | _Omitted = OMITTED,
@@ -3757,7 +3550,6 @@ class AsyncTasksResource:
                 _task_path(),
                 json_body=_task_body(
                     agent_id=agent_id,
-                    agent_version=agent_version,
                     name=name,
                     prompt=prompt,
                     schedule=schedule,
@@ -3840,7 +3632,6 @@ class AsyncTasksResource:
         self,
         task_id: str,
         *,
-        agent_version: int | None | _Omitted = OMITTED,
         name: str | _Omitted = OMITTED,
         prompt: str | _Omitted = OMITTED,
         schedule: TaskScheduleInput | None | _Omitted = OMITTED,
@@ -3851,7 +3642,6 @@ class AsyncTasksResource:
     ) -> Task:
         body = _task_body(
             agent_id=OMITTED,
-            agent_version=agent_version,
             name=name,
             prompt=prompt,
             schedule=schedule,
@@ -4016,6 +3806,24 @@ class AsyncTasksResource:
 class SessionsResource:
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
+
+    def get(
+        self,
+        agent_id: str,
+        session_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionResponse:
+        return self._transport.request(
+            _Request(
+                "GET",
+                _sessions_path(agent_id, session_id),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionResponse,
+        )
 
     def list(
         self,
@@ -4206,6 +4014,24 @@ class SessionsResource:
 class AsyncSessionsResource:
     def __init__(self, transport: AsyncTransport) -> None:
         self._transport = transport
+
+    async def get(
+        self,
+        agent_id: str,
+        session_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionResponse:
+        return await self._transport.request(
+            _Request(
+                "GET",
+                _sessions_path(agent_id, session_id),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionResponse,
+        )
 
     async def list(
         self,

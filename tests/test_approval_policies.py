@@ -7,7 +7,7 @@ from typing import Any, get_args
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
-from test_clients import AGENT, AGENT_VERSION, Response, loopback
+from test_clients import AGENT, Response, loopback
 
 from blazing_agents import (
     Agent,
@@ -68,11 +68,6 @@ APPROVAL: dict[str, Any] = {
 def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
     original = copy.deepcopy(POLICY)
     agent = {**AGENT, "approvalInChat": WIRE, "approvalInTasks": {"default": "auto"}}
-    version: dict[str, Any] = {
-        **AGENT_VERSION,
-        "approvalInChat": WIRE,
-        "approvalInTasks": {"default": "full", "overrides": []},
-    }
     with loopback(
         Response(body=agent),
         Response(body=agent),
@@ -80,10 +75,6 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
         Response(body=agent),
         Response(body=agent),
         Response(body={"data": [agent], "nextCursor": None}),
-        Response(body={"data": [version], "nextCursor": None}),
-        Response(body=version),
-        Response(body=version),
-        Response(body=agent),
     ) as (base_url, state):
 
         async def run_async() -> None:
@@ -114,13 +105,6 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
                 assert (await client.agents.list()).data[
                     0
                 ].approval_in_chat.default == "deny"
-                assert (await client.agents.list_versions(AGENT["id"])).data[
-                    0
-                ].approval_in_chat.default == "deny"
-                assert (
-                    await client.agents.get_version(AGENT["id"], 3)
-                ).approval_in_chat.default == "deny"
-                await client.agents.restore_version(AGENT["id"], 3)
 
         if asynchronous:
             asyncio.run(run_async())
@@ -146,17 +130,6 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
                     client.agents.get(AGENT["id"]).approval_in_tasks.default == "auto"
                 )
                 assert client.agents.list().data[0].approval_in_chat.default == "deny"
-                assert (
-                    client.agents.list_versions(AGENT["id"])
-                    .data[0]
-                    .approval_in_chat.default
-                    == "deny"
-                )
-                assert (
-                    client.agents.get_version(AGENT["id"], 3).approval_in_chat.default
-                    == "deny"
-                )
-                client.agents.restore_version(AGENT["id"], 3)
     bodies = [
         json.loads(request.body) if request.body else None for request in state.requests
     ]
@@ -168,9 +141,6 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
     assert bodies[1] == {"name": "renamed"}
     assert bodies[2] == {"approvalInChat": {"default": "full"}}
     assert bodies[3] == {"approvalInTasks": {"default": "deny", "overrides": []}}
-    assert bodies[9] is not None
-    assert bodies[9]["approvalInChat"] == WIRE
-    assert bodies[9]["approvalInTasks"] == {"default": "full", "overrides": []}
     assert original == POLICY
 
 

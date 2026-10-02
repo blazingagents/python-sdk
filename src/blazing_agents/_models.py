@@ -545,7 +545,6 @@ class Agent(ResponseModel):
     avatar_url: AnyUrl | None = Field(alias="avatarUrl")
     created_at: AwareDatetime = Field(alias="createdAt")
     updated_at: AwareDatetime = Field(alias="updatedAt")
-    version: int = Field(ge=1, le=2_147_483_647)
     status: NonEmptyString
 
     @model_validator(mode="after")
@@ -561,10 +560,7 @@ class AgentsPage(ResponseModel):
     next_cursor: str | None = Field(alias="nextCursor")
 
 
-class AgentVersion(ResponseModel):
-    agent_id: AgentId = Field(alias="agentId")
-    tenant_id: TenantId = Field(alias="tenantId")
-    version: int = Field(ge=1, le=2_147_483_647)
+class AgentConfig(ResponseModel):
     name: AgentName
     model: AgentModelId | None
     thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
@@ -584,19 +580,13 @@ class AgentVersion(ResponseModel):
     instructions: AgentInstructions
     metadata: dict[str, object]
     mcp_connection_ids: McpConnectionIds = Field(alias="mcpConnectionIds")
-    created_at: AwareDatetime = Field(alias="createdAt")
 
     @model_validator(mode="after")
-    def _validate_provider_model(self) -> AgentVersion:
+    def _validate_provider_model(self) -> AgentConfig:
         if (self.provider_id is None) != (self.model is None):
             msg = "providerId and model must both be present or both be null"
             raise ValueError(msg)
         return self
-
-
-class AgentVersionsPage(ResponseModel):
-    data: list[AgentVersion]
-    next_cursor: str | None = Field(alias="nextCursor")
 
 
 class McpAttachment(ResponseModel):
@@ -791,17 +781,16 @@ class ArtifactsPage(ResponseModel):
 
 class Session(ResponseModel):
     id: SessionId
-    agent_version: int | None = Field(
-        alias="agentVersion",
-        ge=1,
-        le=2_147_483_647,
-    )
     message_count: int = Field(alias="messageCount", ge=0)
     last_message_preview: str | None = Field(alias="lastMessagePreview")
     user_id: str = Field(alias="userId")
     metadata: dict[str, object]
     created_at: AwareDatetime = Field(alias="createdAt")
     updated_at: AwareDatetime = Field(alias="updatedAt")
+
+
+class SessionResponse(Session):
+    agent_config: AgentConfig = Field(alias="agentConfig")
 
 
 class SessionsPage(ResponseModel):
@@ -890,11 +879,6 @@ class Task(ResponseModel):
     id: TaskId
     tenant_id: TenantId = Field(alias="tenantId")
     agent_id: AgentId = Field(alias="agentId")
-    agent_version: int | None = Field(
-        alias="agentVersion",
-        ge=1,
-        le=2_147_483_647,
-    )
     name: Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=80),
@@ -948,7 +932,7 @@ class TaskRun(ResponseModel):
     task_id: TaskId = Field(alias="taskId")
     tenant_id: TenantId = Field(alias="tenantId")
     agent_id: AgentId = Field(alias="agentId")
-    agent_version: int = Field(alias="agentVersion", ge=1, le=2_147_483_647)
+    agent_config: AgentConfig = Field(alias="agentConfig")
     session_id: SessionId | None = Field(alias="sessionId")
     turn_id: TurnId | None = Field(alias="turnId")
     status: TaskRunStatus
