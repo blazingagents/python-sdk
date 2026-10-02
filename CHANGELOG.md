@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.10.0
+
+- Add backend functions to `chat()` on the sync and async clients. Define each
+  with `define_function(description=..., input_schema=..., execute=...)`, where
+  `input_schema` is a Pydantic model or other type, and pass them as
+  `functions={"name": function}`. Only descriptions and JSON Schema go to Blazing
+  Agents. The handler runs in your backend while the stream is consumed, inside
+  the same live Turn. The stream claims each call, validates its input, runs the
+  handler once, and submits a JSON result or a sanitized error. Retries reuse
+  the same claim nonce and outcome. Function control events are removed from
+  the relayed bytes. A permanent claim or result failure raises from the
+  stream.
+- Handlers receive a `FunctionContext` with `idempotency_key` (the `fc_` call
+  ID), `deadline_at`, and a `cancelled` `threading.Event`. The event is set at
+  the call deadline or when the stream closes. Async handlers are also
+  cancelled. Sync handlers stop only cooperatively. The sync client rejects
+  `async def` handlers; the async client runs sync handlers in a thread.
+- Add `resume_chat(agent_id=..., session_id=..., functions=...)`, which joins a
+  queued or running tool approval continuation after human approval and
+  reattaches handlers by name. `chat()` and `resume_chat()` forward
+  `extra_headers`, including `X-BA-User-Id`, to the claim and result requests.
+  New public types: `ChatFunction` and `FunctionContext`.
+
 ## 0.9.0
 
 - Add `client.chat_deliveries.list()` and lazy `iter()` on the sync and async
