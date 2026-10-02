@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
 
+from ._chat import AsyncChatStream, ChatStream
 from ._downloads import AsyncByteStream, ByteStream
+from ._functions import FunctionEventObserver
 from ._models import (
     Agent,
     AgentsPage,
@@ -4159,6 +4161,11 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ByteStream:
+        """Replay a continuation as an observer.
+
+        Private function events are removed and never claimed; use
+        ``resume_chat`` to execute functions.
+        """
         return self._transport.stream(
             _Request(
                 "GET",
@@ -4169,7 +4176,10 @@ class SessionsResource:
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,
-            )
+            ),
+            lambda response: ChatStream(
+                response, session_id, lambda _: FunctionEventObserver()
+            ),
         )
 
     def delete(
@@ -4342,6 +4352,11 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncByteStream:
+        """Replay a continuation as an observer.
+
+        Private function events are removed and never claimed; use
+        ``resume_chat`` to execute functions.
+        """
         return await self._transport.stream(
             _Request(
                 "GET",
@@ -4352,7 +4367,10 @@ class AsyncSessionsResource:
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,
-            )
+            ),
+            lambda response: AsyncChatStream(
+                response, session_id, lambda _: FunctionEventObserver()
+            ),
         )
 
     async def delete(

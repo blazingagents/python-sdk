@@ -4924,6 +4924,7 @@ def test_sync_tool_approval_decisions_rejoin_or_surface_server_conflicts() -> No
 
 
 def test_sync_tool_approval_continuation_detaches_and_rejoins_untouched() -> None:
+    observed_frame = b'data: {"type":"text-delta","delta":"seen"}\n\n'
     first_chunk = b'data: {"type":"text-delta","delta":"'
     terminal_chunks = (
         first_chunk,
@@ -4935,7 +4936,7 @@ def test_sync_tool_approval_continuation_detaches_and_rejoins_untouched() -> Non
     continuation_id = "tool-approval:ss:assistant/1"
     with loopback(
         Response(
-            chunks=(first_chunk, b"server-owned-work-continues"),
+            chunks=(observed_frame, b"server-owned-work-continues"),
             chunk_gate=gate,
             cancelled=detached,
             headers={
@@ -4959,7 +4960,7 @@ def test_sync_tool_approval_continuation_detaches_and_rejoins_untouched() -> Non
                 continuation_id=continuation_id,
             )
             body = iter(joined)
-            assert next(body) == first_chunk
+            assert next(body) == observed_frame
             joined.close()
             gate.set()
             assert detached.wait(timeout=1)
@@ -5028,7 +5029,7 @@ def test_async_tool_approval_lifecycle_matches_sync_and_rejoins_after_detach() -
         Response(status=202, body={**decision, "state": "succeeded"}),
         Response(status=409, body=conflict),
         Response(
-            chunks=(b"persisted-first", b"persisted-later"),
+            chunks=(b"data: persisted-first\n\n", b"data: persisted-later\n\n"),
             chunk_gate=gate,
             cancelled=detached,
         ),
@@ -5087,7 +5088,7 @@ def test_async_tool_approval_lifecycle_matches_sync_and_rejoins_after_detach() -
                     continuation_id=continuation_id,
                 )
                 body = aiter(joined)
-                assert await anext(body) == b"persisted-first"
+                assert await anext(body) == b"data: persisted-first\n\n"
                 await joined.aclose()
                 gate.set()
                 assert await asyncio.to_thread(detached.wait, 1)

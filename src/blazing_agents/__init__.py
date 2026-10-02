@@ -12,6 +12,7 @@ from ._errors import (
     ObjectValidationError,
     StreamError,
 )
+from ._functions import ChatFunction, FunctionContext, define_function
 from ._models import (
     Agent,
     AgentsPage,
@@ -244,9 +245,11 @@ __all__ = [
     "ChatDeliveryStatus",
     "ChatMessageInput",
     "ChatPromptInput",
+    "ChatFunction",
     "ChatStream",
     "ChatTrigger",
     "Completion",
+    "FunctionContext",
     "CompletionLiteralInput",
     "CompletionPromptInput",
     "CompletionStream",
@@ -385,4 +388,5 @@ __all__ = [
     "WorkspacesPage",
     "WorkspaceUpdate",
     "__version__",
+    "define_function",
 ]

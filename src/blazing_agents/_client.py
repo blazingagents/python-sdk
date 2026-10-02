@@ -6,10 +6,17 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 import httpx
 
-from ._chat import AsyncChatStream, ChatStream, chat_request
+from ._chat import AsyncChatStream, ChatStream, chat_request, resume_request
 from ._chat_connections import AsyncChatConnectionsResource, ChatConnectionsResource
 from ._chat_deliveries import AsyncChatDeliveriesResource, ChatDeliveriesResource
 from ._completion import AsyncCompletionStream, CompletionStream, generation_request
+from ._functions import (
+    AsyncFunctionRunner,
+    ChatFunction,
+    SyncFunctionRunner,
+    _CallScope,
+    function_definitions,
+)
 from ._object import (
     AsyncObjectStream,
     ObjectStream,
@@ -160,6 +167,7 @@ class BlazingAgents:
         version: int | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, _Opaque] | _Omitted = OMITTED,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
         client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -179,6 +187,7 @@ class BlazingAgents:
         version: _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, _Opaque] | _Omitted = OMITTED,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
         client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -197,6 +206,7 @@ class BlazingAgents:
         version: int | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, _Opaque] | _Omitted = OMITTED,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
         client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -212,13 +222,68 @@ class BlazingAgents:
             version=version,
             user_id=user_id,
             metadata=metadata,
+            functions=(
+                OMITTED
+                if isinstance(functions, _Omitted)
+                else function_definitions(functions, asynchronous=False) or OMITTED
+            ),
             client_request_id=client_request_id,
             extra_headers=extra_headers,
             timeout=timeout,
         )
         return self._transport.stream(
             request,
-            lambda response: ChatStream(response, resolved_session_id),
+            lambda response: ChatStream(
+                response,
+                resolved_session_id,
+                self._function_runner(agent_id, functions, extra_headers),
+            ),
+        )
+
+    def resume_chat(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        functions: Mapping[str, ChatFunction],
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> ChatStream:
+        """Join a queued or running approval continuation with these functions."""
+        function_definitions(functions, asynchronous=False)
+        approvals = self.sessions.tool_approvals(
+            agent_id=agent_id,
+            session_id=session_id,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
+        return self._transport.stream(
+            resume_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                continuation=approvals.continuation,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: ChatStream(
+                response,
+                session_id,
+                self._function_runner(agent_id, functions, extra_headers),
+            ),
+        )
+
+    def _function_runner(
+        self,
+        agent_id: str,
+        functions: Mapping[str, ChatFunction] | _Omitted,
+        extra_headers: Mapping[str, str] | None,
+    ) -> Callable[[str], SyncFunctionRunner] | None:
+        if isinstance(functions, _Omitted):
+            return None
+        return lambda session_id: SyncFunctionRunner(
+            self._transport,
+            _CallScope(agent_id, session_id, extra_headers),
+            functions,
         )
 
     def completion(
@@ -511,6 +576,7 @@ class AsyncBlazingAgents:
         version: int | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, _Opaque] | _Omitted = OMITTED,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
         client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -530,6 +596,7 @@ class AsyncBlazingAgents:
         version: _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, _Opaque] | _Omitted = OMITTED,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
         client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -548,6 +615,7 @@ class AsyncBlazingAgents:
         version: int | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, _Opaque] | _Omitted = OMITTED,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
         client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -563,13 +631,68 @@ class AsyncBlazingAgents:
             version=version,
             user_id=user_id,
             metadata=metadata,
+            functions=(
+                OMITTED
+                if isinstance(functions, _Omitted)
+                else function_definitions(functions, asynchronous=True) or OMITTED
+            ),
             client_request_id=client_request_id,
             extra_headers=extra_headers,
             timeout=timeout,
         )
         return await self._transport.stream(
             request,
-            lambda response: AsyncChatStream(response, resolved_session_id),
+            lambda response: AsyncChatStream(
+                response,
+                resolved_session_id,
+                self._function_runner(agent_id, functions, extra_headers),
+            ),
+        )
+
+    async def resume_chat(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        functions: Mapping[str, ChatFunction],
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> AsyncChatStream:
+        """Join a queued or running approval continuation with these functions."""
+        function_definitions(functions, asynchronous=True)
+        approvals = await self.sessions.tool_approvals(
+            agent_id=agent_id,
+            session_id=session_id,
+            extra_headers=extra_headers,
+            timeout=timeout,
+        )
+        return await self._transport.stream(
+            resume_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                continuation=approvals.continuation,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: AsyncChatStream(
+                response,
+                session_id,
+                self._function_runner(agent_id, functions, extra_headers),
+            ),
+        )
+
+    def _function_runner(
+        self,
+        agent_id: str,
+        functions: Mapping[str, ChatFunction] | _Omitted,
+        extra_headers: Mapping[str, str] | None,
+    ) -> Callable[[str], AsyncFunctionRunner] | None:
+        if isinstance(functions, _Omitted):
+            return None
+        return lambda session_id: AsyncFunctionRunner(
+            self._transport,
+            _CallScope(agent_id, session_id, extra_headers),
+            functions,
         )
 
     async def completion(
