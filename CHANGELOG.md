@@ -8,10 +8,12 @@
   `functions={"name": function}`. Only descriptions and JSON Schema go to Blazing
   Agents. The handler runs in your backend while the stream is consumed, inside
   the same live Turn. The stream claims each call, validates its input, runs the
-  handler once, and submits a JSON result or a sanitized error. Retries reuse
-  the same claim nonce and outcome. Function control events are removed from
-  the relayed bytes. A permanent claim or result failure raises from the
-  stream.
+  handler once, and submits its result or a sanitized error. Results must
+  already be plain JSON (`None`, `bool`, numbers, `str`, `list`, and `dict`
+  with string keys); NaN, Infinity, tuples, models, and dates are rejected
+  rather than coerced. Retries reuse the same claim nonce and outcome.
+  Function control events are removed from the relayed bytes. A malformed
+  control event or a permanent claim or result failure raises from the stream.
 - Handlers receive a `FunctionContext` with `idempotency_key` (the `fc_` call
   ID), `deadline_at`, and a `cancelled` `threading.Event`. The event is set at
   the call deadline or when the stream closes. Async handlers are also

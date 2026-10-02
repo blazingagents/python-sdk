@@ -8,6 +8,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
 from typing import Any
 
 import httpx
@@ -16,7 +17,6 @@ from pydantic import BaseModel
 
 import blazing_agents._functions as functions_module
 from blazing_agents import (
-    APIConnectionError,
     APIStatusError,
     AsyncBlazingAgents,
     BlazingAgents,
@@ -725,10 +725,68 @@ def test_runner_skips_calls_started_after_close_and_parses_retry_after() -> None
         response_body="",
     )
     assert functions_module._retry_delay(error, 10) == 0.002
+    for retry_after, expected in (
+        (format_datetime(datetime.now(UTC) + timedelta(seconds=30)), 25.0),
+        (format_datetime(datetime.now(UTC) - timedelta(seconds=30)), 0.0),
+    ):
+        error.retry_after = retry_after
+        delay = functions_module._retry_delay(error, 0)
+        assert delay is not None
+        assert expected <= delay <= expected + 5.5
 
 
-def test_sync_exhausted_result_retries_fail_stream_at_end(
+class Shape(BaseModel):
+    value: int
+
+
+def returns_datetime(order: Order, context: FunctionContext) -> object:
+    return datetime.now(UTC)
+
+
+def returns_model(order: Order, context: FunctionContext) -> object:
+    return Shape(value=1)
+
+
+def returns_tuple(order: Order, context: FunctionContext) -> object:
+    return {"pair": (1, 2)}
+
+
+def returns_int_keys(order: Order, context: FunctionContext) -> object:
+    return {1: "one"}
+
+
+def returns_cycle(order: Order, context: FunctionContext) -> object:
+    cycle: list[object] = []
+    cycle.append(cycle)
+    return cycle
+
+
+@pytest.mark.parametrize(
+    "execute",
+    [returns_datetime, returns_model, returns_tuple, returns_int_keys, returns_cycle],
+)
+def test_sync_results_must_already_be_plain_json(
+    execute: Callable[[Order, FunctionContext], object],
+) -> None:
+    platform = FakePlatform([ready(), Wait(CALL_ID), TEXT])
+    function = define_function(description="d", input_schema=Order, execute=execute)
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": function},
+        )
+        assert b"".join(stream) == TEXT
+    assert platform.calls[CALL_ID].outcome == {
+        "kind": "error",
+        "message": "Function returned an invalid result.",
+    }
+
+
+def test_sync_expired_result_retries_end_without_failing_stream(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(functions_module, "_RESULT_GRACE_SECONDS", 0)
     exhausted = threading.Event()
@@ -744,9 +802,10 @@ def test_sync_exhausted_result_retries_fail_stream_at_end(
             functions={"getOrder": get_order([])},
         )
         threading.Timer(0.5, exhausted.set).start()
-        with pytest.raises(APIConnectionError):
-            b"".join(stream)
+        assert b"".join(stream) == b""
     assert platform.call(CALL_ID).state == "running"
+    assert len(platform.bodies("/result")) > 1
+    assert "result failed" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -755,6 +814,8 @@ def test_sync_exhausted_result_retries_fail_stream_at_end(
         ready().replace(b'"transient": true', b'"transient": false'),
         ready(name="bash"),
         ready("fc_short"),
+        b"data: data-ba-function-call\n\n",
+        b'data: {"type":"data-ba-function-call",\n\n',
     ],
 )
 def test_malformed_ready_event_is_stripped_and_raises(malformed: bytes) -> None:
@@ -774,11 +835,11 @@ def test_malformed_ready_event_is_stripped_and_raises(malformed: bytes) -> None:
 
 def test_frames_preserve_unrelated_events_crlf_and_trailing_bytes() -> None:
     lookalike = b'data: {"type":"text-delta","delta":"data-ba-function-call"}\n\n'
-    not_json = b"data: data-ba-function-call\n\n"
+    not_data = b"event: data-ba-function-call\ndata: {}\n\n"
     array = b'data: ["data-ba-function-call"]\n\n'
     crlf = ready().replace(b"\n\n", b"\r\n\r\n")
     platform = FakePlatform(
-        [lookalike[:10], lookalike[10:] + not_json, array, crlf, Wait(CALL_ID), b"tail"]
+        [lookalike[:10], lookalike[10:] + not_data, array, crlf, Wait(CALL_ID), b"tail"]
     )
     with platform.sync_client() as client:
         stream = client.chat(
@@ -787,7 +848,7 @@ def test_frames_preserve_unrelated_events_crlf_and_trailing_bytes() -> None:
             message=MESSAGE,
             functions={"getOrder": get_order([])},
         )
-        assert b"".join(stream) == lookalike + not_json + array + b"tail"
+        assert b"".join(stream) == lookalike + not_data + array + b"tail"
 
 
 def test_function_definitions_are_validated_locally() -> None:

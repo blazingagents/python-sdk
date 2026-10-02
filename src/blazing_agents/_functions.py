@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast, get_args
 from urllib.parse import quote
 
@@ -23,7 +24,6 @@ from pydantic import (
     TypeAdapter,
     ValidationError,
 )
-from pydantic_core import PydanticSerializationError, to_jsonable_python
 
 from ._errors import APIStatusError, BlazingAgentsError, StreamError
 from ._transport import AsyncTransport, SyncTransport, _Request
@@ -177,6 +177,11 @@ class SseFrames:
 
 
 def function_call(frame: bytes, response: httpx.Response) -> _FunctionCall | None:
+    """The function call a frame authorizes, or None to relay it unchanged.
+
+    A frame naming the private event that does not parse or validate never
+    reaches the consumer; it fails the stream instead.
+    """
     if _EVENT_TYPE.encode() not in frame:
         return None
     data = "\n".join(
@@ -184,17 +189,17 @@ def function_call(frame: bytes, response: httpx.Response) -> _FunctionCall | Non
         for line in frame.decode("utf-8", "replace").splitlines()
         if line.startswith("data:")
     )
+    if _EVENT_TYPE not in data:
+        return None
     try:
         payload: object = json.loads(data)
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    if cast(dict[str, object], payload).get("type") != _EVENT_TYPE:
-        return None
-    try:
+        if (
+            not isinstance(payload, dict)
+            or cast(dict[str, object], payload).get("type") != _EVENT_TYPE
+        ):
+            return None
         return _FunctionCallEvent.model_validate(payload).data
-    except ValidationError:
+    except (ValueError, ValidationError):
         raise StreamError(
             "The server sent a malformed function call event.",
             response=response,
@@ -219,13 +224,17 @@ def _error(message: str) -> dict[str, object]:
 
 
 def _output(name: str, value: object) -> dict[str, object]:
-    outcome: dict[str, object] = {"kind": "output"}
+    """Accept only plain JSON: no NaN, Infinity, tuples, non-str keys or objects."""
+    outcome: dict[str, object] = {"kind": "output", "value": value}
+    encoded = ""
     try:
-        outcome["value"] = to_jsonable_python(value)
         encoded = json.dumps(
             outcome, separators=(",", ":"), ensure_ascii=False, allow_nan=False
         )
-    except (PydanticSerializationError, ValueError):
+        plain = json.loads(encoded) == outcome
+    except (TypeError, ValueError, RecursionError):
+        plain = False
+    if not plain:
         _LOGGER.warning("Function %s returned a non-JSON value", name)
         return _error(INVALID_RESULT)
     if len(encoded.encode()) > MAX_PAYLOAD_BYTES:
@@ -242,6 +251,12 @@ def _retry_delay(error: BlazingAgentsError, attempt: int) -> float | None:
         retry_after: str | None = error.retry_after
         if retry_after is not None and retry_after.isdigit():
             return float(retry_after)
+        try:
+            retry_at = parsedate_to_datetime(cast(str, retry_after))
+        except (TypeError, ValueError):
+            pass
+        else:
+            return max(0.0, retry_at.timestamp() - time.time())
     return min(_FIRST_RETRY_DELAY * 2.0**attempt, _MAX_RETRY_DELAY)
 
 
@@ -279,7 +294,8 @@ class _Runner:
             _LOGGER.debug("Function call %s %s was refused", call.id, action)
             return
         _LOGGER.warning("Function call %s %s failed: %s", call.id, action, error)
-        self.failure = self.failure or error
+        if _retry_delay(error, 0) is None:
+            self.failure = self.failure or error
 
 
 class SyncFunctionRunner(_Runner):
@@ -385,7 +401,7 @@ class SyncFunctionRunner(_Runner):
                 return True
             except BlazingAgentsError as error:
                 delay = _retry_delay(error, attempt)
-                if delay is None or time.time() + delay > until:
+                if delay is None or time.time() + delay >= until:
                     self._give_up(action, call, error)
                     return False
             if self._closed.wait(delay):
@@ -503,7 +519,7 @@ class AsyncFunctionRunner(_Runner):
                 return True
             except BlazingAgentsError as error:
                 delay = _retry_delay(error, attempt)
-                if delay is None or time.time() + delay > until:
+                if delay is None or time.time() + delay >= until:
                     self._give_up(action, call, error)
                     return False
             await asyncio.sleep(delay)
