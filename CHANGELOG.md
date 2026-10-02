@@ -27,6 +27,12 @@
   function control events and never runs functions, so it relays complete SSE
   events rather than raw chunks. New public types: `ChatFunction` and
   `FunctionContext`.
+- `ToolApproval.tool` is now a `ToolExecutionReference`, which adds
+  `FunctionToolReference` (`type="function"`) to the built-in and MCP
+  references, so approvals that pause on a backend function parse. Approval
+  policy overrides still accept only built-in and MCP tools through
+  `ToolReference`. New public types: `FunctionToolReference` and
+  `ToolExecutionReference`.
 
 ## 0.9.0
 
