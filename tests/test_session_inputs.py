@@ -308,6 +308,10 @@ def test_unsafe_identities_are_rejected_before_any_request(call: Call) -> None:
         {"data": receipt(), "activity": {**RUNNING, "turnId": "tr_0123456789abcdef"}},
         {"data": receipt(requestId="x" * 129), "activity": RUNNING},
         {"data": receipt(requestId=".."), "activity": RUNNING},
+        {
+            "data": receipt(message={**MESSAGE, "role": "assistant"}),
+            "activity": RUNNING,
+        },
     ],
 )
 def test_malformed_receipts_are_rejected(body: dict[str, Any]) -> None:

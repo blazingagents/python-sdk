@@ -845,6 +845,13 @@ def _not_dot_segment(value: str) -> str:
     return value
 
 
+class SessionInputMessage(ResponseModel):
+    id: NonEmptyString
+    role: Literal["user"]
+    parts: list[SessionMessagePart] = Field(min_length=1)
+    metadata: object | None = None
+
+
 class SessionActivity(ResponseModel):
     """Whether the Session is running a Turn, stopping, or paused."""
 
@@ -867,7 +874,7 @@ class SessionInput(ResponseModel):
         AfterValidator(_not_dot_segment),
     ] = Field(alias="requestId")
     sequence: int = Field(ge=1)
-    message: SessionMessage
+    message: SessionInputMessage
     mode: SessionInputMode
     state: SessionInputState
     turn_id: TurnId | None = Field(alias="turnId")
