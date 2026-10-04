@@ -20,6 +20,7 @@ from ._completion import AsyncCompletionStream, CompletionStream, generation_req
 from ._functions import (
     AsyncFunctionRunner,
     ChatFunction,
+    FunctionEventObserver,
     SyncFunctionRunner,
     _CallScope,
     function_definitions,
@@ -288,6 +289,8 @@ class BlazingAgents:
 
         Use this when automatic draining is paused with
         ``function_executor_required``; nonempty ``functions`` clear the pause.
+        Without ``functions`` the stream is an observer that removes function
+        events.
         """
         return self._transport.stream(
             run_inputs_request(
@@ -304,7 +307,8 @@ class BlazingAgents:
             lambda response: ChatStream(
                 response,
                 session_id,
-                self._function_runner(agent_id, functions, extra_headers),
+                self._function_runner(agent_id, functions, extra_headers)
+                or (lambda _: FunctionEventObserver()),
             ),
         )
 
@@ -741,6 +745,8 @@ class AsyncBlazingAgents:
 
         Use this when automatic draining is paused with
         ``function_executor_required``; nonempty ``functions`` clear the pause.
+        Without ``functions`` the stream is an observer that removes function
+        events.
         """
         return await self._transport.stream(
             run_inputs_request(
@@ -757,7 +763,8 @@ class AsyncBlazingAgents:
             lambda response: AsyncChatStream(
                 response,
                 session_id,
-                self._function_runner(agent_id, functions, extra_headers),
+                self._function_runner(agent_id, functions, extra_headers)
+                or (lambda _: FunctionEventObserver()),
             ),
         )
 

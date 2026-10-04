@@ -363,13 +363,14 @@ def test_run_inputs_admits_queue_with_functions_and_executes_them() -> None:
     assert len(platform.bodies("/claim")) == 1
 
 
-def test_async_run_inputs_without_functions_sends_empty_body() -> None:
+def test_async_run_inputs_without_functions_observes_with_empty_body() -> None:
     async def exercise() -> None:
-        platform = FakePlatform([HEARTBEAT, TEXT, DONE])
+        platform = FakePlatform([HEARTBEAT, ready(), TEXT, DONE])
         async with platform.async_client() as client:
             stream = await client.run_inputs(agent_id=AGENT, session_id=SESSION)
             assert await drain(stream) == [HEARTBEAT, TEXT, DONE]
         assert platform.requests[0].body == {}
+        assert platform.bodies("/claim") == []
         assert platform.requests[0].path == f"{BASE}/inputs/run"
 
     asyncio.run(exercise())
@@ -511,3 +512,12 @@ def test_async_unsafe_identities_are_rejected_before_any_request(value: str) -> 
     with loopback() as (base_url, state):
         asyncio.run(exercise(base_url))
     assert state.requests == []
+
+
+def test_sync_run_inputs_without_functions_strips_function_events() -> None:
+    platform = FakePlatform([HEARTBEAT, ready(), TEXT, DONE])
+    with platform.sync_client() as client:
+        stream = client.run_inputs(agent_id=AGENT, session_id=SESSION)
+        assert b"".join(stream) == HEARTBEAT + TEXT + DONE
+    assert platform.requests[0].body == {}
+    assert platform.bodies("/claim") == []
