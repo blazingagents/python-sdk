@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.12.0
+
+- Add durable Session inputs on the sync and async `sessions` resources.
+  `submit_input(agent_id=..., session_id=..., request_id=..., message=...,
+  when_busy="queue" | "steer")` returns a `SessionInputResponse` receipt once
+  the input is stored. An idle Session starts a new Turn. While a Turn is
+  running, `"queue"` (the default) waits for the next Turn and `"steer"` joins
+  the running Turn. When an outcome is unknown, retry with the same
+  `request_id` and payload; a changed payload raises `APIStatusError` with code
+  `input_idempotency_conflict`.
+- `inputs()` lists receipts in admission order, together with the Session's
+  `SessionActivity`. To observe changes, poll without `cursor`; `cursor` only
+  pages. `promote_input()` turns a pending queued input into steering without
+  changing its identity or order. `delete_input()` withdraws an input that has
+  not been delivered. After delivery, both raise `input_not_pending`.
+- `stop(turn_id=...)` returns once the named Turn has settled. Pending queued
+  inputs then start one new Turn. `resume_inputs()` clears a paused Session and
+  schedules its pending queue. Neither one bypasses a waiting tool approval
+  (`session_busy`).
+- Add `run_inputs(agent_id=..., session_id=..., functions=...)` to the sync
+  and async clients. It runs the pending queue as one Turn and executes its
+  backend functions while you consume the stream. This is how to continue
+  after a Session pauses with `function_executor_required`; nonempty
+  `functions` clear that pause. `join_input_turn(turn_id=..., functions=...)`
+  reattaches a function executor to a queued-input Turn that has already been
+  admitted. `sessions.join_input_turn()` streams such a Turn from its start as
+  an observer: it removes function events and never runs functions.
+  Disconnecting does not stop the Turn; use `stop()` to stop it.
+- New public types: `SessionInput`, `SessionInputResponse`,
+  `SessionInputsPage`, `SessionActivity`, `SessionActivityResponse`,
+  `SessionStopResponse`, `SessionInputMode`, `SessionInputState`,
+  `SessionInputReason`, `SessionActivityState`, and `SessionActivityReason`.
+
 ## 0.11.0
 
 - Add `AgentConfig` to Session detail and TaskRun responses. Use

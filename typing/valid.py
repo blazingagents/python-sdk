@@ -33,6 +33,13 @@ from blazing_agents import (
     MemoryResponse,
     ObjectStream,
     Session,
+    SessionActivityResponse,
+    SessionActivityState,
+    SessionInputMode,
+    SessionInputResponse,
+    SessionInputsPage,
+    SessionInputState,
+    SessionStopResponse,
     Skill,
     SkillDetail,
     SkillsPage,
@@ -503,3 +510,79 @@ def approval_reference_examples(client: BlazingAgents) -> None:
         assert_type(approval.tool, ToolExecutionReference | None)
         if approval.tool is not None and approval.tool.type == "function":
             assert_type(approval.tool.name, str)
+
+
+def session_input_examples(client: BlazingAgents) -> None:
+    message = {"id": "m1", "role": "user", "parts": [{"type": "text", "text": "Hi"}]}
+    submitted = client.sessions.submit_input(
+        agent_id="ag_example",
+        session_id="ss_example",
+        request_id="draft-1",
+        message=message,
+        when_busy="steer",
+    )
+    assert_type(submitted, SessionInputResponse)
+    assert_type(submitted.data.mode, SessionInputMode)
+    assert_type(submitted.data.state, SessionInputState)
+    assert_type(submitted.activity.state, SessionActivityState)
+    page = client.sessions.inputs(
+        agent_id="ag_example", session_id="ss_example", include_completed=True
+    )
+    assert_type(page, SessionInputsPage)
+    assert_type(
+        client.sessions.stop(
+            agent_id="ag_example", session_id="ss_example", turn_id="turn_example"
+        ),
+        SessionStopResponse,
+    )
+
+
+async def async_session_input_examples(client: AsyncBlazingAgents) -> None:
+    assert_type(
+        await client.sessions.promote_input(
+            agent_id="ag_example", session_id="ss_example", request_id="draft-1"
+        ),
+        SessionInputResponse,
+    )
+    assert_type(
+        await client.sessions.delete_input(
+            agent_id="ag_example", session_id="ss_example", request_id="draft-1"
+        ),
+        SessionInputResponse,
+    )
+    assert_type(
+        await client.sessions.resume_inputs(
+            agent_id="ag_example", session_id="ss_example"
+        ),
+        SessionActivityResponse,
+    )
+
+
+def input_turn_examples(client: BlazingAgents, function: ChatFunction) -> None:
+    assert_type(
+        client.run_inputs(
+            agent_id="ag_example",
+            session_id="ss_example",
+            functions={"lookupOrder": function},
+        ),
+        ChatStream,
+    )
+    assert_type(
+        client.join_input_turn(
+            agent_id="ag_example",
+            session_id="ss_example",
+            turn_id="turn_example",
+            functions={"lookupOrder": function},
+        ),
+        ChatStream,
+    )
+    client.sessions.join_input_turn(
+        agent_id="ag_example", session_id="ss_example", turn_id="turn_example"
+    )
+
+
+async def async_input_turn_examples(client: AsyncBlazingAgents) -> None:
+    assert_type(
+        await client.run_inputs(agent_id="ag_example", session_id="ss_example"),
+        AsyncChatStream,
+    )

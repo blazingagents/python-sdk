@@ -20,7 +20,17 @@ from pydantic import (
     model_validator,
 )
 
-from ._types import AgentTool, ApprovalDecision, BuiltinToolName, ChatDeliveryStatus
+from ._types import (
+    AgentTool,
+    ApprovalDecision,
+    BuiltinToolName,
+    ChatDeliveryStatus,
+    SessionActivityReason,
+    SessionActivityState,
+    SessionInputMode,
+    SessionInputReason,
+    SessionInputState,
+)
 
 SkillId: TypeAlias = Annotated[
     str,
@@ -827,6 +837,56 @@ class SessionMessagesPage(ResponseModel):
     data: list[SessionMessage]
     next_cursor: str | None = Field(alias="nextCursor")
     latest_cursor: str | None = Field(alias="latestCursor")
+
+
+class SessionActivity(ResponseModel):
+    """Whether the Session is running a Turn, stopping, or paused."""
+
+    state: SessionActivityState
+    turn_id: TurnId | None = Field(alias="turnId")
+    reason: SessionActivityReason | None
+
+
+class SessionInput(ResponseModel):
+    """A durable receipt for a message submitted to a Session.
+
+    ``request_id`` and ``sequence`` never change; promotion changes only
+    ``mode``. ``cancelled`` and ``uncertain`` inputs may already have been
+    seen by the model and are never replayed automatically.
+    """
+
+    request_id: Annotated[str, StringConstraints(min_length=1, max_length=128)] = Field(
+        alias="requestId"
+    )
+    sequence: int = Field(ge=1)
+    message: SessionMessage
+    mode: SessionInputMode
+    state: SessionInputState
+    turn_id: TurnId | None = Field(alias="turnId")
+    created_at: AwareDatetime = Field(alias="createdAt")
+    updated_at: AwareDatetime = Field(alias="updatedAt")
+    consumed_at: AwareDatetime | None = Field(alias="consumedAt")
+    reason: SessionInputReason | None
+
+
+class SessionInputResponse(ResponseModel):
+    data: SessionInput
+    activity: SessionActivity
+
+
+class SessionInputsPage(ResponseModel):
+    data: list[SessionInput]
+    next_cursor: str | None = Field(alias="nextCursor")
+    activity: SessionActivity
+
+
+class SessionStopResponse(ResponseModel):
+    stopped_turn_id: TurnId = Field(alias="stoppedTurnId")
+    activity: SessionActivity
+
+
+class SessionActivityResponse(ResponseModel):
+    activity: SessionActivity
 
 
 class TaskOnceConfig(ResponseModel):

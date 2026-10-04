@@ -226,6 +226,48 @@ def chat_request(
     )
 
 
+def input_turn_request(
+    *,
+    agent_id: str,
+    session_id: str,
+    turn_id: str,
+    extra_headers: Mapping[str, str] | None,
+    timeout: Timeout | _Omitted,
+) -> _Request:
+    if not turn_id:
+        raise ValueError("turn_id must not be empty.")
+    return _Request(
+        "GET",
+        (
+            f"/v1/agents/{quote(agent_id, safe='')}"
+            f"/sessions/{quote(session_id, safe='')}"
+            f"/input-turns/{quote(turn_id, safe='')}"
+        ),
+        extra_headers=extra_headers,
+        timeout=timeout,
+    )
+
+
+def run_inputs_request(
+    *,
+    agent_id: str,
+    session_id: str,
+    functions: dict[str, object] | _Omitted,
+    extra_headers: Mapping[str, str] | None,
+    timeout: Timeout | _Omitted,
+) -> _Request:
+    return _Request(
+        "POST",
+        (
+            f"/v1/agents/{quote(agent_id, safe='')}"
+            f"/sessions/{quote(session_id, safe='')}/inputs/run"
+        ),
+        json_body={} if isinstance(functions, _Omitted) else {"functions": functions},
+        extra_headers=extra_headers,
+        timeout=timeout,
+    )
+
+
 def resume_request(
     *,
     agent_id: str,
