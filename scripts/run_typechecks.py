@@ -42,6 +42,7 @@ def main() -> None:
         project / "typing" / "invalid_agent_configuration.py",
         project / "typing" / "invalid_request_literal.py",
         project / "typing" / "invalid_request_unknown.py",
+        project / "typing" / "invalid_session_input_mode.py",
         project / "typing" / "invalid_simultaneous.py",
         project / "typing" / "invalid_workspace_none.py",
         project / "typing" / "invalid_workspace_none_request.py",

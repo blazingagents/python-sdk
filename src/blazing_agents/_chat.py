@@ -226,6 +226,53 @@ def chat_request(
     )
 
 
+def path_segment(name: str, value: str) -> str:
+    """Percent-encode a caller identity, rejecting values a URL would collapse."""
+    if value in {"", ".", ".."}:
+        raise ValueError(f"{name} must not be empty, '.' or '..'.")
+    return quote(value, safe="")
+
+
+def input_turn_request(
+    *,
+    agent_id: str,
+    session_id: str,
+    turn_id: str,
+    extra_headers: Mapping[str, str] | None,
+    timeout: Timeout | _Omitted,
+) -> _Request:
+    return _Request(
+        "GET",
+        (
+            f"/v1/agents/{quote(agent_id, safe='')}"
+            f"/sessions/{quote(session_id, safe='')}"
+            f"/input-turns/{path_segment('turn_id', turn_id)}"
+        ),
+        extra_headers=extra_headers,
+        timeout=timeout,
+    )
+
+
+def run_inputs_request(
+    *,
+    agent_id: str,
+    session_id: str,
+    functions: dict[str, object] | _Omitted,
+    extra_headers: Mapping[str, str] | None,
+    timeout: Timeout | _Omitted,
+) -> _Request:
+    return _Request(
+        "POST",
+        (
+            f"/v1/agents/{quote(agent_id, safe='')}"
+            f"/sessions/{quote(session_id, safe='')}/inputs/run"
+        ),
+        json_body={} if isinstance(functions, _Omitted) else {"functions": functions},
+        extra_headers=extra_headers,
+        timeout=timeout,
+    )
+
+
 def resume_request(
     *,
     agent_id: str,

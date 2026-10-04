@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
 
-from ._chat import AsyncChatStream, ChatStream
+from ._chat import AsyncChatStream, ChatStream, input_turn_request, path_segment
 from ._downloads import AsyncByteStream, ByteStream
 from ._functions import FunctionEventObserver
 from ._models import (
@@ -36,9 +36,13 @@ from ._models import (
     ProviderModels,
     Providers,
     Session,
+    SessionActivityResponse,
+    SessionInputResponse,
+    SessionInputsPage,
     SessionMessagesPage,
     SessionResponse,
     SessionsPage,
+    SessionStopResponse,
     Skill,
     SkillCopyResult,
     SkillCopyResults,
@@ -78,6 +82,7 @@ from ._types import (
     McpConnectionAuthType,
     ProviderType,
     QuotaUpdate,
+    SessionInputMode,
     SkillArchiveType,
     TaskScheduleInput,
     Timeout,
@@ -219,6 +224,40 @@ def _sessions_path(agent_id: str, session_id: str | None = None) -> str:
     if session_id is not None:
         return f"{path}/{quote(session_id, safe='')}"
     return path
+
+
+def _inputs_path(agent_id: str, session_id: str, request_id: str | None = None) -> str:
+    path = f"{_sessions_path(agent_id, session_id)}/inputs"
+    if request_id is None:
+        return path
+    return f"{path}/{path_segment('request_id', request_id)}"
+
+
+def _inputs_body(
+    request_id: str,
+    message: Mapping[str, object],
+    when_busy: SessionInputMode | _Omitted,
+) -> dict[str, object]:
+    path_segment("request_id", request_id)
+    body: dict[str, object] = {"requestId": request_id, "message": message}
+    if not isinstance(when_busy, _Omitted):
+        body["whenBusy"] = when_busy
+    return body
+
+
+def _inputs_query(
+    include_completed: bool | _Omitted,
+    cursor: str | _Omitted,
+    limit: int | _Omitted,
+) -> dict[str, str | int]:
+    query: dict[str, str | int] = {}
+    if not isinstance(include_completed, _Omitted):
+        query["includeCompleted"] = str(include_completed).lower()
+    if not isinstance(cursor, _Omitted):
+        query["cursor"] = cursor
+    if not isinstance(limit, _Omitted):
+        query["limit"] = limit
+    return query
 
 
 def _sessions_query(
@@ -3990,6 +4029,178 @@ class SessionsResource:
             ),
         )
 
+    def join_input_turn(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        turn_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> ByteStream:
+        """Stream a queued-input Turn from its start as an observer.
+
+        Disconnecting does not stop the Turn. Private function events are
+        removed and never claimed; use ``join_input_turn`` on the client to
+        execute functions.
+        """
+        return self._transport.stream(
+            input_turn_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=turn_id,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: ChatStream(
+                response, session_id, lambda _: FunctionEventObserver()
+            ),
+        )
+
+    def submit_input(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        message: Mapping[str, object],
+        when_busy: SessionInputMode | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputResponse:
+        """Durably submit a user message to an existing Session.
+
+        An idle Session starts a new Turn. While busy, ``when_busy="queue"``
+        (the default) waits for the next Turn and ``"steer"`` joins the
+        running Turn. Retry with the same ``request_id`` and payload after an
+        unknown outcome; a changed payload raises ``input_idempotency_conflict``.
+        """
+        return self._transport.request(
+            _Request(
+                "POST",
+                _inputs_path(agent_id, session_id),
+                json_body=_inputs_body(request_id, message, when_busy),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputResponse,
+        )
+
+    def inputs(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        include_completed: bool | _Omitted = OMITTED,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputsPage:
+        """List input receipts in admission order with the Session activity.
+
+        Poll without ``cursor`` to observe changes; ``cursor`` only pages.
+        """
+        return self._transport.request(
+            _Request(
+                "GET",
+                _inputs_path(agent_id, session_id),
+                query=_inputs_query(include_completed, cursor, limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputsPage,
+        )
+
+    def promote_input(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputResponse:
+        """Change a pending queued input to steering, keeping its identity."""
+        return self._transport.request(
+            _Request(
+                "POST",
+                f"{_inputs_path(agent_id, session_id, request_id)}/promote",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputResponse,
+        )
+
+    def delete_input(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputResponse:
+        """Withdraw an input that has not been delivered yet.
+
+        Raises ``input_not_pending`` once delivery has won.
+        """
+        return self._transport.request(
+            _Request(
+                "DELETE",
+                _inputs_path(agent_id, session_id, request_id),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputResponse,
+        )
+
+    def resume_inputs(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionActivityResponse:
+        """Clear a ``failed`` or ``owner_lost`` pause and schedule pending inputs.
+
+        A ``function_executor_required`` pause stays; use ``run_inputs``.
+        """
+        return self._transport.request(
+            _Request(
+                "POST",
+                f"{_inputs_path(agent_id, session_id)}/resume",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionActivityResponse,
+        )
+
+    def stop(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        turn_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionStopResponse:
+        """Stop the named Turn and return once it has settled.
+
+        Pending queued inputs then start the next Turn.
+        """
+        return self._transport.request(
+            _Request(
+                "POST",
+                f"{_sessions_path(agent_id, session_id)}/stop",
+                json_body={"turnId": turn_id},
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionStopResponse,
+        )
+
     def delete(
         self,
         *,
@@ -4197,6 +4408,178 @@ class AsyncSessionsResource:
             lambda response: AsyncChatStream(
                 response, session_id, lambda _: FunctionEventObserver()
             ),
+        )
+
+    async def join_input_turn(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        turn_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> AsyncByteStream:
+        """Stream a queued-input Turn from its start as an observer.
+
+        Disconnecting does not stop the Turn. Private function events are
+        removed and never claimed; use ``join_input_turn`` on the client to
+        execute functions.
+        """
+        return await self._transport.stream(
+            input_turn_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=turn_id,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: AsyncChatStream(
+                response, session_id, lambda _: FunctionEventObserver()
+            ),
+        )
+
+    async def submit_input(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        message: Mapping[str, object],
+        when_busy: SessionInputMode | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputResponse:
+        """Durably submit a user message to an existing Session.
+
+        An idle Session starts a new Turn. While busy, ``when_busy="queue"``
+        (the default) waits for the next Turn and ``"steer"`` joins the
+        running Turn. Retry with the same ``request_id`` and payload after an
+        unknown outcome; a changed payload raises ``input_idempotency_conflict``.
+        """
+        return await self._transport.request(
+            _Request(
+                "POST",
+                _inputs_path(agent_id, session_id),
+                json_body=_inputs_body(request_id, message, when_busy),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputResponse,
+        )
+
+    async def inputs(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        include_completed: bool | _Omitted = OMITTED,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputsPage:
+        """List input receipts in admission order with the Session activity.
+
+        Poll without ``cursor`` to observe changes; ``cursor`` only pages.
+        """
+        return await self._transport.request(
+            _Request(
+                "GET",
+                _inputs_path(agent_id, session_id),
+                query=_inputs_query(include_completed, cursor, limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputsPage,
+        )
+
+    async def promote_input(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputResponse:
+        """Change a pending queued input to steering, keeping its identity."""
+        return await self._transport.request(
+            _Request(
+                "POST",
+                f"{_inputs_path(agent_id, session_id, request_id)}/promote",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputResponse,
+        )
+
+    async def delete_input(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionInputResponse:
+        """Withdraw an input that has not been delivered yet.
+
+        Raises ``input_not_pending`` once delivery has won.
+        """
+        return await self._transport.request(
+            _Request(
+                "DELETE",
+                _inputs_path(agent_id, session_id, request_id),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionInputResponse,
+        )
+
+    async def resume_inputs(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionActivityResponse:
+        """Clear a ``failed`` or ``owner_lost`` pause and schedule pending inputs.
+
+        A ``function_executor_required`` pause stays; use ``run_inputs``.
+        """
+        return await self._transport.request(
+            _Request(
+                "POST",
+                f"{_inputs_path(agent_id, session_id)}/resume",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionActivityResponse,
+        )
+
+    async def stop(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        turn_id: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionStopResponse:
+        """Stop the named Turn and return once it has settled.
+
+        Pending queued inputs then start the next Turn.
+        """
+        return await self._transport.request(
+            _Request(
+                "POST",
+                f"{_sessions_path(agent_id, session_id)}/stop",
+                json_body={"turnId": turn_id},
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionStopResponse,
         )
 
     async def delete(

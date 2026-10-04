@@ -26,6 +26,13 @@ JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
 ChatDeliveryStatus = Literal["pending", "confirmed", "failed", "ambiguous"]
 ChatDeliveryListStatus = Literal["failed", "ambiguous"]
+SessionInputMode = Literal["queue", "steer"]
+SessionInputState = Literal[
+    "accepted", "delivered", "consumed", "committed", "cancelled", "uncertain"
+]
+SessionInputReason = Literal["stopped", "failed", "owner_lost", "deleted"]
+SessionActivityState = Literal["idle", "running", "stopping", "approval", "paused"]
+SessionActivityReason = Literal["failed", "owner_lost", "function_executor_required"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
 AgentTool = Literal["workspace", "write_todos", "memory"]
 ApprovalDecision = Literal["full", "deny", "manual", "auto"]

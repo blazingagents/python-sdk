@@ -6,13 +6,21 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 import httpx
 
-from ._chat import AsyncChatStream, ChatStream, chat_request, resume_request
+from ._chat import (
+    AsyncChatStream,
+    ChatStream,
+    chat_request,
+    input_turn_request,
+    resume_request,
+    run_inputs_request,
+)
 from ._chat_connections import AsyncChatConnectionsResource, ChatConnectionsResource
 from ._chat_deliveries import AsyncChatDeliveriesResource, ChatDeliveriesResource
 from ._completion import AsyncCompletionStream, CompletionStream, generation_request
 from ._functions import (
     AsyncFunctionRunner,
     ChatFunction,
+    FunctionEventObserver,
     SyncFunctionRunner,
     _CallScope,
     function_definitions,
@@ -258,6 +266,69 @@ class BlazingAgents:
                 agent_id=agent_id,
                 session_id=session_id,
                 continuation=approvals.continuation,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: ChatStream(
+                response,
+                session_id,
+                self._function_runner(agent_id, functions, extra_headers),
+            ),
+        )
+
+    def run_inputs(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> ChatStream:
+        """Run the pending queued inputs as one Turn with these functions.
+
+        Use this when automatic draining is paused with
+        ``function_executor_required``; nonempty ``functions`` clear the pause.
+        Without ``functions`` the stream is an observer that removes function
+        events.
+        """
+        return self._transport.stream(
+            run_inputs_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                functions=(
+                    OMITTED
+                    if isinstance(functions, _Omitted)
+                    else function_definitions(functions, asynchronous=False) or OMITTED
+                ),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: ChatStream(
+                response,
+                session_id,
+                self._function_runner(agent_id, functions, extra_headers)
+                or (lambda _: FunctionEventObserver()),
+            ),
+        )
+
+    def join_input_turn(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        turn_id: str,
+        functions: Mapping[str, ChatFunction],
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> ChatStream:
+        """Reattach to an admitted queued-input Turn and run its functions."""
+        function_definitions(functions, asynchronous=False)
+        return self._transport.stream(
+            input_turn_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=turn_id,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -651,6 +722,69 @@ class AsyncBlazingAgents:
                 agent_id=agent_id,
                 session_id=session_id,
                 continuation=approvals.continuation,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: AsyncChatStream(
+                response,
+                session_id,
+                self._function_runner(agent_id, functions, extra_headers),
+            ),
+        )
+
+    async def run_inputs(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> AsyncChatStream:
+        """Run the pending queued inputs as one Turn with these functions.
+
+        Use this when automatic draining is paused with
+        ``function_executor_required``; nonempty ``functions`` clear the pause.
+        Without ``functions`` the stream is an observer that removes function
+        events.
+        """
+        return await self._transport.stream(
+            run_inputs_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                functions=(
+                    OMITTED
+                    if isinstance(functions, _Omitted)
+                    else function_definitions(functions, asynchronous=True) or OMITTED
+                ),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            lambda response: AsyncChatStream(
+                response,
+                session_id,
+                self._function_runner(agent_id, functions, extra_headers)
+                or (lambda _: FunctionEventObserver()),
+            ),
+        )
+
+    async def join_input_turn(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        turn_id: str,
+        functions: Mapping[str, ChatFunction],
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> AsyncChatStream:
+        """Reattach to an admitted queued-input Turn and run its functions."""
+        function_definitions(functions, asynchronous=True)
+        return await self._transport.stream(
+            input_turn_request(
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=turn_id,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
