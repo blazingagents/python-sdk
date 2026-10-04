@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
 
-from ._chat import AsyncChatStream, ChatStream, input_turn_request
+from ._chat import AsyncChatStream, ChatStream, input_turn_request, path_segment
 from ._downloads import AsyncByteStream, ByteStream
 from ._functions import FunctionEventObserver
 from ._models import (
@@ -230,9 +230,7 @@ def _inputs_path(agent_id: str, session_id: str, request_id: str | None = None) 
     path = f"{_sessions_path(agent_id, session_id)}/inputs"
     if request_id is None:
         return path
-    if not request_id:
-        raise ValueError("request_id must not be empty.")
-    return f"{path}/{quote(request_id, safe='')}"
+    return f"{path}/{path_segment('request_id', request_id)}"
 
 
 def _inputs_body(
@@ -240,8 +238,7 @@ def _inputs_body(
     message: Mapping[str, object],
     when_busy: SessionInputMode | _Omitted,
 ) -> dict[str, object]:
-    if not request_id:
-        raise ValueError("request_id must not be empty.")
+    path_segment("request_id", request_id)
     body: dict[str, object] = {"requestId": request_id, "message": message}
     if not isinstance(when_busy, _Omitted):
         body["whenBusy"] = when_busy
@@ -4166,7 +4163,10 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionActivityResponse:
-        """Clear a paused Session and schedule its pending queued inputs."""
+        """Clear a ``failed`` or ``owner_lost`` pause and schedule pending inputs.
+
+        A ``function_executor_required`` pause stays; use ``run_inputs``.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -4544,7 +4544,10 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionActivityResponse:
-        """Clear a paused Session and schedule its pending queued inputs."""
+        """Clear a ``failed`` or ``owner_lost`` pause and schedule pending inputs.
+
+        A ``function_executor_required`` pause stays; use ``run_inputs``.
+        """
         return await self._transport.request(
             _Request(
                 "POST",

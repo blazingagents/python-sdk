@@ -273,21 +273,28 @@ def test_conflicts_surface_contract_error_codes(code: str, call: Call) -> None:
     assert len(state.requests) == 1
 
 
-EMPTY_REQUEST_IDS: list[Call] = [
-    lambda s: s.submit_input(
-        agent_id=AGENT, session_id=SESSION, request_id="", message=MESSAGE
-    ),
-    lambda s: s.promote_input(agent_id=AGENT, session_id=SESSION, request_id=""),
-    lambda s: s.delete_input(agent_id=AGENT, session_id=SESSION, request_id=""),
+def unsafe_identity_calls(value: str) -> list[Call]:
+    return [
+        lambda s: s.submit_input(
+            agent_id=AGENT, session_id=SESSION, request_id=value, message=MESSAGE
+        ),
+        lambda s: s.promote_input(agent_id=AGENT, session_id=SESSION, request_id=value),
+        lambda s: s.delete_input(agent_id=AGENT, session_id=SESSION, request_id=value),
+        lambda s: s.join_input_turn(agent_id=AGENT, session_id=SESSION, turn_id=value),
+    ]
+
+
+UNSAFE_IDENTITY_CALLS = [
+    call for value in ("", ".", "..") for call in unsafe_identity_calls(value)
 ]
 
 
-@pytest.mark.parametrize("call", EMPTY_REQUEST_IDS)
-def test_empty_request_id_is_rejected_before_any_request(call: Call) -> None:
+@pytest.mark.parametrize("call", UNSAFE_IDENTITY_CALLS)
+def test_unsafe_identities_are_rejected_before_any_request(call: Call) -> None:
     with (
         loopback() as (base_url, state),
         BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-        pytest.raises(ValueError, match="request_id"),
+        pytest.raises(ValueError, match="_id must not be"),
     ):
         call(client.sessions)
     assert state.requests == []
@@ -300,6 +307,7 @@ def test_empty_request_id_is_rejected_before_any_request(call: Call) -> None:
         {"data": receipt(sequence=0), "activity": RUNNING},
         {"data": receipt(), "activity": {**RUNNING, "turnId": "tr_0123456789abcdef"}},
         {"data": receipt(requestId="x" * 129), "activity": RUNNING},
+        {"data": receipt(requestId=".."), "activity": RUNNING},
     ],
 )
 def test_malformed_receipts_are_rejected(body: dict[str, Any]) -> None:
@@ -450,3 +458,56 @@ def test_input_turn_streams_reject_empty_turn_and_surface_busy() -> None:
     assert [(r.method, r.target) for r in state.requests] == [
         ("POST", f"{BASE}/inputs/run")
     ]
+
+
+@pytest.mark.parametrize("request_id", ["...", "a.b", "%2E"])
+def test_dotted_identities_that_are_not_segments_are_encoded(request_id: str) -> None:
+    deleted = receipt(requestId=request_id, state="cancelled", reason="deleted")
+    with (
+        loopback(Response(body={"data": deleted, "activity": IDLE})) as (
+            base_url,
+            state,
+        ),
+        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
+    ):
+        response = client.sessions.delete_input(
+            agent_id=AGENT, session_id=SESSION, request_id=request_id
+        )
+    assert response.data.request_id == request_id
+    assert state.requests[0].target == (
+        f"{BASE}/inputs/{request_id.replace('%', '%25')}"
+    )
+
+
+@pytest.mark.parametrize("value", ["", ".", ".."])
+def test_async_unsafe_identities_are_rejected_before_any_request(value: str) -> None:
+    async def exercise(base_url: str) -> None:
+        async with AsyncBlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            sessions = client.sessions
+            with pytest.raises(ValueError, match="request_id must not be"):
+                await sessions.submit_input(
+                    agent_id=AGENT,
+                    session_id=SESSION,
+                    request_id=value,
+                    message=MESSAGE,
+                )
+            with pytest.raises(ValueError, match="request_id must not be"):
+                await sessions.promote_input(
+                    agent_id=AGENT, session_id=SESSION, request_id=value
+                )
+            with pytest.raises(ValueError, match="request_id must not be"):
+                await sessions.delete_input(
+                    agent_id=AGENT, session_id=SESSION, request_id=value
+                )
+            with pytest.raises(ValueError, match="turn_id must not be"):
+                await sessions.join_input_turn(
+                    agent_id=AGENT, session_id=SESSION, turn_id=value
+                )
+            with pytest.raises(ValueError, match="turn_id must not be"):
+                await client.join_input_turn(
+                    agent_id=AGENT, session_id=SESSION, turn_id=value, functions={}
+                )
+
+    with loopback() as (base_url, state):
+        asyncio.run(exercise(base_url))
+    assert state.requests == []

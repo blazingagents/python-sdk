@@ -226,6 +226,13 @@ def chat_request(
     )
 
 
+def path_segment(name: str, value: str) -> str:
+    """Percent-encode a caller identity, rejecting values a URL would collapse."""
+    if value in {"", ".", ".."}:
+        raise ValueError(f"{name} must not be empty, '.' or '..'.")
+    return quote(value, safe="")
+
+
 def input_turn_request(
     *,
     agent_id: str,
@@ -234,14 +241,12 @@ def input_turn_request(
     extra_headers: Mapping[str, str] | None,
     timeout: Timeout | _Omitted,
 ) -> _Request:
-    if not turn_id:
-        raise ValueError("turn_id must not be empty.")
     return _Request(
         "GET",
         (
             f"/v1/agents/{quote(agent_id, safe='')}"
             f"/sessions/{quote(session_id, safe='')}"
-            f"/input-turns/{quote(turn_id, safe='')}"
+            f"/input-turns/{path_segment('turn_id', turn_id)}"
         ),
         extra_headers=extra_headers,
         timeout=timeout,

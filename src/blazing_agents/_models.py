@@ -839,6 +839,12 @@ class SessionMessagesPage(ResponseModel):
     latest_cursor: str | None = Field(alias="latestCursor")
 
 
+def _not_dot_segment(value: str) -> str:
+    if value in {".", ".."}:
+        raise ValueError("requestId must not be a URL dot segment.")
+    return value
+
+
 class SessionActivity(ResponseModel):
     """Whether the Session is running a Turn, stopping, or paused."""
 
@@ -855,9 +861,11 @@ class SessionInput(ResponseModel):
     seen by the model and are never replayed automatically.
     """
 
-    request_id: Annotated[str, StringConstraints(min_length=1, max_length=128)] = Field(
-        alias="requestId"
-    )
+    request_id: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=128),
+        AfterValidator(_not_dot_segment),
+    ] = Field(alias="requestId")
     sequence: int = Field(ge=1)
     message: SessionMessage
     mode: SessionInputMode

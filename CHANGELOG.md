@@ -16,9 +16,13 @@
   changing its identity or order. `delete_input()` withdraws an input that has
   not been delivered. After delivery, both raise `input_not_pending`.
 - `stop(turn_id=...)` returns once the named Turn has settled. Pending queued
-  inputs then start one new Turn. `resume_inputs()` clears a paused Session and
-  schedules its pending queue. Neither one bypasses a waiting tool approval
-  (`session_busy`).
+  inputs then start one new Turn. `resume_inputs()` clears a `failed` or
+  `owner_lost` pause and schedules the pending queue. It leaves a
+  `function_executor_required` pause in place; use `run_inputs()` for that.
+  Neither one bypasses a waiting tool approval (`session_busy`).
+- `request_id` and `turn_id` must not be empty, `.`, or `..`; these raise
+  `ValueError` before any request is sent, because a URL would collapse them
+  onto another route. Every other identity is percent-encoded unchanged.
 - Add `run_inputs(agent_id=..., session_id=..., functions=...)` to the sync
   and async clients. It runs the pending queue as one Turn and executes its
   backend functions while you consume the stream. This is how to continue
