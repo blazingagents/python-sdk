@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.0
 
 - Remove `join_input_turn()` from the sync and async clients and Session
   resources. Call `run_inputs()` to stream a queued batch. Inputs wait until
