@@ -2,36 +2,22 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Callable
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
-from test_chat_functions import (
-    CALL_ID,
-    DONE,
-    HEARTBEAT,
-    TEXT,
-    FakePlatform,
-    Order,
-    Wait,
-    drain,
-    get_order,
-    ready,
-)
 from test_clients import Response, loopback
 
 from blazing_agents import (
-    APIStatusError,
     AsyncBlazingAgents,
     BlazingAgents,
-    FunctionContext,
-    SessionActivityResponse,
+    ChatSteerConsumedEvent,
+    SessionActivity,
+    SessionInput,
     SessionInputResponse,
     SessionInputsPage,
     SessionStopResponse,
 )
-from blazing_agents._resources import SessionsResource
 
 AGENT = "ag_0123456789abcdef"
 SESSION = "ss_0123456789abcdef"
@@ -40,11 +26,9 @@ BASE = f"/v1/agents/{AGENT}/sessions/{SESSION}"
 MESSAGE: dict[str, Any] = {
     "id": "message-1",
     "role": "user",
-    "parts": [{"type": "text", "text": "Please also compare costs"}],
+    "parts": [{"type": "text", "text": "Compare costs"}],
 }
-Call = Callable[[SessionsResource], object]
-RUNNING: dict[str, Any] = {"state": "running", "turnId": TURN, "reason": None}
-IDLE: dict[str, Any] = {"state": "idle", "turnId": None, "reason": None}
+ACTIVITY = {"state": "running", "turnId": TURN}
 
 
 def receipt(**overrides: Any) -> dict[str, Any]:
@@ -52,430 +36,318 @@ def receipt(**overrides: Any) -> dict[str, Any]:
         "requestId": "draft/1 a",
         "sequence": 1,
         "message": MESSAGE,
-        "mode": "queue",
         "state": "accepted",
-        "turnId": None,
+        "turnId": TURN,
         "createdAt": "2026-10-04T12:00:00Z",
         "updatedAt": "2026-10-04T12:00:00Z",
-        "consumedAt": None,
         "reason": None,
         **overrides,
     }
 
 
-def error(code: str) -> Response:
-    return Response(status=409, body={"error": {"code": code, "message": code}})
-
-
 @pytest.mark.parametrize("asynchronous", [False, True])
-def test_input_lifecycle_round_trips_contract(asynchronous: bool) -> None:
-    accepted = {"data": receipt(), "activity": RUNNING}
-    steer = receipt(mode="steer")
-    deleted = receipt(state="cancelled", reason="deleted")
+def test_steer_receipts_and_immediate_stop(asynchronous: bool) -> None:
     with loopback(
-        Response(status=202, body=accepted),
-        Response(status=202, body=accepted),
-        Response(body={"data": [receipt()], "nextCursor": "c2", "activity": RUNNING}),
-        Response(body={"data": steer, "activity": RUNNING}),
-        Response(body={"data": deleted, "activity": RUNNING}),
-        Response(body={"stoppedTurnId": TURN, "activity": IDLE}),
-        Response(body={"activity": IDLE}),
-    ) as (base_url, state):
-        request_id = "draft/1 a"
+        Response(status=202, body={"data": receipt(), "activity": ACTIVITY}),
+        Response(
+            body={
+                "data": [receipt(state="not_placed", reason="turn_finished")],
+                "activity": ACTIVITY,
+                "nextCursor": None,
+            }
+        ),
+        Response(
+            body={
+                "stoppedTurnId": TURN,
+                "activity": {"state": "stopping", "turnId": TURN},
+            }
+        ),
+    ) as (url, state):
 
-        async def run_async() -> list[object]:
-            async with AsyncBlazingAgents(
-                api_key="ba_test", base_url=base_url
-            ) as client:
-                sessions = client.sessions
+        async def run() -> list[Any]:
+            async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:
                 return [
-                    await sessions.submit_input(
+                    await client.sessions.submit_input(
                         agent_id=AGENT,
                         session_id=SESSION,
-                        request_id=request_id,
+                        request_id="draft/1 a",
                         message=MESSAGE,
                     ),
-                    await sessions.submit_input(
-                        agent_id=AGENT,
-                        session_id=SESSION,
-                        request_id=request_id,
-                        message=MESSAGE,
-                    ),
-                    await sessions.inputs(
+                    await client.sessions.inputs(
                         agent_id=AGENT,
                         session_id=SESSION,
                         include_completed=True,
                         cursor="c1",
                         limit=50,
                     ),
-                    await sessions.promote_input(
-                        agent_id=AGENT, session_id=SESSION, request_id=request_id
-                    ),
-                    await sessions.delete_input(
-                        agent_id=AGENT, session_id=SESSION, request_id=request_id
-                    ),
-                    await sessions.stop(
+                    await client.sessions.stop(
                         agent_id=AGENT, session_id=SESSION, turn_id=TURN
                     ),
-                    await sessions.resume_inputs(agent_id=AGENT, session_id=SESSION),
                 ]
 
         if asynchronous:
-            results = asyncio.run(run_async())
+            results = asyncio.run(run())
         else:
-            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-                sessions = client.sessions
+            with BlazingAgents(api_key="ba_test", base_url=url) as client:
                 results = [
-                    sessions.submit_input(
+                    client.sessions.submit_input(
                         agent_id=AGENT,
                         session_id=SESSION,
-                        request_id=request_id,
+                        request_id="draft/1 a",
                         message=MESSAGE,
                     ),
-                    sessions.submit_input(
-                        agent_id=AGENT,
-                        session_id=SESSION,
-                        request_id=request_id,
-                        message=MESSAGE,
-                    ),
-                    sessions.inputs(
+                    client.sessions.inputs(
                         agent_id=AGENT,
                         session_id=SESSION,
                         include_completed=True,
                         cursor="c1",
                         limit=50,
                     ),
-                    sessions.promote_input(
-                        agent_id=AGENT, session_id=SESSION, request_id=request_id
+                    client.sessions.stop(
+                        agent_id=AGENT, session_id=SESSION, turn_id=TURN
                     ),
-                    sessions.delete_input(
-                        agent_id=AGENT, session_id=SESSION, request_id=request_id
-                    ),
-                    sessions.stop(agent_id=AGENT, session_id=SESSION, turn_id=TURN),
-                    sessions.resume_inputs(agent_id=AGENT, session_id=SESSION),
                 ]
-
-    encoded = f"{BASE}/inputs/draft%2F1%20a"
     assert [(r.method, r.target) for r in state.requests] == [
-        ("POST", f"{BASE}/inputs"),
         ("POST", f"{BASE}/inputs"),
         ("GET", f"{BASE}/inputs?includeCompleted=true&cursor=c1&limit=50"),
-        ("POST", f"{encoded}/promote"),
-        ("DELETE", encoded),
         ("POST", f"{BASE}/stop"),
-        ("POST", f"{BASE}/inputs/resume"),
     ]
-    submit = {"requestId": request_id, "message": MESSAGE}
-    assert [json.loads(r.body) for r in state.requests[:2]] == [submit, submit]
-    assert [r.body for r in (*state.requests[2:5], state.requests[6])] == [b""] * 4
-    assert json.loads(state.requests[5].body) == {"turnId": TURN}
-
-    first, retry, page, promoted, withdrawn, stopped, resumed = results
-    assert isinstance(first, SessionInputResponse)
-    assert isinstance(page, SessionInputsPage)
-    assert isinstance(promoted, SessionInputResponse)
-    assert isinstance(withdrawn, SessionInputResponse)
-    assert isinstance(stopped, SessionStopResponse)
-    assert isinstance(resumed, SessionActivityResponse)
-    assert first == retry
-    assert first.data.request_id == request_id
-    assert first.data.sequence == 1
-    assert first.data.message.id == "message-1"
-    assert first.activity.state == "running"
-    assert first.activity.turn_id == TURN
-    assert page.data[0].state == "accepted"
-    assert page.next_cursor == "c2"
-    assert promoted.data.mode == "steer"
-    assert promoted.data.sequence == 1
-    assert withdrawn.data.state == "cancelled"
-    assert withdrawn.data.reason == "deleted"
-    assert stopped.stopped_turn_id == TURN
-    assert stopped.activity.state == "idle"
-    assert resumed.activity.state == "idle"
-
-
-def test_steer_submission_and_default_listing_send_only_given_fields() -> None:
-    delivered = receipt(
-        mode="steer", state="consumed", turnId=TURN, consumedAt="2026-10-04T12:00:01Z"
-    )
-    with (
-        loopback(
-            Response(status=202, body={"data": delivered, "activity": RUNNING}),
-            Response(body={"data": [], "nextCursor": None, "activity": IDLE}),
-        ) as (base_url, state),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-    ):
-        submitted = client.sessions.submit_input(
-            agent_id=AGENT,
-            session_id=SESSION,
-            request_id="steer-1",
-            message=MESSAGE,
-            when_busy="steer",
-        )
-        page = client.sessions.inputs(agent_id=AGENT, session_id=SESSION)
-
     assert json.loads(state.requests[0].body) == {
-        "requestId": "steer-1",
+        "requestId": "draft/1 a",
         "message": MESSAGE,
-        "whenBusy": "steer",
     }
-    assert state.requests[1].target == f"{BASE}/inputs"
-    assert submitted.data.turn_id == TURN
-    assert submitted.data.consumed_at is not None
-    assert page.data == []
-    assert page.activity.state == "idle"
-
-
-CONFLICTS: list[tuple[str, Call]] = [
-    (
-        "input_idempotency_conflict",
-        lambda s: s.submit_input(
-            agent_id=AGENT,
-            session_id=SESSION,
-            request_id="draft-1",
-            message={**MESSAGE, "parts": [{"type": "text", "text": "changed"}]},
-        ),
-    ),
-    (
-        "input_not_pending",
-        lambda s: s.delete_input(
-            agent_id=AGENT, session_id=SESSION, request_id="draft-1"
-        ),
-    ),
-    (
-        "input_not_pending",
-        lambda s: s.promote_input(
-            agent_id=AGENT, session_id=SESSION, request_id="draft-1"
-        ),
-    ),
-    (
-        "session_busy",
-        lambda s: s.stop(agent_id=AGENT, session_id=SESSION, turn_id=TURN),
-    ),
-    (
-        "session_busy",
-        lambda s: s.resume_inputs(agent_id=AGENT, session_id=SESSION),
-    ),
-]
-
-
-@pytest.mark.parametrize(("code", "call"), CONFLICTS)
-def test_conflicts_surface_contract_error_codes(code: str, call: Call) -> None:
-    with (
-        loopback(error(code)) as (base_url, state),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-        pytest.raises(APIStatusError) as raised,
-    ):
-        call(client.sessions)
-    assert raised.value.status_code == 409
-    assert raised.value.code == code
-    assert len(state.requests) == 1
-
-
-def unsafe_identity_calls(value: str) -> list[Call]:
-    return [
-        lambda s: s.submit_input(
-            agent_id=AGENT, session_id=SESSION, request_id=value, message=MESSAGE
-        ),
-        lambda s: s.promote_input(agent_id=AGENT, session_id=SESSION, request_id=value),
-        lambda s: s.delete_input(agent_id=AGENT, session_id=SESSION, request_id=value),
-    ]
-
-
-UNSAFE_IDENTITY_CALLS = [
-    call for value in ("", ".", "..") for call in unsafe_identity_calls(value)
-]
-
-
-@pytest.mark.parametrize("call", UNSAFE_IDENTITY_CALLS)
-def test_unsafe_identities_are_rejected_before_any_request(call: Call) -> None:
-    with (
-        loopback() as (base_url, state),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-        pytest.raises(ValueError, match="_id must not be"),
-    ):
-        call(client.sessions)
-    assert state.requests == []
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        {"data": receipt(state="queued"), "activity": RUNNING},
-        {"data": receipt(sequence=0), "activity": RUNNING},
-        {"data": receipt(), "activity": {**RUNNING, "turnId": "tr_0123456789abcdef"}},
-        {"data": receipt(requestId="x" * 129), "activity": RUNNING},
-        {"data": receipt(requestId=".."), "activity": RUNNING},
-        {
-            "data": receipt(message={**MESSAGE, "role": "assistant"}),
-            "activity": RUNNING,
-        },
-    ],
-)
-def test_malformed_receipts_are_rejected(body: dict[str, Any]) -> None:
-    with (
-        loopback(Response(status=202, body=body)) as (base_url, _),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-        pytest.raises(ValidationError),
-    ):
-        client.sessions.submit_input(
-            agent_id=AGENT, session_id=SESSION, request_id="draft-1", message=MESSAGE
-        )
-
-
-def test_stop_response_reports_idle_when_no_client_runs_inputs() -> None:
-    with (
-        loopback(Response(body={"stoppedTurnId": TURN, "activity": IDLE})) as (
-            base_url,
-            _,
-        ),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-    ):
-        stopped = client.sessions.stop(agent_id=AGENT, session_id=SESSION, turn_id=TURN)
-    assert stopped.stopped_turn_id == TURN
-    assert stopped.activity.state == "idle"
-    assert stopped.activity.turn_id is None
-
-
-GET_ORDER = {
-    "getOrder": {
-        "description": "Get one order",
-        "inputSchema": Order.model_json_schema(),
-    }
-}
-
-
-def test_run_inputs_admits_queue_with_functions_and_executes_them() -> None:
-    platform = FakePlatform([HEARTBEAT, ready(), Wait(CALL_ID), TEXT, DONE])
-    executions: list[tuple[Order, FunctionContext]] = []
-    with platform.sync_client() as client:
-        stream = client.run_inputs(
-            agent_id=AGENT,
-            session_id=SESSION,
-            functions={"getOrder": get_order(executions)},
-        )
-        assert stream.session_id == SESSION
-        assert b"".join(stream) == HEARTBEAT + TEXT + DONE
-
-    run = platform.requests[0]
-    assert (run.method, run.path) == ("POST", f"{BASE}/inputs/run")
-    assert run.body == {"functions": GET_ORDER}
-    assert [order for order, _ in executions] == [Order(order_id="o1")]
-    assert len(platform.bodies("/claim")) == 1
-
-
-def test_async_run_inputs_without_functions_observes_with_empty_body() -> None:
-    async def exercise() -> None:
-        platform = FakePlatform([HEARTBEAT, ready(), TEXT, DONE])
-        async with platform.async_client() as client:
-            stream = await client.run_inputs(agent_id=AGENT, session_id=SESSION)
-            assert await drain(stream) == [HEARTBEAT, TEXT, DONE]
-        assert platform.requests[0].body == {}
-        assert platform.bodies("/claim") == []
-        assert platform.requests[0].path == f"{BASE}/inputs/run"
-
-    asyncio.run(exercise())
-
-
-@pytest.mark.parametrize("asynchronous", [False, True])
-def test_run_inputs_executes_functions(asynchronous: bool) -> None:
-    platform = FakePlatform([HEARTBEAT, ready(), Wait(CALL_ID), TEXT, DONE])
-    executions: list[tuple[Order, FunctionContext]] = []
-    functions = {"getOrder": get_order(executions)}
-
-    async def exercise() -> list[bytes]:
-        async with platform.async_client() as client:
-            return await drain(
-                await client.run_inputs(
-                    agent_id=AGENT,
-                    session_id=SESSION,
-                    functions=functions,
-                )
-            )
-
-    if asynchronous:
-        chunks = asyncio.run(exercise())
-    else:
-        with platform.sync_client() as client:
-            chunks = list(
-                client.run_inputs(
-                    agent_id=AGENT,
-                    session_id=SESSION,
-                    functions=functions,
-                )
-            )
-
-    assert b"".join(chunks) == HEARTBEAT + TEXT + DONE
-    assert (platform.requests[0].method, platform.requests[0].path) == (
-        "POST",
-        f"{BASE}/inputs/run",
-    )
-    assert len(executions) == 1
-    assert len(platform.bodies("/claim")) == 1
-
-
-def test_run_inputs_surfaces_busy() -> None:
-    with (
-        loopback(error("session_busy")) as (base_url, state),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-    ):
-        with pytest.raises(APIStatusError) as raised:
-            client.run_inputs(agent_id=AGENT, session_id=SESSION)
-    assert raised.value.code == "session_busy"
-    assert [(r.method, r.target) for r in state.requests] == [
-        ("POST", f"{BASE}/inputs/run")
-    ]
-
-
-@pytest.mark.parametrize("request_id", ["...", "a.b", "%2E"])
-def test_dotted_identities_that_are_not_segments_are_encoded(request_id: str) -> None:
-    deleted = receipt(requestId=request_id, state="cancelled", reason="deleted")
-    with (
-        loopback(Response(body={"data": deleted, "activity": IDLE})) as (
-            base_url,
-            state,
-        ),
-        BlazingAgents(api_key="ba_test", base_url=base_url) as client,
-    ):
-        response = client.sessions.delete_input(
-            agent_id=AGENT, session_id=SESSION, request_id=request_id
-        )
-    assert response.data.request_id == request_id
-    assert state.requests[0].target == (
-        f"{BASE}/inputs/{request_id.replace('%', '%25')}"
-    )
+    assert json.loads(state.requests[2].body) == {"turnId": TURN}
+    assert isinstance(results[0], SessionInputResponse)
+    assert isinstance(results[1], SessionInputsPage)
+    assert isinstance(results[2], SessionStopResponse)
+    assert results[0].data.turn_id == TURN
+    assert results[1].data[0].state == "not_placed"
+    assert results[2].activity.state == "stopping"
 
 
 @pytest.mark.parametrize("value", ["", ".", ".."])
-def test_async_unsafe_identities_are_rejected_before_any_request(value: str) -> None:
-    async def exercise(base_url: str) -> None:
-        async with AsyncBlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            sessions = client.sessions
-            with pytest.raises(ValueError, match="request_id must not be"):
-                await sessions.submit_input(
+def test_invalid_request_identity(value: str) -> None:
+    with BlazingAgents(api_key="ba_test") as client:
+        with pytest.raises(ValueError):
+            client.sessions.submit_input(
+                agent_id=AGENT, session_id=SESSION, request_id=value, message=MESSAGE
+            )
+
+
+@pytest.mark.parametrize(
+    "state", ["accepted", "delivered", "committed", "not_placed", "uncertain"]
+)
+def test_receipt_states_and_removed_fields(state: str) -> None:
+    value = SessionInput.model_validate_json(
+        json.dumps(receipt(state=state, mode="queue", consumedAt=None))
+    )
+    assert value.state == state
+    assert not hasattr(value, "mode")
+    assert not hasattr(value, "consumed_at")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"state": "consumed"},
+        {"turnId": None},
+        {"reason": "deleted"},
+        {"message": {**MESSAGE, "role": "assistant"}},
+    ],
+)
+def test_invalid_receipts(overrides: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        SessionInput.model_validate_json(json.dumps(receipt(**overrides)))
+
+
+def test_activity_and_consumed_event_contract() -> None:
+    activity = SessionActivity.model_validate({**ACTIVITY, "reason": "failed"})
+    assert not hasattr(activity, "reason")
+    with pytest.raises(ValidationError):
+        SessionActivity.model_validate({"state": "paused", "turnId": None})
+    event = ChatSteerConsumedEvent.model_validate(
+        {
+            "type": "data-ba-steer-consumed",
+            "transient": True,
+            "data": {
+                "requestId": "r1",
+                "turnId": TURN,
+                "sequence": 1,
+                "message": MESSAGE,
+            },
+        }
+    )
+    assert event.data.message.id == "message-1"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_batches_and_steer_events_preserve_wire_order(asynchronous: bool) -> None:
+    messages: list[dict[str, Any]] = [MESSAGE, {**MESSAGE, "id": "message-2"}]
+    event = {
+        "type": "data-ba-steer-consumed",
+        "transient": True,
+        "data": {"requestId": "r1", "turnId": TURN, "sequence": 1, "message": MESSAGE},
+    }
+    raw = b"data: " + json.dumps(event).encode() + b"\n\ndata: [DONE]\n\n"
+    with loopback(Response(raw_body=raw)) as (url, state):
+
+        async def run() -> bytes:
+            async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:
+                stream = await client.chat(
+                    agent_id=AGENT, session_id=SESSION, messages=messages
+                )
+                return b"".join([chunk async for chunk in stream])
+
+        if asynchronous:
+            output = asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=url) as client:
+                output = b"".join(
+                    client.chat(agent_id=AGENT, session_id=SESSION, messages=messages)
+                )
+    assert output == raw
+    assert json.loads(state.requests[0].body) == {"messages": messages}
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"messages": []},
+        {"message": MESSAGE, "messages": [MESSAGE]},
+        {"messages": [MESSAGE], "prompt_id": "prompt_1"},
+        {
+            "messages": [MESSAGE, {**MESSAGE, "id": "m2"}],
+            "trigger": "regenerate-message",
+        },
+    ],
+)
+def test_chat_rejects_ambiguous_or_empty_batches(kwargs: dict[str, Any]) -> None:
+    with BlazingAgents(api_key="ba_test") as client:
+        with pytest.raises(ValueError):
+            client.chat(agent_id=AGENT, session_id=SESSION, **kwargs)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_continuation_omits_functions_and_preserves_correlation(
+    asynchronous: bool,
+) -> None:
+    with loopback(Response(raw_body=b"data: [DONE]\n\n")) as (url, state):
+
+        async def run() -> None:
+            async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:
+                stream = await client.continue_chat(
                     agent_id=AGENT,
                     session_id=SESSION,
-                    request_id=value,
-                    message=MESSAGE,
+                    decisions=[
+                        {"approval_id": "a1", "approved": False, "reason": "No"}
+                    ],
+                    client_request_id="attempt",
                 )
-            with pytest.raises(ValueError, match="request_id must not be"):
-                await sessions.promote_input(
-                    agent_id=AGENT, session_id=SESSION, request_id=value
-                )
-            with pytest.raises(ValueError, match="request_id must not be"):
-                await sessions.delete_input(
-                    agent_id=AGENT, session_id=SESSION, request_id=value
+                assert (
+                    b"".join([chunk async for chunk in stream]) == b"data: [DONE]\n\n"
                 )
 
-    with loopback() as (base_url, state):
-        asyncio.run(exercise(base_url))
-    assert state.requests == []
+        if asynchronous:
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=url) as client:
+                stream = client.continue_chat(
+                    agent_id=AGENT,
+                    session_id=SESSION,
+                    decisions=[
+                        {"approval_id": "a1", "approved": False, "reason": "No"}
+                    ],
+                    client_request_id="attempt",
+                )
+                assert b"".join(stream) == b"data: [DONE]\n\n"
+    assert len(state.requests) == 1
+    assert state.requests[0].target == f"{BASE}/tool-approvals/continue"
+    assert state.requests[0].headers["x-client-request-id"] == "attempt"
+    assert json.loads(state.requests[0].body) == {
+        "decisions": [{"approvalId": "a1", "approved": False, "reason": "No"}]
+    }
 
 
-def test_sync_run_inputs_without_functions_strips_function_events() -> None:
-    platform = FakePlatform([HEARTBEAT, ready(), TEXT, DONE])
-    with platform.sync_client() as client:
-        stream = client.run_inputs(agent_id=AGENT, session_id=SESSION)
-        assert b"".join(stream) == HEARTBEAT + TEXT + DONE
-    assert platform.requests[0].body == {}
-    assert platform.bodies("/claim") == []
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("code", ["steer_not_available", "input_idempotency_conflict"])
+def test_steer_refusal_is_visible_without_followup(
+    code: str, asynchronous: bool
+) -> None:
+    from blazing_agents import APIStatusError
+
+    with loopback(
+        Response(status=409, body={"error": {"code": code, "message": code}})
+    ) as (url, state):
+
+        async def run() -> None:
+            async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:
+                with pytest.raises(APIStatusError) as failure:
+                    await client.sessions.submit_input(
+                        agent_id=AGENT,
+                        session_id=SESSION,
+                        request_id="r1",
+                        message=MESSAGE,
+                    )
+                assert failure.value.code == code
+
+        if asynchronous:
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=url) as client:
+                with pytest.raises(APIStatusError) as failure:
+                    client.sessions.submit_input(
+                        agent_id=AGENT,
+                        session_id=SESSION,
+                        request_id="r1",
+                        message=MESSAGE,
+                    )
+                assert failure.value.code == code
+    assert len(state.requests) == 1
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_default_receipt_listing_sends_no_options(asynchronous: bool) -> None:
+    with loopback(
+        Response(
+            body={
+                "data": [],
+                "nextCursor": None,
+                "activity": {"state": "idle", "turnId": None},
+            }
+        )
+    ) as (url, state):
+
+        async def run() -> None:
+            async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:
+                assert (
+                    await client.sessions.inputs(agent_id=AGENT, session_id=SESSION)
+                ).data == []
+
+        if asynchronous:
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=url) as client:
+                assert (
+                    client.sessions.inputs(agent_id=AGENT, session_id=SESSION).data
+                    == []
+                )
+    assert state.requests[0].target == f"{BASE}/inputs"
+
+
+@pytest.mark.parametrize("request_id", [".", "..", "", "x" * 129])
+def test_receipt_and_event_reject_invalid_request_ids(request_id: str) -> None:
+    with pytest.raises(ValidationError):
+        SessionInput.model_validate_json(json.dumps(receipt(requestId=request_id)))
+    with pytest.raises(ValidationError):
+        ChatSteerConsumedEvent.model_validate(
+            {
+                "type": "data-ba-steer-consumed",
+                "transient": True,
+                "data": {
+                    "requestId": request_id,
+                    "turnId": TURN,
+                    "sequence": 1,
+                    "message": MESSAGE,
+                },
+            }
+        )

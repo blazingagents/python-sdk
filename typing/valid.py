@@ -22,10 +22,12 @@ from blazing_agents import (
     ChatDeliveriesPage,
     ChatFunction,
     ChatMessageInput,
+    ChatMessagesInput,
     ChatStream,
     Completion,
     CompletionLiteralInput,
     CompletionStream,
+    ContinueChatInput,
     FunctionContext,
     JsonValue,
     LatestSessionsPage,
@@ -33,9 +35,7 @@ from blazing_agents import (
     MemoryResponse,
     ObjectStream,
     Session,
-    SessionActivityResponse,
     SessionActivityState,
-    SessionInputMode,
     SessionInputResponse,
     SessionInputsPage,
     SessionInputState,
@@ -139,19 +139,31 @@ def sync_examples(client: BlazingAgents) -> None:
     )
     chat_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
-        "message": {"id": "message-1", "role": "user", "parts": []},
+        "message": {
+            "id": "message-1",
+            "role": "user",
+            "parts": [{"type": "text", "text": "Hi"}],
+        },
     }
     assert_type(client.chat(**chat_request), ChatStream)
     regenerate_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
-        "message": {"id": "message-1", "role": "user", "parts": []},
+        "message": {
+            "id": "message-1",
+            "role": "user",
+            "parts": [{"type": "text", "text": "Hi"}],
+        },
         "session_id": "ss_0123456789abcdef",
         "trigger": "regenerate-message",
     }
     assert_type(client.chat(**regenerate_request), ChatStream)
     regenerate_from_message_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
-        "message": {"id": "message-1", "role": "user", "parts": []},
+        "message": {
+            "id": "message-1",
+            "role": "user",
+            "parts": [{"type": "text", "text": "Hi"}],
+        },
         "session_id": "ss_0123456789abcdef",
         "trigger": "regenerate-message",
         "message_id": "message-1",
@@ -163,12 +175,12 @@ def sync_examples(client: BlazingAgents) -> None:
     }
     assert_type(client.completion(**completion_request), Completion)
     decision: ToolApprovalDecisionInput = {
-        "agent_id": "ag_0123456789abcdef",
-        "session_id": "ss_0123456789abcdef",
         "approval_id": "approval-1",
         "approved": True,
     }
-    client.sessions.decide_tool_approval(**decision)
+    client.continue_chat(
+        agent_id="ag_example", session_id="ss_example", decisions=[decision]
+    )
     assert_type(
         client.tasks.create(
             agent_id="ag_0123456789abcdef",
@@ -287,19 +299,31 @@ async def async_examples(client: AsyncBlazingAgents) -> None:
     assert_type(await client.agents.create(**agent_request), Agent)
     chat_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
-        "message": {"id": "message-1", "role": "user", "parts": []},
+        "message": {
+            "id": "message-1",
+            "role": "user",
+            "parts": [{"type": "text", "text": "Hi"}],
+        },
     }
     assert_type(await client.chat(**chat_request), AsyncChatStream)
     regenerate_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
-        "message": {"id": "message-1", "role": "user", "parts": []},
+        "message": {
+            "id": "message-1",
+            "role": "user",
+            "parts": [{"type": "text", "text": "Hi"}],
+        },
         "session_id": "ss_0123456789abcdef",
         "trigger": "regenerate-message",
     }
     assert_type(await client.chat(**regenerate_request), AsyncChatStream)
     regenerate_from_message_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
-        "message": {"id": "message-1", "role": "user", "parts": []},
+        "message": {
+            "id": "message-1",
+            "role": "user",
+            "parts": [{"type": "text", "text": "Hi"}],
+        },
         "session_id": "ss_0123456789abcdef",
         "trigger": "regenerate-message",
         "message_id": "message-1",
@@ -471,13 +495,18 @@ def function_examples(client: BlazingAgents) -> None:
     assert_type(
         client.chat(
             agent_id="ag_0123456789abcdef",
-            message={"id": "m", "role": "user", "parts": []},
+            message={
+                "id": "m",
+                "role": "user",
+                "parts": [{"type": "text", "text": "Hi"}],
+            },
             functions={"lookupOrder": function},
         ),
         ChatStream,
     )
     assert_type(
-        client.resume_chat(
+        client.continue_chat(
+            decisions=[{"approval_id": "a1", "approved": True}],
             agent_id="ag_0123456789abcdef",
             session_id="ss_0123456789abcdef",
             functions={"lookupOrder": function},
@@ -493,7 +522,8 @@ async def async_function_examples(client: AsyncBlazingAgents) -> None:
         execute=async_lookup_order,
     )
     assert_type(
-        await client.resume_chat(
+        await client.continue_chat(
+            decisions=[{"approval_id": "a1", "approved": True}],
             agent_id="ag_0123456789abcdef",
             session_id="ss_0123456789abcdef",
             functions={"lookupOrder": function},
@@ -519,10 +549,8 @@ def session_input_examples(client: BlazingAgents) -> None:
         session_id="ss_example",
         request_id="draft-1",
         message=message,
-        when_busy="steer",
     )
     assert_type(submitted, SessionInputResponse)
-    assert_type(submitted.data.mode, SessionInputMode)
     assert_type(submitted.data.state, SessionInputState)
     assert_type(submitted.activity.state, SessionActivityState)
     page = client.sessions.inputs(
@@ -537,40 +565,33 @@ def session_input_examples(client: BlazingAgents) -> None:
     )
 
 
-async def async_session_input_examples(client: AsyncBlazingAgents) -> None:
-    assert_type(
-        await client.sessions.promote_input(
-            agent_id="ag_example", session_id="ss_example", request_id="draft-1"
-        ),
-        SessionInputResponse,
-    )
-    assert_type(
-        await client.sessions.delete_input(
-            agent_id="ag_example", session_id="ss_example", request_id="draft-1"
-        ),
-        SessionInputResponse,
-    )
-    assert_type(
-        await client.sessions.resume_inputs(
-            agent_id="ag_example", session_id="ss_example"
-        ),
-        SessionActivityResponse,
-    )
+def batch_and_continuation_examples(client: BlazingAgents) -> None:
+    batch: ChatMessagesInput = {
+        "agent_id": "ag_example",
+        "messages": [
+            {"id": "m1", "role": "user", "parts": [{"type": "text", "text": "Hi"}]}
+        ],
+    }
+    assert_type(client.chat(**batch), ChatStream)
+    continuation: ContinueChatInput = {
+        "agent_id": "ag_example",
+        "session_id": "ss_example",
+        "decisions": [{"approval_id": "a1", "approved": True}],
+    }
+    assert_type(client.continue_chat(**continuation), ChatStream)
 
 
-def input_turn_examples(client: BlazingAgents, function: ChatFunction) -> None:
-    assert_type(
-        client.run_inputs(
-            agent_id="ag_example",
-            session_id="ss_example",
-            functions={"lookupOrder": function},
-        ),
-        ChatStream,
-    )
-
-
-async def async_input_turn_examples(client: AsyncBlazingAgents) -> None:
-    assert_type(
-        await client.run_inputs(agent_id="ag_example", session_id="ss_example"),
-        AsyncChatStream,
-    )
+async def async_batch_and_continuation_examples(client: AsyncBlazingAgents) -> None:
+    batch: ChatMessagesInput = {
+        "agent_id": "ag_example",
+        "messages": [
+            {"id": "m1", "role": "user", "parts": [{"type": "text", "text": "Hi"}]}
+        ],
+    }
+    assert_type(await client.chat(**batch), AsyncChatStream)
+    continuation: ContinueChatInput = {
+        "agent_id": "ag_example",
+        "session_id": "ss_example",
+        "decisions": [{"approval_id": "a1", "approved": False, "reason": "Denied"}],
+    }
+    assert_type(await client.continue_chat(**continuation), AsyncChatStream)

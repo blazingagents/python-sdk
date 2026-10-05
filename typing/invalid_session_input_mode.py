@@ -7,5 +7,5 @@ def example(client: BlazingAgents) -> None:
         session_id="ss_example",
         request_id="draft-1",
         message={"role": "user", "parts": []},
-        when_busy="followUp",
+        when_busy="steer",
     )

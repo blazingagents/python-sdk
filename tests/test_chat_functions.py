@@ -565,11 +565,16 @@ def test_sync_claim_granted_after_stream_close_does_not_invoke_handler() -> None
 @pytest.mark.parametrize("resume", [False, True])
 def test_sync_empty_registry_claims_and_reports_missing_handler(resume: bool) -> None:
     platform = FakePlatform(
-        [HEARTBEAT, ready(), Wait(CALL_ID), TEXT], approvals=approvals("queued")
+        [HEARTBEAT, ready(), Wait(CALL_ID), TEXT], approvals=approvals("waiting")
     )
     with platform.sync_client() as client:
         stream = (
-            client.resume_chat(agent_id=AGENT_ID, session_id=SESSION_ID, functions={})
+            client.continue_chat(
+                decisions=[{"approval_id": "apr_1", "approved": True}],
+                agent_id=AGENT_ID,
+                session_id=SESSION_ID,
+                functions={},
+            )
             if resume
             else client.chat(
                 agent_id=AGENT_ID,
@@ -584,7 +589,9 @@ def test_sync_empty_registry_claims_and_reports_missing_handler(resume: bool) ->
         "kind": "error",
         "message": "Function getOrder is not available.",
     }
-    if not resume:
+    if resume:
+        assert platform.requests[0].body["functions"] == {}
+    else:
         assert "functions" not in platform.requests[0].body
 
 
@@ -926,13 +933,14 @@ def approvals(state: str | None) -> object:
     return {"data": [], "continuation": continuation}
 
 
-def test_sync_resume_chat_joins_queued_continuation_with_functions() -> None:
+def test_sync_continue_chat_decides_and_streams_with_functions() -> None:
     platform = FakePlatform(
-        [ready(), Wait(CALL_ID), TEXT], approvals=approvals("queued")
+        [ready(), Wait(CALL_ID), TEXT], approvals=approvals("waiting")
     )
     executions: list[tuple[Order, FunctionContext]] = []
     with platform.sync_client() as client:
-        stream = client.resume_chat(
+        stream = client.continue_chat(
+            decisions=[{"approval_id": "apr_1", "approved": True}],
             agent_id=AGENT_ID,
             session_id=SESSION_ID,
             functions={"getOrder": get_order(executions)},
@@ -940,34 +948,13 @@ def test_sync_resume_chat_joins_queued_continuation_with_functions() -> None:
         )
         assert stream.session_id == SESSION_ID
         assert b"".join(stream) == TEXT
-    get, resume = platform.requests[:2]
-    assert get.method == "GET"
-    assert get.path.endswith(f"/sessions/{SESSION_ID}/tool-approvals")
-    assert resume.path == (
-        f"/v1/agents/{AGENT_ID}/sessions/{SESSION_ID}"
-        f"/tool-approval-continuations/{CONTINUATION_ID}/resume"
-    )
-    assert resume.body == {}
-    assert resume.headers["x-ba-user-id"] == "end-user"
+    continuation = platform.requests[0]
+    assert continuation.method == "POST"
+    assert continuation.path.endswith("/tool-approvals/continue")
+    assert continuation.body["decisions"] == [{"approvalId": "apr_1", "approved": True}]
+    assert "functions" in continuation.body
+    assert continuation.headers["x-ba-user-id"] == "end-user"
     assert len(executions) == 1
-
-
-@pytest.mark.parametrize(
-    ("state", "message"),
-    [
-        (None, "no tool approval continuation"),
-        ("waiting", "waiting"),
-        ("failed", "failed"),
-    ],
-)
-def test_resume_chat_rejects_inactive_continuations(
-    state: str | None, message: str
-) -> None:
-    platform = FakePlatform([], approvals=approvals(state))
-    with platform.sync_client() as client:
-        with pytest.raises(ValueError, match=message):
-            client.resume_chat(agent_id=AGENT_ID, session_id=SESSION_ID, functions={})
-    assert len(platform.requests) == 1
 
 
 async def drain(stream: Any) -> list[bytes]:
@@ -1220,11 +1207,14 @@ def test_async_claim_after_deadline_and_empty_resume_registry() -> None:
         assert late.bodies("/result") == []
 
         empty = FakePlatform(
-            [ready(), Wait(CALL_ID), TEXT], approvals=approvals("queued")
+            [ready(), Wait(CALL_ID), TEXT], approvals=approvals("waiting")
         )
         async with empty.async_client() as client:
-            stream = await client.resume_chat(
-                agent_id=AGENT_ID, session_id=SESSION_ID, functions={}
+            stream = await client.continue_chat(
+                decisions=[{"approval_id": "apr_1", "approved": True}],
+                agent_id=AGENT_ID,
+                session_id=SESSION_ID,
+                functions={},
             )
             assert await drain(stream) == [TEXT]
         assert empty.calls[CALL_ID].outcome == {
@@ -1235,7 +1225,7 @@ def test_async_claim_after_deadline_and_empty_resume_registry() -> None:
     asyncio.run(exercise())
 
 
-def test_async_resume_chat_and_local_validation() -> None:
+def test_async_continue_chat_and_local_validation() -> None:
     async def exercise() -> None:
         async def execute(order: Order, context: FunctionContext) -> str:
             return "resumed"
@@ -1245,19 +1235,21 @@ def test_async_resume_chat_and_local_validation() -> None:
             [ready(), Wait(CALL_ID), TEXT], approvals=approvals("running")
         )
         async with platform.async_client() as client:
-            stream = await client.resume_chat(
+            stream = await client.continue_chat(
+                decisions=[{"approval_id": "apr_1", "approved": True}],
                 agent_id=AGENT_ID,
                 session_id=SESSION_ID,
                 functions={"getOrder": function},
             )
             assert await drain(stream) == [TEXT]
             with pytest.raises(ValueError, match="Invalid or reserved"):
-                await client.resume_chat(
+                await client.continue_chat(
+                    decisions=[{"approval_id": "apr_1", "approved": True}],
                     agent_id=AGENT_ID,
                     session_id=SESSION_ID,
                     functions={"bash": function},
                 )
-        assert platform.requests[1].path.endswith(f"/{CONTINUATION_ID}/resume")
+        assert platform.requests[0].path.endswith("/tool-approvals/continue")
         assert platform.calls[CALL_ID].outcome == {
             "kind": "output",
             "value": "resumed",
@@ -1349,44 +1341,6 @@ def test_validator_exceptions_become_invalid_input_without_running_handler(
     asyncio.run(exercise())
     assert executions == []
     assert "secret-validator" not in caplog.text
-
-
-def test_observer_join_strips_private_events_without_claiming() -> None:
-    script: list[Step] = [HEARTBEAT, ready(), TEXT, b"tail"]
-    platform = FakePlatform(list(script))
-    with platform.sync_client() as client:
-        joined = client.sessions.join_tool_approval_continuation(
-            agent_id=AGENT_ID,
-            session_id=SESSION_ID,
-            continuation_id=CONTINUATION_ID,
-        )
-        assert b"".join(joined) == HEARTBEAT + TEXT + b"tail"
-        malformed = FakePlatform([HEARTBEAT, ready("fc_short"), TEXT])
-    assert platform.bodies("/claim") == []
-
-    async def exercise() -> None:
-        platform = FakePlatform(list(script))
-        async with platform.async_client() as client:
-            joined = await client.sessions.join_tool_approval_continuation(
-                agent_id=AGENT_ID,
-                session_id=SESSION_ID,
-                continuation_id=CONTINUATION_ID,
-            )
-            assert await drain(joined) == [HEARTBEAT, TEXT, b"tail"]
-        assert platform.bodies("/claim") == []
-
-    asyncio.run(exercise())
-    with malformed.sync_client() as client:
-        joined = client.sessions.join_tool_approval_continuation(
-            agent_id=AGENT_ID,
-            session_id=SESSION_ID,
-            continuation_id=CONTINUATION_ID,
-        )
-        with pytest.raises(StreamError, match="malformed function call"):
-            b"".join(joined)
-    assert malformed.requests[0].path.endswith(
-        f"/tool-approval-continuations/{CONTINUATION_ID}"
-    )
 
 
 def test_sync_permanent_claim_failure_fails_stream_at_end() -> None:
@@ -1577,24 +1531,25 @@ FUNCTION_APPROVALS = {
             "decidedAt": "2026-10-02T02:59:32Z",
         }
     ],
-    "continuation": {"id": CONTINUATION_ID, "state": "queued"},
+    "continuation": {"id": CONTINUATION_ID, "state": "waiting"},
 }
 
 
-def test_resume_chat_after_a_function_approval() -> None:
+def test_continue_chat_after_a_function_approval() -> None:
     """The approval list carries the function reference the platform reports."""
     executions: list[tuple[Order, FunctionContext]] = []
     platform = FakePlatform(
         [ready(), Wait(CALL_ID), TEXT], approvals=FUNCTION_APPROVALS
     )
     with platform.sync_client() as client:
-        stream = client.resume_chat(
+        stream = client.continue_chat(
+            decisions=[{"approval_id": "apr_1", "approved": True}],
             agent_id=AGENT_ID,
             session_id=SESSION_ID,
             functions={"getOrder": get_order(executions)},
         )
         assert b"".join(stream) == TEXT
-    assert platform.requests[1].path.endswith(f"/{CONTINUATION_ID}/resume")
+    assert platform.requests[0].path.endswith("/tool-approvals/continue")
     assert platform.calls[CALL_ID].outcome == {
         "kind": "output",
         "value": {"status": "shipped o1"},
@@ -1605,13 +1560,14 @@ def test_resume_chat_after_a_function_approval() -> None:
             [ready(), Wait(CALL_ID), TEXT], approvals=FUNCTION_APPROVALS
         )
         async with platform.async_client() as client:
-            stream = await client.resume_chat(
+            stream = await client.continue_chat(
+                decisions=[{"approval_id": "apr_1", "approved": True}],
                 agent_id=AGENT_ID,
                 session_id=SESSION_ID,
                 functions={"getOrder": get_order(executions)},
             )
             assert await drain(stream) == [TEXT]
-        assert platform.requests[1].path.endswith(f"/{CONTINUATION_ID}/resume")
+        assert platform.requests[0].path.endswith("/tool-approvals/continue")
 
     asyncio.run(exercise())
     assert len(executions) == 2

@@ -251,7 +251,6 @@ def test_existing_approval_lifecycle_with_metadata(asynchronous: bool) -> None:
     }
     with loopback(
         Response(body={"data": [approval], "continuation": None}),
-        Response(body={"continuationId": "continuation-1", "state": "queued"}),
         Response(raw_body=b"continued"),
     ) as (base_url, state):
 
@@ -264,16 +263,10 @@ def test_existing_approval_lifecycle_with_metadata(asynchronous: bool) -> None:
                 )
                 assert isinstance(result.data[0].tool, McpToolReference)
                 assert result.data[0].assistant_message_id == "message-1"
-                decision = await client.sessions.decide_tool_approval(
+                stream = await client.continue_chat(
                     agent_id=AGENT["id"],
                     session_id="session-1",
-                    approval_id="approval-1",
-                    approved=True,
-                )
-                stream = await client.sessions.join_tool_approval_continuation(
-                    agent_id=AGENT["id"],
-                    session_id="session-1",
-                    continuation_id=decision.continuation_id,
+                    decisions=[{"approval_id": "approval-1", "approved": True}],
                 )
                 async with stream:
                     assert b"".join([chunk async for chunk in stream]) == b"continued"
@@ -287,22 +280,16 @@ def test_existing_approval_lifecycle_with_metadata(asynchronous: bool) -> None:
                 )
                 assert isinstance(result.data[0].tool, McpToolReference)
                 assert result.data[0].assistant_message_id == "message-1"
-                decision = client.sessions.decide_tool_approval(
+                with client.continue_chat(
                     agent_id=AGENT["id"],
                     session_id="session-1",
-                    approval_id="approval-1",
-                    approved=True,
-                )
-                with client.sessions.join_tool_approval_continuation(
-                    agent_id=AGENT["id"],
-                    session_id="session-1",
-                    continuation_id=decision.continuation_id,
+                    decisions=[{"approval_id": "approval-1", "approved": True}],
                 ) as stream:
                     assert b"".join(stream) == b"continued"
-    assert json.loads(state.requests[1].body) == {"approved": True}
-    assert state.requests[2].target.endswith(
-        "/tool-approval-continuations/continuation-1"
-    )
+    assert json.loads(state.requests[1].body) == {
+        "decisions": [{"approvalId": "approval-1", "approved": True}]
+    }
+    assert state.requests[1].target.endswith("/tool-approvals/continue")
 
 
 FUNCTION_REFERENCE: dict[str, Any] = {"type": "function", "name": "getOrder"}

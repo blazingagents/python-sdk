@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 import httpx
@@ -10,8 +10,7 @@ from ._chat import (
     AsyncChatStream,
     ChatStream,
     chat_request,
-    resume_request,
-    run_inputs_request,
+    continue_request,
 )
 from ._chat_connections import AsyncChatConnectionsResource, ChatConnectionsResource
 from ._chat_deliveries import AsyncChatDeliveriesResource, ChatDeliveriesResource
@@ -19,7 +18,6 @@ from ._completion import AsyncCompletionStream, CompletionStream, generation_req
 from ._functions import (
     AsyncFunctionRunner,
     ChatFunction,
-    FunctionEventObserver,
     SyncFunctionRunner,
     _CallScope,
     function_definitions,
@@ -67,7 +65,13 @@ from ._transport import (
     _Omitted,
     _TransportConfig,
 )
-from ._types import ChatTrigger, JsonSchema, JsonValue, Timeout
+from ._types import (
+    ChatTrigger,
+    JsonSchema,
+    JsonValue,
+    Timeout,
+    ToolApprovalDecisionInput,
+)
 from ._version import __version__
 
 if TYPE_CHECKING:
@@ -166,6 +170,7 @@ class BlazingAgents:
         *,
         agent_id: str,
         message: dict[str, _Opaque] | _Omitted = OMITTED,
+        messages: list[dict[str, _Opaque]] | _Omitted = OMITTED,
         prompt_id: str | _Omitted = OMITTED,
         variables: dict[str, str] | _Omitted = OMITTED,
         trigger: Literal["submit-message"] | _Omitted = OMITTED,
@@ -186,6 +191,7 @@ class BlazingAgents:
         agent_id: str,
         session_id: str,
         message: dict[str, _Opaque] | _Omitted = OMITTED,
+        messages: list[dict[str, _Opaque]] | _Omitted = OMITTED,
         prompt_id: str | _Omitted = OMITTED,
         variables: dict[str, str] | _Omitted = OMITTED,
         trigger: ChatTrigger | _Omitted = OMITTED,
@@ -203,6 +209,7 @@ class BlazingAgents:
         *,
         agent_id: str,
         message: dict[str, _Opaque] | _Omitted = OMITTED,
+        messages: list[dict[str, _Opaque]] | _Omitted = OMITTED,
         prompt_id: str | _Omitted = OMITTED,
         variables: dict[str, str] | _Omitted = OMITTED,
         trigger: ChatTrigger | _Omitted = OMITTED,
@@ -218,6 +225,7 @@ class BlazingAgents:
         request, resolved_session_id = chat_request(
             agent_id=agent_id,
             message=message,
+            messages=messages,
             prompt_id=prompt_id,
             variables=variables,
             trigger=trigger,
@@ -243,28 +251,29 @@ class BlazingAgents:
             ),
         )
 
-    def resume_chat(
+    def continue_chat(
         self,
         *,
         agent_id: str,
         session_id: str,
-        functions: Mapping[str, ChatFunction],
+        decisions: Sequence[ToolApprovalDecisionInput],
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
+        client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatStream:
-        """Join a queued or running approval continuation with these functions."""
-        function_definitions(functions, asynchronous=False)
-        approvals = self.sessions.tool_approvals(
-            agent_id=agent_id,
-            session_id=session_id,
-            extra_headers=extra_headers,
-            timeout=timeout,
-        )
+        """Decide a complete approval round and stream the continuing Turn."""
         return self._transport.stream(
-            resume_request(
+            continue_request(
                 agent_id=agent_id,
                 session_id=session_id,
-                continuation=approvals.continuation,
+                decisions=decisions,
+                functions=(
+                    OMITTED
+                    if isinstance(functions, _Omitted)
+                    else function_definitions(functions, asynchronous=False)
+                ),
+                client_request_id=client_request_id,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -272,42 +281,6 @@ class BlazingAgents:
                 response,
                 session_id,
                 self._function_runner(agent_id, functions, extra_headers),
-            ),
-        )
-
-    def run_inputs(
-        self,
-        *,
-        agent_id: str,
-        session_id: str,
-        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatStream:
-        """Run the pending queued inputs as one Turn with these functions.
-
-        Call this to start a queued batch. Nonempty ``functions`` clear a
-        ``function_executor_required`` pause.
-        Without ``functions`` the stream is an observer that removes function
-        events.
-        """
-        return self._transport.stream(
-            run_inputs_request(
-                agent_id=agent_id,
-                session_id=session_id,
-                functions=(
-                    OMITTED
-                    if isinstance(functions, _Omitted)
-                    else function_definitions(functions, asynchronous=False) or OMITTED
-                ),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            lambda response: ChatStream(
-                response,
-                session_id,
-                self._function_runner(agent_id, functions, extra_headers)
-                or (lambda _: FunctionEventObserver()),
             ),
         )
 
@@ -595,6 +568,7 @@ class AsyncBlazingAgents:
         *,
         agent_id: str,
         message: dict[str, _Opaque] | _Omitted = OMITTED,
+        messages: list[dict[str, _Opaque]] | _Omitted = OMITTED,
         prompt_id: str | _Omitted = OMITTED,
         variables: dict[str, str] | _Omitted = OMITTED,
         trigger: Literal["submit-message"] | _Omitted = OMITTED,
@@ -615,6 +589,7 @@ class AsyncBlazingAgents:
         agent_id: str,
         session_id: str,
         message: dict[str, _Opaque] | _Omitted = OMITTED,
+        messages: list[dict[str, _Opaque]] | _Omitted = OMITTED,
         prompt_id: str | _Omitted = OMITTED,
         variables: dict[str, str] | _Omitted = OMITTED,
         trigger: ChatTrigger | _Omitted = OMITTED,
@@ -632,6 +607,7 @@ class AsyncBlazingAgents:
         *,
         agent_id: str,
         message: dict[str, _Opaque] | _Omitted = OMITTED,
+        messages: list[dict[str, _Opaque]] | _Omitted = OMITTED,
         prompt_id: str | _Omitted = OMITTED,
         variables: dict[str, str] | _Omitted = OMITTED,
         trigger: ChatTrigger | _Omitted = OMITTED,
@@ -647,6 +623,7 @@ class AsyncBlazingAgents:
         request, resolved_session_id = chat_request(
             agent_id=agent_id,
             message=message,
+            messages=messages,
             prompt_id=prompt_id,
             variables=variables,
             trigger=trigger,
@@ -672,28 +649,29 @@ class AsyncBlazingAgents:
             ),
         )
 
-    async def resume_chat(
+    async def continue_chat(
         self,
         *,
         agent_id: str,
         session_id: str,
-        functions: Mapping[str, ChatFunction],
+        decisions: Sequence[ToolApprovalDecisionInput],
+        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
+        client_request_id: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncChatStream:
-        """Join a queued or running approval continuation with these functions."""
-        function_definitions(functions, asynchronous=True)
-        approvals = await self.sessions.tool_approvals(
-            agent_id=agent_id,
-            session_id=session_id,
-            extra_headers=extra_headers,
-            timeout=timeout,
-        )
+        """Decide a complete approval round and stream the continuing Turn."""
         return await self._transport.stream(
-            resume_request(
+            continue_request(
                 agent_id=agent_id,
                 session_id=session_id,
-                continuation=approvals.continuation,
+                decisions=decisions,
+                functions=(
+                    OMITTED
+                    if isinstance(functions, _Omitted)
+                    else function_definitions(functions, asynchronous=True)
+                ),
+                client_request_id=client_request_id,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -701,42 +679,6 @@ class AsyncBlazingAgents:
                 response,
                 session_id,
                 self._function_runner(agent_id, functions, extra_headers),
-            ),
-        )
-
-    async def run_inputs(
-        self,
-        *,
-        agent_id: str,
-        session_id: str,
-        functions: Mapping[str, ChatFunction] | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AsyncChatStream:
-        """Run the pending queued inputs as one Turn with these functions.
-
-        Call this to start a queued batch. Nonempty ``functions`` clear a
-        ``function_executor_required`` pause.
-        Without ``functions`` the stream is an observer that removes function
-        events.
-        """
-        return await self._transport.stream(
-            run_inputs_request(
-                agent_id=agent_id,
-                session_id=session_id,
-                functions=(
-                    OMITTED
-                    if isinstance(functions, _Omitted)
-                    else function_definitions(functions, asynchronous=True) or OMITTED
-                ),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            lambda response: AsyncChatStream(
-                response,
-                session_id,
-                self._function_runner(agent_id, functions, extra_headers)
-                or (lambda _: FunctionEventObserver()),
             ),
         )
 
