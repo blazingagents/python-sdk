@@ -233,26 +233,6 @@ def path_segment(name: str, value: str) -> str:
     return quote(value, safe="")
 
 
-def input_turn_request(
-    *,
-    agent_id: str,
-    session_id: str,
-    turn_id: str,
-    extra_headers: Mapping[str, str] | None,
-    timeout: Timeout | _Omitted,
-) -> _Request:
-    return _Request(
-        "GET",
-        (
-            f"/v1/agents/{quote(agent_id, safe='')}"
-            f"/sessions/{quote(session_id, safe='')}"
-            f"/input-turns/{path_segment('turn_id', turn_id)}"
-        ),
-        extra_headers=extra_headers,
-        timeout=timeout,
-    )
-
-
 def run_inputs_request(
     *,
     agent_id: str,

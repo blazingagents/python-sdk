@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
 
-from ._chat import AsyncChatStream, ChatStream, input_turn_request, path_segment
+from ._chat import AsyncChatStream, ChatStream, path_segment
 from ._downloads import AsyncByteStream, ByteStream
 from ._functions import FunctionEventObserver
 from ._models import (
@@ -4029,34 +4029,6 @@ class SessionsResource:
             ),
         )
 
-    def join_input_turn(
-        self,
-        *,
-        agent_id: str,
-        session_id: str,
-        turn_id: str,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> ByteStream:
-        """Stream a queued-input Turn from its start as an observer.
-
-        Disconnecting does not stop the Turn. Private function events are
-        removed and never claimed; use ``join_input_turn`` on the client to
-        execute functions.
-        """
-        return self._transport.stream(
-            input_turn_request(
-                agent_id=agent_id,
-                session_id=session_id,
-                turn_id=turn_id,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            lambda response: ChatStream(
-                response, session_id, lambda _: FunctionEventObserver()
-            ),
-        )
-
     def submit_input(
         self,
         *,
@@ -4070,10 +4042,11 @@ class SessionsResource:
     ) -> SessionInputResponse:
         """Durably submit a user message to an existing Session.
 
-        An idle Session starts a new Turn. While busy, ``when_busy="queue"``
-        (the default) waits for the next Turn and ``"steer"`` joins the
-        running Turn. Retry with the same ``request_id`` and payload after an
-        unknown outcome; a changed payload raises ``input_idempotency_conflict``.
+        Queued inputs wait until the client calls ``run_inputs``. While busy,
+        ``when_busy="queue"`` (the default) waits for the next Turn and
+        ``"steer"`` joins the running Turn. Retry with the same ``request_id``
+        and payload after an unknown outcome. A changed payload raises
+        ``input_idempotency_conflict``.
         """
         return self._transport.request(
             _Request(
@@ -4163,7 +4136,7 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionActivityResponse:
-        """Clear a ``failed`` or ``owner_lost`` pause and schedule pending inputs.
+        """Clear a ``failed`` or ``owner_lost`` pause so pending inputs can run.
 
         A ``function_executor_required`` pause stays; use ``run_inputs``.
         """
@@ -4188,7 +4161,7 @@ class SessionsResource:
     ) -> SessionStopResponse:
         """Stop the named Turn and return once it has settled.
 
-        Pending queued inputs then start the next Turn.
+        Pending queued inputs wait for the client to call ``run_inputs``.
         """
         return self._transport.request(
             _Request(
@@ -4410,34 +4383,6 @@ class AsyncSessionsResource:
             ),
         )
 
-    async def join_input_turn(
-        self,
-        *,
-        agent_id: str,
-        session_id: str,
-        turn_id: str,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AsyncByteStream:
-        """Stream a queued-input Turn from its start as an observer.
-
-        Disconnecting does not stop the Turn. Private function events are
-        removed and never claimed; use ``join_input_turn`` on the client to
-        execute functions.
-        """
-        return await self._transport.stream(
-            input_turn_request(
-                agent_id=agent_id,
-                session_id=session_id,
-                turn_id=turn_id,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            lambda response: AsyncChatStream(
-                response, session_id, lambda _: FunctionEventObserver()
-            ),
-        )
-
     async def submit_input(
         self,
         *,
@@ -4451,10 +4396,11 @@ class AsyncSessionsResource:
     ) -> SessionInputResponse:
         """Durably submit a user message to an existing Session.
 
-        An idle Session starts a new Turn. While busy, ``when_busy="queue"``
-        (the default) waits for the next Turn and ``"steer"`` joins the
-        running Turn. Retry with the same ``request_id`` and payload after an
-        unknown outcome; a changed payload raises ``input_idempotency_conflict``.
+        Queued inputs wait until the client calls ``run_inputs``. While busy,
+        ``when_busy="queue"`` (the default) waits for the next Turn and
+        ``"steer"`` joins the running Turn. Retry with the same ``request_id``
+        and payload after an unknown outcome. A changed payload raises
+        ``input_idempotency_conflict``.
         """
         return await self._transport.request(
             _Request(
@@ -4544,7 +4490,7 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionActivityResponse:
-        """Clear a ``failed`` or ``owner_lost`` pause and schedule pending inputs.
+        """Clear a ``failed`` or ``owner_lost`` pause so pending inputs can run.
 
         A ``function_executor_required`` pause stays; use ``run_inputs``.
         """
@@ -4569,7 +4515,7 @@ class AsyncSessionsResource:
     ) -> SessionStopResponse:
         """Stop the named Turn and return once it has settled.
 
-        Pending queued inputs then start the next Turn.
+        Pending queued inputs wait for the client to call ``run_inputs``.
         """
         return await self._transport.request(
             _Request(

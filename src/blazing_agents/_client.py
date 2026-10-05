@@ -10,7 +10,6 @@ from ._chat import (
     AsyncChatStream,
     ChatStream,
     chat_request,
-    input_turn_request,
     resume_request,
     run_inputs_request,
 )
@@ -287,8 +286,8 @@ class BlazingAgents:
     ) -> ChatStream:
         """Run the pending queued inputs as one Turn with these functions.
 
-        Use this when automatic draining is paused with
-        ``function_executor_required``; nonempty ``functions`` clear the pause.
+        Call this to start a queued batch. Nonempty ``functions`` clear a
+        ``function_executor_required`` pause.
         Without ``functions`` the stream is an observer that removes function
         events.
         """
@@ -309,33 +308,6 @@ class BlazingAgents:
                 session_id,
                 self._function_runner(agent_id, functions, extra_headers)
                 or (lambda _: FunctionEventObserver()),
-            ),
-        )
-
-    def join_input_turn(
-        self,
-        *,
-        agent_id: str,
-        session_id: str,
-        turn_id: str,
-        functions: Mapping[str, ChatFunction],
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatStream:
-        """Reattach to an admitted queued-input Turn and run its functions."""
-        function_definitions(functions, asynchronous=False)
-        return self._transport.stream(
-            input_turn_request(
-                agent_id=agent_id,
-                session_id=session_id,
-                turn_id=turn_id,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            lambda response: ChatStream(
-                response,
-                session_id,
-                self._function_runner(agent_id, functions, extra_headers),
             ),
         )
 
@@ -743,8 +715,8 @@ class AsyncBlazingAgents:
     ) -> AsyncChatStream:
         """Run the pending queued inputs as one Turn with these functions.
 
-        Use this when automatic draining is paused with
-        ``function_executor_required``; nonempty ``functions`` clear the pause.
+        Call this to start a queued batch. Nonempty ``functions`` clear a
+        ``function_executor_required`` pause.
         Without ``functions`` the stream is an observer that removes function
         events.
         """
@@ -765,33 +737,6 @@ class AsyncBlazingAgents:
                 session_id,
                 self._function_runner(agent_id, functions, extra_headers)
                 or (lambda _: FunctionEventObserver()),
-            ),
-        )
-
-    async def join_input_turn(
-        self,
-        *,
-        agent_id: str,
-        session_id: str,
-        turn_id: str,
-        functions: Mapping[str, ChatFunction],
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AsyncChatStream:
-        """Reattach to an admitted queued-input Turn and run its functions."""
-        function_definitions(functions, asynchronous=True)
-        return await self._transport.stream(
-            input_turn_request(
-                agent_id=agent_id,
-                session_id=session_id,
-                turn_id=turn_id,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            lambda response: AsyncChatStream(
-                response,
-                session_id,
-                self._function_runner(agent_id, functions, extra_headers),
             ),
         )
 

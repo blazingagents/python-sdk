@@ -567,18 +567,6 @@ def input_turn_examples(client: BlazingAgents, function: ChatFunction) -> None:
         ),
         ChatStream,
     )
-    assert_type(
-        client.join_input_turn(
-            agent_id="ag_example",
-            session_id="ss_example",
-            turn_id="turn_example",
-            functions={"lookupOrder": function},
-        ),
-        ChatStream,
-    )
-    client.sessions.join_input_turn(
-        agent_id="ag_example", session_id="ss_example", turn_id="turn_example"
-    )
 
 
 async def async_input_turn_examples(client: AsyncBlazingAgents) -> None:

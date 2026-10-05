@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Remove `join_input_turn()` from the sync and async clients and Session
+  resources. Call `run_inputs()` to stream a queued batch. Inputs wait until
+  a client runs them, including after stop or resume. Settled results remain
+  available in Session history.
+
 ## 0.12.0
 
 - Add durable Session inputs on the sync and async `sessions` resources.
