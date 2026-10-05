@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.14.0
+
+- Send one message or an ordered `messages` batch through `chat()`. Literal
+  input uses one `messages` array on the wire. Applications own waiting messages.
+- `sessions.submit_input()` steers a running Turn. Receipts use `accepted`,
+  `delivered`, `committed`, `not_placed`, or `uncertain`. Only `committed`
+  proves durable history inclusion. The `data-ba-steer-consumed` event reports
+  provisional placement. Never replay an uncertain message automatically.
+- `sessions.stop()` returns as soon as cancellation is recorded. Read the
+  existing stream to observe settlement.
+- `continue_chat(decisions=..., functions=...)` records a complete approval
+  round and streams the rest of the Turn in one request. Functions are optional
+  and run in the caller while the stream is consumed.
+- Remove `run_inputs()`, `promote_input()`, `delete_input()`, `resume_inputs()`,
+  `decide_tool_approval()`, `join_tool_approval_continuation()`, and `resume_chat()`.
+  Remove queue modes, paused activity, and their obsolete response types.
+
 ## 0.13.0
 
 - Remove `join_input_turn()` from the sync and async clients and Session
