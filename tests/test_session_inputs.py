@@ -36,7 +36,6 @@ from blazing_agents._resources import SessionsResource
 AGENT = "ag_0123456789abcdef"
 SESSION = "ss_0123456789abcdef"
 TURN = "turn_0123456789abcdef"
-NEXT_TURN = "turn_fedcba9876543210"
 BASE = f"/v1/agents/{AGENT}/sessions/{SESSION}"
 MESSAGE: dict[str, Any] = {
     "id": "message-1",
@@ -280,7 +279,6 @@ def unsafe_identity_calls(value: str) -> list[Call]:
         ),
         lambda s: s.promote_input(agent_id=AGENT, session_id=SESSION, request_id=value),
         lambda s: s.delete_input(agent_id=AGENT, session_id=SESSION, request_id=value),
-        lambda s: s.join_input_turn(agent_id=AGENT, session_id=SESSION, turn_id=value),
     ]
 
 
@@ -325,10 +323,9 @@ def test_malformed_receipts_are_rejected(body: dict[str, Any]) -> None:
         )
 
 
-def test_stop_response_may_report_the_next_drained_turn() -> None:
-    running_next = {"state": "running", "turnId": NEXT_TURN, "reason": None}
+def test_stop_response_reports_idle_when_no_client_runs_inputs() -> None:
     with (
-        loopback(Response(body={"stoppedTurnId": TURN, "activity": running_next})) as (
+        loopback(Response(body={"stoppedTurnId": TURN, "activity": IDLE})) as (
             base_url,
             _,
         ),
@@ -336,10 +333,10 @@ def test_stop_response_may_report_the_next_drained_turn() -> None:
     ):
         stopped = client.sessions.stop(agent_id=AGENT, session_id=SESSION, turn_id=TURN)
     assert stopped.stopped_turn_id == TURN
-    assert stopped.activity.turn_id == NEXT_TURN
+    assert stopped.activity.state == "idle"
+    assert stopped.activity.turn_id is None
 
 
-INPUT_TURN = f"{BASE}/input-turns/{TURN}"
 GET_ORDER = {
     "getOrder": {
         "description": "Get one order",
@@ -381,7 +378,7 @@ def test_async_run_inputs_without_functions_observes_with_empty_body() -> None:
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-def test_client_join_input_turn_executes_functions(asynchronous: bool) -> None:
+def test_run_inputs_executes_functions(asynchronous: bool) -> None:
     platform = FakePlatform([HEARTBEAT, ready(), Wait(CALL_ID), TEXT, DONE])
     executions: list[tuple[Order, FunctionContext]] = []
     functions = {"getOrder": get_order(executions)}
@@ -389,10 +386,9 @@ def test_client_join_input_turn_executes_functions(asynchronous: bool) -> None:
     async def exercise() -> list[bytes]:
         async with platform.async_client() as client:
             return await drain(
-                await client.join_input_turn(
+                await client.run_inputs(
                     agent_id=AGENT,
                     session_id=SESSION,
-                    turn_id=TURN,
                     functions=functions,
                 )
             )
@@ -402,61 +398,27 @@ def test_client_join_input_turn_executes_functions(asynchronous: bool) -> None:
     else:
         with platform.sync_client() as client:
             chunks = list(
-                client.join_input_turn(
+                client.run_inputs(
                     agent_id=AGENT,
                     session_id=SESSION,
-                    turn_id=TURN,
                     functions=functions,
                 )
             )
 
     assert b"".join(chunks) == HEARTBEAT + TEXT + DONE
     assert (platform.requests[0].method, platform.requests[0].path) == (
-        "GET",
-        INPUT_TURN,
+        "POST",
+        f"{BASE}/inputs/run",
     )
     assert len(executions) == 1
     assert len(platform.bodies("/claim")) == 1
 
 
-@pytest.mark.parametrize("asynchronous", [False, True])
-def test_sessions_join_input_turn_observes_without_claiming(
-    asynchronous: bool,
-) -> None:
-    platform = FakePlatform([HEARTBEAT, ready(), TEXT, DONE])
-
-    async def exercise() -> list[bytes]:
-        async with platform.async_client() as client:
-            return await drain(
-                await client.sessions.join_input_turn(
-                    agent_id=AGENT, session_id=SESSION, turn_id=TURN
-                )
-            )
-
-    if asynchronous:
-        chunks = asyncio.run(exercise())
-    else:
-        with platform.sync_client() as client:
-            chunks = list(
-                client.sessions.join_input_turn(
-                    agent_id=AGENT, session_id=SESSION, turn_id=TURN
-                )
-            )
-
-    assert b"".join(chunks) == HEARTBEAT + TEXT + DONE
-    assert platform.requests[0].path == INPUT_TURN
-    assert platform.bodies("/claim") == []
-
-
-def test_input_turn_streams_reject_empty_turn_and_surface_busy() -> None:
+def test_run_inputs_surfaces_busy() -> None:
     with (
         loopback(error("session_busy")) as (base_url, state),
         BlazingAgents(api_key="ba_test", base_url=base_url) as client,
     ):
-        with pytest.raises(ValueError, match="turn_id"):
-            client.sessions.join_input_turn(
-                agent_id=AGENT, session_id=SESSION, turn_id=""
-            )
         with pytest.raises(APIStatusError) as raised:
             client.run_inputs(agent_id=AGENT, session_id=SESSION)
     assert raised.value.code == "session_busy"
@@ -503,14 +465,6 @@ def test_async_unsafe_identities_are_rejected_before_any_request(value: str) -> 
             with pytest.raises(ValueError, match="request_id must not be"):
                 await sessions.delete_input(
                     agent_id=AGENT, session_id=SESSION, request_id=value
-                )
-            with pytest.raises(ValueError, match="turn_id must not be"):
-                await sessions.join_input_turn(
-                    agent_id=AGENT, session_id=SESSION, turn_id=value
-                )
-            with pytest.raises(ValueError, match="turn_id must not be"):
-                await client.join_input_turn(
-                    agent_id=AGENT, session_id=SESSION, turn_id=value, functions={}
                 )
 
     with loopback() as (base_url, state):
