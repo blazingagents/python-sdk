@@ -285,25 +285,6 @@ def _log_execution_failure(call: _FunctionCall) -> None:
     _LOGGER.warning("Function %s (%s) raised an exception", call.name, call.id)
 
 
-class FunctionEventObserver:
-    """Strips private function events from an observer stream without claiming.
-
-    Observers replay continuation output; only an explicit backend resume may
-    execute functions.
-    """
-
-    failure: BlazingAgentsError | None = None
-
-    def dispatch(self, call: _FunctionCall) -> None:
-        _LOGGER.debug("Observer skipped function call %s", call.id)
-
-    def close(self) -> None:
-        pass
-
-    async def aclose(self) -> None:
-        pass
-
-
 class _Runner:
     failure: BlazingAgentsError | None = None
     """A permanent claim or result failure the stream must raise."""

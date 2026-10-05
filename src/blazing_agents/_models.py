@@ -25,9 +25,7 @@ from ._types import (
     ApprovalDecision,
     BuiltinToolName,
     ChatDeliveryStatus,
-    SessionActivityReason,
     SessionActivityState,
-    SessionInputMode,
     SessionInputReason,
     SessionInputState,
 )
@@ -853,20 +851,22 @@ class SessionInputMessage(ResponseModel):
 
 
 class SessionActivity(ResponseModel):
-    """Whether the Session is running a Turn, stopping, or paused."""
+    """The current Turn activity, including approval waits."""
+
+    model_config = ConfigDict(extra="ignore")
 
     state: SessionActivityState
     turn_id: TurnId | None = Field(alias="turnId")
-    reason: SessionActivityReason | None
 
 
 class SessionInput(ResponseModel):
-    """A durable receipt for a message submitted to a Session.
+    """A steer receipt bound to one Turn.
 
-    ``request_id`` and ``sequence`` never change; promotion changes only
-    ``mode``. ``cancelled`` and ``uncertain`` inputs may already have been
-    seen by the model and are never replayed automatically.
+    Committed proves durable history inclusion. A not_placed message may be
+    sent through ordinary chat. Never replay uncertain messages automatically.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     request_id: Annotated[
         str,
@@ -875,13 +875,34 @@ class SessionInput(ResponseModel):
     ] = Field(alias="requestId")
     sequence: int = Field(ge=1)
     message: SessionInputMessage
-    mode: SessionInputMode
     state: SessionInputState
-    turn_id: TurnId | None = Field(alias="turnId")
+    turn_id: TurnId = Field(alias="turnId")
     created_at: AwareDatetime = Field(alias="createdAt")
     updated_at: AwareDatetime = Field(alias="updatedAt")
-    consumed_at: AwareDatetime | None = Field(alias="consumedAt")
     reason: SessionInputReason | None
+
+
+class ChatSteerConsumedData(ResponseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    request_id: Annotated[
+        str,
+        StringConstraints(min_length=1, max_length=128),
+        AfterValidator(_not_dot_segment),
+    ] = Field(alias="requestId")
+    turn_id: TurnId = Field(alias="turnId")
+    sequence: int = Field(ge=1)
+    message: SessionInputMessage
+
+
+class ChatSteerConsumedEvent(ResponseModel):
+    """Provisional placement of a steer, before durable history commit."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["data-ba-steer-consumed"]
+    transient: Literal[True]
+    data: ChatSteerConsumedData
 
 
 class SessionInputResponse(ResponseModel):
@@ -897,10 +918,6 @@ class SessionInputsPage(ResponseModel):
 
 class SessionStopResponse(ResponseModel):
     stopped_turn_id: TurnId = Field(alias="stoppedTurnId")
-    activity: SessionActivity
-
-
-class SessionActivityResponse(ResponseModel):
     activity: SessionActivity
 
 
@@ -1058,17 +1075,12 @@ class ToolApproval(ResponseModel):
 
 class ToolApprovalContinuation(ResponseModel):
     id: NonEmptyString
-    state: str
+    state: Literal["waiting", "running", "succeeded", "failed"]
 
 
 class ToolApprovals(ResponseModel):
     data: list[ToolApproval]
     continuation: ToolApprovalContinuation | None
-
-
-class ToolApprovalDecision(ResponseModel):
-    continuation_id: NonEmptyString = Field(alias="continuationId")
-    state: str
 
 
 class ArtifactDownloadUrl(ResponseModel):

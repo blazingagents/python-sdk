@@ -26,13 +26,11 @@ JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
 ChatDeliveryStatus = Literal["pending", "confirmed", "failed", "ambiguous"]
 ChatDeliveryListStatus = Literal["failed", "ambiguous"]
-SessionInputMode = Literal["queue", "steer"]
 SessionInputState = Literal[
-    "accepted", "delivered", "consumed", "committed", "cancelled", "uncertain"
+    "accepted", "delivered", "committed", "not_placed", "uncertain"
 ]
-SessionInputReason = Literal["stopped", "failed", "owner_lost", "deleted"]
-SessionActivityState = Literal["idle", "running", "stopping", "approval", "paused"]
-SessionActivityReason = Literal["failed", "owner_lost", "function_executor_required"]
+SessionInputReason = Literal["stopped", "failed", "owner_lost", "turn_finished"]
+SessionActivityState = Literal["idle", "running", "stopping", "approval"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
 AgentTool = Literal["workspace", "write_todos", "memory"]
 ApprovalDecision = Literal["full", "deny", "manual", "auto"]
@@ -235,11 +233,17 @@ class TaskRunMessagesOptions(TypedDict, total=False):
 
 
 class ToolApprovalDecisionInput(TypedDict, total=False):
-    agent_id: Required[str]
-    session_id: Required[str]
     approval_id: Required[str]
     approved: Required[bool]
     reason: str
+
+
+class ContinueChatInput(TypedDict, total=False):
+    agent_id: Required[str]
+    session_id: Required[str]
+    decisions: Required[Sequence[ToolApprovalDecisionInput]]
+    functions: Mapping[str, ChatFunction]
+    client_request_id: str
 
 
 class _ChatInput(TypedDict, total=False):
@@ -252,9 +256,21 @@ class _ChatInput(TypedDict, total=False):
 
 class _ChatMessageInput(_ChatInput, total=False):
     message: Required[dict[str, object]]
+    messages: Never
+    prompt_id: Never
+    variables: Never
+
+
+class _ChatMessagesInput(_ChatInput, total=False):
+    messages: Required[list[dict[str, object]]]
+    message: Never
+    prompt_id: Never
+    variables: Never
 
 
 class _ChatPromptInput(_ChatInput, total=False):
+    message: Never
+    messages: Never
     prompt_id: Required[str]
     variables: dict[str, str]
 
@@ -284,6 +300,15 @@ class _ExistingChatPromptInput(_ChatPromptInput, _ExistingChatInput):
     pass
 
 
+class _NewChatMessagesInput(_ChatMessagesInput, _NewChatInput):
+    pass
+
+
+class _ExistingChatMessagesInput(_ChatMessagesInput, _ExistingChatInput):
+    pass
+
+
+ChatMessagesInput: TypeAlias = _NewChatMessagesInput | _ExistingChatMessagesInput
 ChatMessageInput: TypeAlias = _NewChatMessageInput | _ExistingChatMessageInput
 ChatPromptInput: TypeAlias = _NewChatPromptInput | _ExistingChatPromptInput
 

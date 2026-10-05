@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncIterator, Callable, Iterator, Mapping
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from urllib.parse import quote
 
 import httpx
@@ -10,14 +10,12 @@ from ._downloads import AsyncByteStream, ByteStream
 from ._errors import StreamError
 from ._functions import (
     AsyncFunctionRunner,
-    FunctionEventObserver,
     SseFrames,
     SyncFunctionRunner,
     function_call,
 )
-from ._models import ToolApprovalContinuation
 from ._transport import OMITTED, _Omitted, _Request
-from ._types import ChatTrigger, Timeout
+from ._types import ChatTrigger, Timeout, ToolApprovalDecisionInput
 
 _SESSION_ID = re.compile(r"ss_[0-9A-Za-z]{16}\Z")
 
@@ -33,9 +31,7 @@ class ChatStream(ByteStream):
         self,
         response: httpx.Response,
         session_id: str | None,
-        functions: (
-            Callable[[str], SyncFunctionRunner | FunctionEventObserver] | None
-        ) = None,
+        functions: (Callable[[str], SyncFunctionRunner] | None) = None,
     ) -> None:
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
@@ -81,9 +77,7 @@ class AsyncChatStream(AsyncByteStream):
         self,
         response: httpx.Response,
         session_id: str | None,
-        functions: (
-            Callable[[str], AsyncFunctionRunner | FunctionEventObserver] | None
-        ) = None,
+        functions: (Callable[[str], AsyncFunctionRunner] | None) = None,
     ) -> None:
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
@@ -139,6 +133,7 @@ def _session_id(response: httpx.Response) -> str:
 def _chat_body(
     *,
     message: dict[str, object] | _Omitted,
+    messages: list[dict[str, object]] | _Omitted,
     prompt_id: str | _Omitted,
     variables: dict[str, str] | _Omitted,
     trigger: ChatTrigger | _Omitted,
@@ -149,8 +144,17 @@ def _chat_body(
 ) -> dict[str, object]:
     has_message = not isinstance(message, _Omitted)
     has_prompt = not isinstance(prompt_id, _Omitted)
-    if has_message == has_prompt:
-        raise ValueError("Provide exactly one of message or prompt_id.")
+    has_messages = not isinstance(messages, _Omitted)
+    if sum((has_message, has_messages, has_prompt)) != 1:
+        raise ValueError("Provide exactly one of message, messages or prompt_id.")
+    if has_messages and not messages:
+        raise ValueError("messages must not be empty.")
+    if (
+        trigger == "regenerate-message"
+        and not isinstance(messages, _Omitted)
+        and len(messages) != 1
+    ):
+        raise ValueError("regenerate-message requires exactly one message.")
     if not isinstance(variables, _Omitted) and not has_prompt:
         raise ValueError("variables can only be used with prompt_id.")
     if not isinstance(trigger, _Omitted) and trigger not in {
@@ -163,7 +167,9 @@ def _chat_body(
 
     body: dict[str, object] = {}
     if has_message:
-        body["message"] = message
+        body["messages"] = [message]
+    elif has_messages:
+        body["messages"] = messages
     else:
         body["promptId"] = prompt_id
         if not isinstance(variables, _Omitted):
@@ -184,6 +190,7 @@ def chat_request(
     *,
     agent_id: str,
     message: dict[str, object] | _Omitted = OMITTED,
+    messages: list[dict[str, object]] | _Omitted = OMITTED,
     prompt_id: str | _Omitted = OMITTED,
     variables: dict[str, str] | _Omitted = OMITTED,
     trigger: ChatTrigger | _Omitted = OMITTED,
@@ -211,6 +218,7 @@ def chat_request(
             client_request_id=client_request_id,
             json_body=_chat_body(
                 message=message,
+                messages=messages,
                 prompt_id=prompt_id,
                 variables=variables,
                 trigger=trigger,
@@ -233,49 +241,36 @@ def path_segment(name: str, value: str) -> str:
     return quote(value, safe="")
 
 
-def run_inputs_request(
+def continue_request(
     *,
     agent_id: str,
     session_id: str,
+    decisions: Sequence[ToolApprovalDecisionInput],
     functions: dict[str, object] | _Omitted,
+    client_request_id: str | None,
     extra_headers: Mapping[str, str] | None,
     timeout: Timeout | _Omitted,
 ) -> _Request:
+    body: dict[str, object] = {
+        "decisions": [
+            {
+                "approvalId": decision["approval_id"],
+                "approved": decision["approved"],
+                **({"reason": decision["reason"]} if "reason" in decision else {}),
+            }
+            for decision in decisions
+        ]
+    }
+    if not isinstance(functions, _Omitted):
+        body["functions"] = functions
     return _Request(
         "POST",
         (
             f"/v1/agents/{quote(agent_id, safe='')}"
-            f"/sessions/{quote(session_id, safe='')}/inputs/run"
+            f"/sessions/{quote(session_id, safe='')}/tool-approvals/continue"
         ),
-        json_body={} if isinstance(functions, _Omitted) else {"functions": functions},
-        extra_headers=extra_headers,
-        timeout=timeout,
-    )
-
-
-def resume_request(
-    *,
-    agent_id: str,
-    session_id: str,
-    continuation: ToolApprovalContinuation | None,
-    extra_headers: Mapping[str, str] | None,
-    timeout: Timeout | _Omitted,
-) -> _Request:
-    if continuation is None:
-        raise ValueError("The Session has no tool approval continuation to resume.")
-    if continuation.state not in {"queued", "running"}:
-        raise ValueError(
-            f"The tool approval continuation is {continuation.state}; "
-            "only a queued or running continuation can be resumed."
-        )
-    return _Request(
-        "POST",
-        (
-            f"/v1/agents/{quote(agent_id, safe='')}"
-            f"/sessions/{quote(session_id, safe='')}"
-            f"/tool-approval-continuations/{quote(continuation.id, safe='')}/resume"
-        ),
-        json_body={},
+        json_body=body,
+        client_request_id=client_request_id,
         extra_headers=extra_headers,
         timeout=timeout,
     )

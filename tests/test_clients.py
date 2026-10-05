@@ -31,13 +31,11 @@ from blazing_agents import (
     ArtifactDownloadUrl,
     ArtifactsPage,
     AsyncBlazingAgents,
-    AsyncByteStream,
     AsyncChatStream,
     AsyncCompletionStream,
     AsyncObjectStream,
     BlazingAgents,
     BlazingAgentsError,
-    ByteStream,
     ChatMessageInput,
     ChatPromptInput,
     ChatStream,
@@ -110,8 +108,6 @@ from blazing_agents import (
     TaskUpdate,
     ToolApproval,
     ToolApprovalContinuation,
-    ToolApprovalDecision,
-    ToolApprovalDecisionInput,
     ToolApprovals,
     UsageOverview,
     UsageOverviewQuery,
@@ -4604,10 +4600,10 @@ def test_generic_byte_stream_maps_incomplete_errors_and_connection_failures() ->
     ) as (base_url, _):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
             with pytest.raises(StreamError, match="read failed"):
-                client.sessions.join_tool_approval_continuation(
+                client.continue_chat(
                     agent_id=AGENT["id"],
                     session_id=SESSION["id"],
-                    continuation_id="tool-approval:ss:assistant",
+                    decisions=[{"approval_id": "a1", "approved": True}],
                 )
 
         async def reject_incomplete_error() -> None:
@@ -4616,10 +4612,10 @@ def test_generic_byte_stream_maps_incomplete_errors_and_connection_failures() ->
                 base_url=base_url,
             ) as client:
                 with pytest.raises(StreamError, match="read failed"):
-                    await client.sessions.join_tool_approval_continuation(
+                    await client.continue_chat(
                         agent_id=AGENT["id"],
                         session_id=SESSION["id"],
-                        continuation_id="tool-approval:ss:assistant",
+                        decisions=[{"approval_id": "a1", "approved": True}],
                     )
 
         asyncio.run(reject_incomplete_error())
@@ -4627,19 +4623,19 @@ def test_generic_byte_stream_maps_incomplete_errors_and_connection_failures() ->
     unused = _unused_origin()
     with BlazingAgents(api_key="ba_test", base_url=unused) as client:
         with pytest.raises(APIConnectionError):
-            client.sessions.join_tool_approval_continuation(
+            client.continue_chat(
                 agent_id=AGENT["id"],
                 session_id=SESSION["id"],
-                continuation_id="tool-approval:ss:assistant",
+                decisions=[{"approval_id": "a1", "approved": True}],
             )
 
     async def reject_connection() -> None:
         async with AsyncBlazingAgents(api_key="ba_test", base_url=unused) as client:
             with pytest.raises(APIConnectionError):
-                await client.sessions.join_tool_approval_continuation(
+                await client.continue_chat(
                     agent_id=AGENT["id"],
                     session_id=SESSION["id"],
-                    continuation_id="tool-approval:ss:assistant",
+                    decisions=[{"approval_id": "a1", "approved": True}],
                 )
 
     asyncio.run(reject_connection())
@@ -4735,262 +4731,6 @@ def test_sync_tool_approvals_preserve_pending_and_continuation_state() -> None:
         "action": "update",
         "OpaqueKey": {"nested_key": True},
     }
-
-
-def test_sync_tool_approval_decisions_rejoin_or_surface_server_conflicts() -> None:
-    decision = {
-        "continuationId": "tool-approval:ss:assistant",
-        "state": "queued",
-        "futureDecisionField": True,
-    }
-    conflict = {
-        "error": {
-            "code": "tool_approval_decision_conflict",
-            "message": "Tool approval decision conflicts",
-        }
-    }
-    with loopback(
-        Response(status=202, body=decision, headers={"x-request-id": "req_decide"}),
-        Response(status=202, body={**decision, "state": "running"}),
-        Response(status=409, body=conflict, headers={"x-request-id": "req_conflict"}),
-    ) as (base_url, state):
-        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            denial: ToolApprovalDecisionInput = {
-                "agent_id": AGENT["id"],
-                "session_id": SESSION["id"],
-                "approval_id": "approval/1",
-                "approved": False,
-                "reason": "Tenant denied the update.",
-            }
-            accepted = client.sessions.decide_tool_approval(**denial)
-            repeated = client.sessions.decide_tool_approval(
-                agent_id=AGENT["id"],
-                session_id=SESSION["id"],
-                approval_id="approval/1",
-                approved=False,
-            )
-            with pytest.raises(APIStatusError) as conflicting:
-                client.sessions.decide_tool_approval(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                    approval_id="approval/1",
-                    approved=True,
-                )
-
-    assert isinstance(accepted, ToolApprovalDecision)
-    assert accepted.continuation_id == repeated.continuation_id
-    assert accepted.state == "queued"
-    assert accepted._request_id == "req_decide"
-    assert accepted.model_extra == {"futureDecisionField": True}
-    assert conflicting.value.code == "tool_approval_decision_conflict"
-    assert conflicting.value.request_id == "req_conflict"
-    assert [request.target for request in state.requests] == [
-        (
-            "/v1/agents/ag_0123456789abcdef"
-            "/sessions/ss_0123456789abcdef/tool-approvals/approval%2F1"
-        )
-    ] * 3
-    assert [json.loads(request.body) for request in state.requests] == [
-        {"approved": False, "reason": "Tenant denied the update."},
-        {"approved": False},
-        {"approved": True},
-    ]
-
-
-def test_sync_tool_approval_continuation_detaches_and_rejoins_untouched() -> None:
-    observed_frame = b'data: {"type":"text-delta","delta":"seen"}\n\n'
-    first_chunk = b'data: {"type":"text-delta","delta":"'
-    terminal_chunks = (
-        first_chunk,
-        b'\xff"}\n\ndata: malformed future event\n\n',
-        b"data: [DONE]\n\n",
-    )
-    gate = Event()
-    detached = Event()
-    continuation_id = "tool-approval:ss:assistant/1"
-    with loopback(
-        Response(
-            chunks=(observed_frame, b"server-owned-work-continues"),
-            chunk_gate=gate,
-            cancelled=detached,
-            headers={
-                "content-type": "text/event-stream",
-                "x-request-id": "req_join_detach",
-            },
-        ),
-        Response(
-            chunks=terminal_chunks,
-            headers={
-                "content-type": "text/event-stream",
-                "x-request-id": "req_join_rejoin",
-                "x-future-header": "preserved",
-            },
-        ),
-    ) as (base_url, state):
-        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            joined = client.sessions.join_tool_approval_continuation(
-                agent_id=AGENT["id"],
-                session_id=SESSION["id"],
-                continuation_id=continuation_id,
-            )
-            body = iter(joined)
-            assert next(body) == observed_frame
-            joined.close()
-            gate.set()
-            assert detached.wait(timeout=1)
-
-            rejoined = client.sessions.join_tool_approval_continuation(
-                agent_id=AGENT["id"],
-                session_id=SESSION["id"],
-                continuation_id=continuation_id,
-                extra_headers={"x-client-request-id": "caller-rejoin"},
-            )
-            assert isinstance(rejoined, ByteStream)
-            assert rejoined.status_code == 200
-            assert rejoined.request_id == "req_join_rejoin"
-            assert rejoined.headers["x-future-header"] == "preserved"
-            assert b"".join(rejoined) == b"".join(terminal_chunks)
-            assert rejoined.closed is True
-            with pytest.raises(StreamError, match="already"):
-                iter(rejoined)
-
-    expected_path = (
-        "/v1/agents/ag_0123456789abcdef"
-        "/sessions/ss_0123456789abcdef/tool-approval-continuations/"
-        "tool-approval%3Ass%3Aassistant%2F1"
-    )
-    assert [request.target for request in state.requests] == [
-        expected_path,
-        expected_path,
-    ]
-    assert state.requests[1].headers["x-client-request-id"] == "caller-rejoin"
-
-
-def test_async_tool_approval_lifecycle_matches_sync_and_rejoins_after_detach() -> None:
-    continuation_id = "tool-approval:ss:assistant"
-    approval_state = {
-        "data": [
-            TOOL_APPROVAL,
-            {
-                **TOOL_APPROVAL,
-                "approvalId": "approval-2",
-                "toolCallId": "tool-call-2",
-                "decision": "approved",
-                "reason": "Approved by tenant.",
-            },
-        ],
-        "continuation": {"id": continuation_id, "state": "waiting"},
-    }
-    decision = {"continuationId": continuation_id, "state": "running"}
-    conflict = {
-        "error": {
-            "code": "tool_approval_decision_conflict",
-            "message": "Tool approval decision conflicts",
-        }
-    }
-    gate = Event()
-    detached = Event()
-    terminal_chunks = (
-        b'data: {"type":"start"}\n\n',
-        b"data: future malformed bytes \xff\n\n",
-    )
-    with loopback(
-        Response(
-            body=approval_state,
-            headers={"x-request-id": "req_async_approvals"},
-        ),
-        Response(status=202, body=decision),
-        Response(status=202, body={**decision, "state": "succeeded"}),
-        Response(status=409, body=conflict),
-        Response(
-            chunks=(b"data: persisted-first\n\n", b"data: persisted-later\n\n"),
-            chunk_gate=gate,
-            cancelled=detached,
-        ),
-        Response(
-            chunks=terminal_chunks,
-            headers={
-                "content-type": "text/event-stream",
-                "x-request-id": "req_async_rejoin",
-            },
-        ),
-    ) as (base_url, state):
-
-        async def exercise() -> None:
-            async with AsyncBlazingAgents(
-                api_key="ba_test",
-                base_url=base_url,
-            ) as client:
-                approvals = await client.sessions.tool_approvals(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                )
-                assert approvals.data[0].decision == "pending"
-                assert approvals.data[0].reason is None
-                assert approvals.data[1].decision == "approved"
-                assert approvals.data[1].reason == "Approved by tenant."
-                assert approvals.continuation is not None
-                assert approvals.continuation.state == "waiting"
-                assert approvals._request_id == "req_async_approvals"
-
-                accepted = await client.sessions.decide_tool_approval(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                    approval_id="approval-1",
-                    approved=True,
-                    reason="Approved by tenant.",
-                )
-                repeated = await client.sessions.decide_tool_approval(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                    approval_id="approval-1",
-                    approved=True,
-                )
-                assert accepted.continuation_id == repeated.continuation_id
-                with pytest.raises(APIStatusError) as conflicting:
-                    await client.sessions.decide_tool_approval(
-                        agent_id=AGENT["id"],
-                        session_id=SESSION["id"],
-                        approval_id="approval-1",
-                        approved=False,
-                    )
-                assert conflicting.value.code == "tool_approval_decision_conflict"
-
-                joined = await client.sessions.join_tool_approval_continuation(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                    continuation_id=continuation_id,
-                )
-                body = aiter(joined)
-                assert await anext(body) == b"data: persisted-first\n\n"
-                await joined.aclose()
-                gate.set()
-                assert await asyncio.to_thread(detached.wait, 1)
-
-                rejoined = await client.sessions.join_tool_approval_continuation(
-                    agent_id=AGENT["id"],
-                    session_id=SESSION["id"],
-                    continuation_id=continuation_id,
-                )
-                assert isinstance(rejoined, AsyncByteStream)
-                assert rejoined.request_id == "req_async_rejoin"
-                assert b"".join([chunk async for chunk in rejoined]) == b"".join(
-                    terminal_chunks
-                )
-                assert rejoined.closed is True
-                with pytest.raises(StreamError, match="already"):
-                    aiter(rejoined)
-
-        asyncio.run(exercise())
-
-    assert [request.method for request in state.requests] == [
-        "GET",
-        "POST",
-        "POST",
-        "POST",
-        "GET",
-        "GET",
-    ]
 
 
 def test_sync_sessions_iter_requests_pages_lazily_until_terminal_cursor() -> None:
@@ -5479,11 +5219,13 @@ def test_sync_chat_create_relays_exact_bytes_and_exposes_headers_immediately() -
     assert request.target == "/v1/agents/ag_0123456789abcdef/sessions"
     assert request.headers["x-client-request-id"] == "caller-attempt"
     assert json.loads(request.body) == {
-        "message": {
-            "id": "user-message",
-            "role": "user",
-            "parts": [{"type": "text", "text": "hello"}],
-        },
+        "messages": [
+            {
+                "id": "user-message",
+                "role": "user",
+                "parts": [{"type": "text", "text": "hello"}],
+            }
+        ],
         "userId": "end-user",
         "metadata": {"OpaqueKey": {"nested_key": True}},
     }
@@ -5838,7 +5580,7 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
         "metadata": {"OpaqueKey": True},
     }
     assert json.loads(state.requests[1].body) == {
-        "message": {"role": "user", "parts": []},
+        "messages": [{"role": "user", "parts": []}],
     }
 
 
