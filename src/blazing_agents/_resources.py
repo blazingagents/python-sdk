@@ -3831,6 +3831,34 @@ class SessionsResource:
     def __init__(self, transport: SyncTransport) -> None:
         self._transport = transport
 
+    def fork(
+        self,
+        agent_id: str,
+        session_id: str,
+        *,
+        message_id: str,
+        idempotency_key: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionResponse:
+        """Retry uncertain acknowledgements with the same explicit key."""
+        headers = {
+            name: value
+            for name, value in (extra_headers or {}).items()
+            if name.lower() != "idempotency-key"
+        }
+        headers["Idempotency-Key"] = idempotency_key
+        return self._transport.request(
+            _Request(
+                "POST",
+                f"{_sessions_path(agent_id, session_id)}/fork",
+                json_body={"messageId": message_id},
+                extra_headers=headers,
+                timeout=timeout,
+            ),
+            SessionResponse,
+        )
+
     def get(
         self,
         agent_id: str,
@@ -4056,6 +4084,34 @@ class SessionsResource:
 class AsyncSessionsResource:
     def __init__(self, transport: AsyncTransport) -> None:
         self._transport = transport
+
+    async def fork(
+        self,
+        agent_id: str,
+        session_id: str,
+        *,
+        message_id: str,
+        idempotency_key: str,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionResponse:
+        """Retry uncertain acknowledgements with the same explicit key."""
+        headers = {
+            name: value
+            for name, value in (extra_headers or {}).items()
+            if name.lower() != "idempotency-key"
+        }
+        headers["Idempotency-Key"] = idempotency_key
+        return await self._transport.request(
+            _Request(
+                "POST",
+                f"{_sessions_path(agent_id, session_id)}/fork",
+                json_body={"messageId": message_id},
+                extra_headers=headers,
+                timeout=timeout,
+            ),
+            SessionResponse,
+        )
 
     async def get(
         self,

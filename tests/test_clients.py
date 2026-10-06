@@ -304,12 +304,14 @@ LATEST_SESSION: dict[str, Any] = {
 SESSION_MESSAGES: list[dict[str, Any]] = [
     {
         "id": "user-message",
+        "branchable": False,
         "role": "user",
         "parts": [{"type": "text", "text": "Build it"}],
         "metadata": {"source": "stored"},
     },
     {
         "id": "assistant-message",
+        "branchable": True,
         "role": "assistant",
         "parts": [
             {
@@ -4643,7 +4645,7 @@ def test_generic_byte_stream_maps_incomplete_errors_and_connection_failures() ->
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 def test_session_get_returns_saved_agent_config(asynchronous: bool) -> None:
-    detail = {**SESSION, "agentConfig": AGENT_CONFIG}
+    detail = {**SESSION, "agentConfig": AGENT_CONFIG, "forkedFrom": None}
     with loopback(Response(body=detail)) as (base_url, state):
         if asynchronous:
 
@@ -4659,6 +4661,7 @@ def test_session_get_returns_saved_agent_config(asynchronous: bool) -> None:
                 result = client.sessions.get(AGENT["id"], SESSION["id"])
     assert isinstance(result, SessionResponse)
     assert result.agent_config.name == AGENT["name"]
+    assert result.forked_from is None
     assert (
         state.requests[0].target == f"/v1/agents/{AGENT['id']}/sessions/{SESSION['id']}"
     )
@@ -6806,3 +6809,164 @@ def test_agent_compaction_configuration(asynchronous: bool) -> None:
         "autoCompaction": True,
         "compactionReserveTokens": 0,
     }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_session_fork_protocol_and_explicit_key_precedence(asynchronous: bool) -> None:
+    child = {
+        **SESSION,
+        "id": "ss_child01234567890",
+        "agentConfig": AGENT_CONFIG,
+        "forkedFrom": {"sessionId": SESSION["id"], "messageId": "assistant-message"},
+    }
+    with loopback(Response(status=201, body=child), Response(body=child)) as (
+        base_url,
+        state,
+    ):
+        if asynchronous:
+
+            async def exercise() -> list[SessionResponse]:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test",
+                    base_url=base_url,
+                    default_headers={"X-BA-User-Id": "end-user"},
+                ) as client:
+                    return [
+                        await client.sessions.fork(
+                            AGENT["id"],
+                            SESSION["id"],
+                            message_id="assistant-message",
+                            idempotency_key="retry-key",
+                            extra_headers={
+                                "idempotency-key": "wrong",
+                                "IDEMPOTENCY-KEY": "also-wrong",
+                                "X-Custom": "retained",
+                            },
+                            timeout=3,
+                        )
+                        for _ in range(2)
+                    ]
+
+            results = asyncio.run(exercise())
+        else:
+            with BlazingAgents(
+                api_key="ba_test",
+                base_url=base_url,
+                default_headers={"X-BA-User-Id": "end-user"},
+            ) as client:
+                results = [
+                    client.sessions.fork(
+                        AGENT["id"],
+                        SESSION["id"],
+                        message_id="assistant-message",
+                        idempotency_key="retry-key",
+                        extra_headers={
+                            "idempotency-key": "wrong",
+                            "IDEMPOTENCY-KEY": "also-wrong",
+                            "X-Custom": "retained",
+                        },
+                        timeout=3,
+                    )
+                    for _ in range(2)
+                ]
+    for result in results:
+        assert result.id == child["id"]
+        assert result.forked_from is not None
+        assert result.forked_from.session_id == SESSION["id"]
+        assert result.forked_from.message_id == "assistant-message"
+    for request in state.requests:
+        assert request.method == "POST"
+        assert request.target == (
+            f"/v1/agents/{AGENT['id']}/sessions/{SESSION['id']}/fork"
+        )
+        assert json.loads(request.body) == {"messageId": "assistant-message"}
+        assert request.headers.get_list("idempotency-key") == ["retry-key"]
+        assert request.headers["authorization"] == "Bearer ba_test"
+        assert request.headers["x-ba-user-id"] == "end-user"
+        assert request.headers["x-custom"] == "retained"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [
+        (409, "idempotency_conflict"),
+        (409, "session_fork_unavailable"),
+        (410, "session_fork_deleted"),
+    ],
+)
+def test_session_fork_preserves_errors(
+    asynchronous: bool, status: int, code: str
+) -> None:
+    with loopback(
+        Response(
+            status=status, body={"error": {"code": code, "message": "Fork failed"}}
+        )
+    ) as (base_url, _state):
+        if asynchronous:
+
+            async def exercise() -> None:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    await client.sessions.fork(
+                        AGENT["id"],
+                        SESSION["id"],
+                        message_id="assistant-message",
+                        idempotency_key="key",
+                    )
+
+            with pytest.raises(APIStatusError) as raised:
+                asyncio.run(exercise())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                with pytest.raises(APIStatusError) as raised:
+                    client.sessions.fork(
+                        AGENT["id"],
+                        SESSION["id"],
+                        message_id="assistant-message",
+                        idempotency_key="key",
+                    )
+    assert raised.value.status_code == status
+    assert raised.value.code == code
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("missing", ["message_id", "idempotency_key"])
+def test_session_fork_requires_selection_and_key(
+    asynchronous: bool, missing: str
+) -> None:
+    arguments = {"message_id": "assistant", "idempotency_key": "key"}
+    del arguments[missing]
+    if asynchronous:
+
+        async def exercise() -> None:
+            async with AsyncBlazingAgents(api_key="ba_test") as client:
+                await cast(Any, client.sessions.fork)(
+                    AGENT["id"], SESSION["id"], **arguments
+                )
+
+        with pytest.raises(TypeError):
+            asyncio.run(exercise())
+    else:
+        with BlazingAgents(api_key="ba_test") as client:
+            with pytest.raises(TypeError):
+                cast(Any, client.sessions.fork)(AGENT["id"], SESSION["id"], **arguments)
+
+
+def test_session_detail_and_message_require_fork_fields() -> None:
+    detail = {**SESSION, "agentConfig": AGENT_CONFIG}
+    with pytest.raises(ValidationError):
+        SessionResponse.model_validate_json(json.dumps(detail))
+    assert (
+        SessionResponse.model_validate_json(
+            json.dumps({**detail, "forkedFrom": None})
+        ).forked_from
+        is None
+    )
+    message = {"id": "assistant", "role": "assistant", "parts": [{"type": "text"}]}
+    with pytest.raises(ValidationError):
+        SessionMessage.model_validate(message)
+    with pytest.raises(ValidationError):
+        SessionMessage.model_validate({**message, "branchable": "true"})
+    assert SessionMessage.model_validate({**message, "branchable": True}).branchable
