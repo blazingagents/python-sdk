@@ -36,9 +36,11 @@ from blazing_agents import (
     ObjectStream,
     Session,
     SessionActivityState,
+    SessionForkedFrom,
     SessionInputResponse,
     SessionInputsPage,
     SessionInputState,
+    SessionResponse,
     SessionStopResponse,
     Skill,
     SkillDetail,
@@ -595,3 +597,24 @@ async def async_batch_and_continuation_examples(client: AsyncBlazingAgents) -> N
         "decisions": [{"approval_id": "a1", "approved": False, "reason": "Denied"}],
     }
     assert_type(await client.continue_chat(**continuation), AsyncChatStream)
+
+
+def session_fork_examples(client: BlazingAgents) -> None:
+    child = client.sessions.fork(
+        "ag_example", "ss_example", message_id="assistant", idempotency_key="retry-key"
+    )
+    assert_type(child, SessionResponse)
+    assert_type(child.forked_from, SessionForkedFrom | None)
+    if child.forked_from is not None:
+        assert_type(child.forked_from.session_id, str)
+        assert_type(child.forked_from.message_id, str)
+    page = client.sessions.messages(agent_id="ag_example", session_id="ss_example")
+    assert_type(page.data[0].branchable, bool)
+
+
+async def async_session_fork_examples(client: AsyncBlazingAgents) -> None:
+    child = await client.sessions.fork(
+        "ag_example", "ss_example", message_id="assistant", idempotency_key="retry-key"
+    )
+    assert_type(child, SessionResponse)
+    assert_type(child.forked_from, SessionForkedFrom | None)

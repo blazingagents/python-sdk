@@ -797,8 +797,14 @@ class Session(ResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
+class SessionForkedFrom(ResponseModel):
+    session_id: SessionId = Field(alias="sessionId")
+    message_id: NonEmptyString = Field(alias="messageId")
+
+
 class SessionResponse(Session):
     agent_config: AgentConfig = Field(alias="agentConfig")
+    forked_from: SessionForkedFrom | None = Field(alias="forkedFrom")
 
 
 class SessionsPage(ResponseModel):
@@ -825,6 +831,7 @@ class SessionMessagePart(ResponseModel):
 
 
 class SessionMessage(ResponseModel):
+    branchable: bool
     id: NonEmptyString
     role: Literal["system", "user", "assistant"]
     parts: list[SessionMessagePart] = Field(min_length=1)
