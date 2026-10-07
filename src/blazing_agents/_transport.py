@@ -107,6 +107,17 @@ class _TransportConfig:
         on_response: Callable[[ResponseObservation], None] | None,
         client_request_id: str | None,
     ) -> None:
+        """Initialize TransportConfig.
+
+        Args:
+            api_key: Resolved API key used for authentication.
+            base_url: API base URL. Trailing slashes are removed.
+            default_headers: Headers applied to every request.
+            timeout: Default HTTP timeout in seconds, an HTTPX timeout, or None.
+            user_agent: User-Agent header value.
+            on_response: Response observer. Callback exceptions are ignored.
+            client_request_id: Caller correlation ID sent as X-Client-Request-Id.
+        """
         normalized_url = base_url.rstrip("/")
         if not normalized_url:
             msg = "base_url must not be empty"
@@ -120,6 +131,14 @@ class _TransportConfig:
         self.client_request_id = client_request_id
 
     def with_client_request_id(self, client_request_id: str) -> _TransportConfig:
+        """Copy configuration with a caller correlation ID.
+
+        Args:
+            client_request_id: Caller correlation ID sent as X-Client-Request-Id.
+
+        Returns:
+            Configuration copy with the requested correlation ID.
+        """
         return _TransportConfig(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -131,6 +150,14 @@ class _TransportConfig:
         )
 
     def resolved_client_request_id(self, request: _Request) -> str | None:
+        """Resolve the request ID override before the client default.
+
+        Args:
+            request: Prepared HTTP request.
+
+        Returns:
+            Request correlation ID, client default, or None.
+        """
         return (
             request.client_request_id
             if request.client_request_id is not None
@@ -138,9 +165,25 @@ class _TransportConfig:
         )
 
     def url(self, path: str) -> str:
+        """Append an endpoint path to the normalized API base URL.
+
+        Args:
+            path: Endpoint path to append to the base URL.
+
+        Returns:
+            Base URL concatenated with the endpoint path.
+        """
         return f"{self.base_url}{path}"
 
     def headers(self, request: _Request) -> httpx.Headers:
+        """Build headers with API authentication and caller correlation.
+
+        Args:
+            request: Prepared HTTP request.
+
+        Returns:
+            Merged request headers.
+        """
         headers = httpx.Headers({"user-agent": self.user_agent})
         headers.update(self.default_headers)
         if request.extra_headers is not None:
@@ -159,6 +202,13 @@ class _TransportConfig:
         started_at: float,
         response: httpx.Response,
     ) -> None:
+        """Call the response observer and ignore its exceptions.
+
+        Args:
+            request: Prepared HTTP request.
+            started_at: Request start time from perf_counter.
+            response: HTTPX response supplying the body and response metadata.
+        """
         if self.on_response is None:
             return
         with suppress(Exception):
@@ -176,6 +226,14 @@ class _TransportConfig:
             )
 
     def request_timeout(self, timeout: Timeout | _Omitted) -> Timeout:
+        """Resolve an omitted timeout to the client default.
+
+        Args:
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Request timeout override or the client default.
+        """
         return self.timeout if isinstance(timeout, _Omitted) else timeout
 
     def log(
@@ -185,6 +243,13 @@ class _TransportConfig:
         started_at: float,
         response: httpx.Response | None,
     ) -> None:
+        """Log request status and duration without request contents.
+
+        Args:
+            request: Prepared HTTP request.
+            started_at: Request start time from perf_counter.
+            response: HTTPX response supplying the body and response metadata.
+        """
         request_id = (
             response.headers.get("x-request-id") if response is not None else None
         )
@@ -202,6 +267,7 @@ def _status_error(
     response: httpx.Response,
     sensitive_values: tuple[str, ...],
 ) -> APIStatusError:
+    """Build an API status error with credential values redacted."""
     raw_body = response.text
     code = "invalid_response"
     message = "The server returned an invalid error response."
@@ -248,6 +314,7 @@ def _redact_headers(
     headers: httpx.Headers,
     sensitive_values: tuple[str, ...],
 ) -> httpx.Headers:
+    """Redact credential values in response headers."""
     if not sensitive_values:
         return headers
     return httpx.Headers(
@@ -259,6 +326,7 @@ def _redact_headers(
 
 
 def _redact_string(value: str, sensitive_values: tuple[str, ...]) -> str:
+    """Redact exact short secrets and occurrences of longer secrets."""
     for secret in sensitive_values:
         if len(secret) >= _MIN_SUBSTRING_SECRET_LENGTH:
             value = value.replace(secret, "[REDACTED]")
@@ -271,6 +339,7 @@ def _redact_sensitive_values(
     value: object,
     sensitive_values: tuple[str, ...],
 ) -> object:
+    """Recursively redact credential values in JSON data."""
     if isinstance(value, dict):
         fields = cast(dict[str, object], value)
         return {
@@ -290,6 +359,7 @@ def _model(
     model: type[_ModelT],
     sensitive_values: tuple[str, ...],
 ) -> _ModelT:
+    """Validate a response model and attach the server request ID."""
     if issubclass(model, CredentialSafeResponseModel):
         try:
             decoded: object = json.loads(response.content)
@@ -331,6 +401,7 @@ def _contains_credential_material(
     sensitive_values: tuple[str, ...],
     credential_fields: frozenset[str],
 ) -> bool:
+    """Check response data for credential fields or submitted secrets."""
     if isinstance(value, dict):
         fields = cast(dict[str, object], value)
         return any(
@@ -365,6 +436,7 @@ def _request_options(
     config: _TransportConfig,
     request: _Request,
 ) -> dict[str, Any]:
+    """Build HTTPX options for a nonstreaming request."""
     options: dict[str, Any] = {
         "params": request.query,
         "headers": config.headers(request),
@@ -383,6 +455,7 @@ def _stream_request_options(
     config: _TransportConfig,
     request: _Request,
 ) -> dict[str, Any]:
+    """Build HTTPX options for a streaming request."""
     options = _request_options(config, request)
     configured = config.request_timeout(request.timeout)
     if configured is None:
@@ -407,7 +480,9 @@ def _response_value(
     response: httpx.Response,
     model: type[_ModelT],
     sensitive_values: tuple[str, ...],
-) -> _ModelT: ...
+) -> _ModelT:
+    """Decode the selected response representation."""
+    ...
 
 
 @overload
@@ -415,7 +490,9 @@ def _response_value(
     response: httpx.Response,
     model: None,
     sensitive_values: tuple[str, ...],
-) -> None: ...
+) -> None:
+    """Decode the selected response representation."""
+    ...
 
 
 @overload
@@ -423,7 +500,9 @@ def _response_value(
     response: httpx.Response,
     model: _ResponseStatus,
     sensitive_values: tuple[str, ...],
-) -> int: ...
+) -> int:
+    """Decode the selected response representation."""
+    ...
 
 
 @overload
@@ -431,7 +510,9 @@ def _response_value(
     response: httpx.Response,
     model: _ResponseBytes,
     sensitive_values: tuple[str, ...],
-) -> bytes: ...
+) -> bytes:
+    """Decode the selected response representation."""
+    ...
 
 
 @overload
@@ -439,7 +520,9 @@ def _response_value(
     response: httpx.Response,
     model: _ResponseText,
     sensitive_values: tuple[str, ...],
-) -> Completion: ...
+) -> Completion:
+    """Decode the selected response representation."""
+    ...
 
 
 @overload
@@ -447,7 +530,9 @@ def _response_value(
     response: httpx.Response,
     model: _ResponseObjectText,
     sensitive_values: tuple[str, ...],
-) -> Completion: ...
+) -> Completion:
+    """Decode the selected response representation."""
+    ...
 
 
 def _response_value(
@@ -462,6 +547,7 @@ def _response_value(
     ),
     sensitive_values: tuple[str, ...],
 ) -> _ModelT | Completion | bytes | int | None:
+    """Decode the selected response representation."""
     if not response.is_success:
         raise _status_error(response, sensitive_values)
     if model is None:
@@ -481,33 +567,105 @@ class SyncTransport:
         config: _TransportConfig,
         http_client: httpx.Client | None,
     ) -> None:
+        """Initialize SyncTransport.
+
+        Args:
+            config: Authentication, headers, and timeout configuration.
+            http_client: HTTPX client to reuse. The SDK closes only clients it
+                creates.
+        """
         self._config = config
         self._owns_client = http_client is None
         self._client = http_client or httpx.Client()
 
     def with_client_request_id(self, client_request_id: str) -> SyncTransport:
+        """Copy configuration with a caller correlation ID.
+
+        Args:
+            client_request_id: Caller correlation ID sent as X-Client-Request-Id.
+
+        Returns:
+            Transport view sharing the HTTP client.
+        """
         return SyncTransport(
             self._config.with_client_request_id(client_request_id),
             self._client,
         )
 
     @overload
-    def request(self, request: _Request, model: type[_ModelT]) -> _ModelT: ...
+    def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Pydantic model used to decode the response.
+
+        Returns:
+            Response decoded into the supplied Pydantic model.
+        """
+        ...
 
     @overload
-    def request(self, request: _Request, model: None) -> None: ...
+    def request(self, request: _Request, model: None) -> None:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: None to discard the response body.
+        """
+        ...
 
     @overload
-    def request(self, request: _Request, model: _ResponseStatus) -> int: ...
+    def request(self, request: _Request, model: _ResponseStatus) -> int:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting the HTTP status code.
+
+        Returns:
+            Response HTTP status code.
+        """
+        ...
 
     @overload
-    def request(self, request: _Request, model: _ResponseBytes) -> bytes: ...
+    def request(self, request: _Request, model: _ResponseBytes) -> bytes:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting response bytes.
+
+        Returns:
+            Downloaded response bytes.
+        """
+        ...
 
     @overload
-    def request(self, request: _Request, model: _ResponseText) -> Completion: ...
+    def request(self, request: _Request, model: _ResponseText) -> Completion:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting generated text and request metadata.
+
+        Returns:
+            Generated text with its server request_id.
+        """
+        ...
 
     @overload
-    def request(self, request: _Request, model: _ResponseObjectText) -> Completion: ...
+    def request(self, request: _Request, model: _ResponseObjectText) -> Completion:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting generated JSON text and request metadata.
+
+        Returns:
+            Generated text with its server request_id.
+        """
+        ...
 
     def request(
         self,
@@ -521,6 +679,18 @@ class SyncTransport:
             | None
         ),
     ) -> _ModelT | Completion | bytes | int | None:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Response Pydantic model, decoding sentinel, or None.
+
+        Returns:
+            Decoded response selected by model, or None.
+
+        Raises:
+            StreamError: Response body read failed.
+        """
         started_at = perf_counter()
         response: httpx.Response | None = None
         transport_error: APIConnectionError | None = None
@@ -561,20 +731,51 @@ class SyncTransport:
         return _response_value(response, model, request.sensitive_values)
 
     @overload
-    def stream(self, request: _Request) -> ByteStream: ...
+    def stream(self, request: _Request) -> ByteStream:
+        """Send an HTTP request and wrap its streamed response.
+
+        Args:
+            request: Prepared HTTP request.
+
+        Returns:
+            Open byte stream.
+        """
+        ...
 
     @overload
     def stream(
         self,
         request: _Request,
         response_factory: Callable[[httpx.Response], _StreamT],
-    ) -> _StreamT: ...
+    ) -> _StreamT:
+        """Send an HTTP request and wrap its streamed response.
+
+        Args:
+            request: Prepared HTTP request.
+            response_factory: Factory that wraps the open streaming response.
+
+        Returns:
+            Stream returned by response_factory.
+        """
+        ...
 
     def stream(
         self,
         request: _Request,
         response_factory: Callable[[httpx.Response], _StreamT] | None = None,
     ) -> ByteStream | _StreamT:
+        """Send an HTTP request and wrap its streamed response.
+
+        Args:
+            request: Prepared HTTP request.
+            response_factory: Factory that wraps the open streaming response.
+
+        Returns:
+            Open byte stream, or the stream returned by response_factory.
+
+        Raises:
+            AssertionError: stream response did not produce a stream
+        """
         started_at = perf_counter()
         response: httpx.Response | None = None
         transport_error: APIConnectionError | None = None
@@ -624,6 +825,7 @@ class SyncTransport:
         raise AssertionError("stream response did not produce a stream")
 
     def close(self) -> None:
+        """Close the HTTP client if this transport owns it."""
         if self._owns_client:
             self._client.close()
 
@@ -634,35 +836,107 @@ class AsyncTransport:
         config: _TransportConfig,
         http_client: httpx.AsyncClient | None,
     ) -> None:
+        """Initialize AsyncTransport.
+
+        Args:
+            config: Authentication, headers, and timeout configuration.
+            http_client: HTTPX client to reuse. The SDK closes only clients it
+                creates.
+        """
         self._config = config
         self._owns_client = http_client is None
         self._client = http_client or httpx.AsyncClient()
 
     def with_client_request_id(self, client_request_id: str) -> AsyncTransport:
+        """Copy configuration with a caller correlation ID.
+
+        Args:
+            client_request_id: Caller correlation ID sent as X-Client-Request-Id.
+
+        Returns:
+            Async transport view sharing the HTTP client.
+        """
         return AsyncTransport(
             self._config.with_client_request_id(client_request_id),
             self._client,
         )
 
     @overload
-    async def request(self, request: _Request, model: type[_ModelT]) -> _ModelT: ...
+    async def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Pydantic model used to decode the response.
+
+        Returns:
+            Response decoded into the supplied Pydantic model.
+        """
+        ...
 
     @overload
-    async def request(self, request: _Request, model: None) -> None: ...
+    async def request(self, request: _Request, model: None) -> None:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: None to discard the response body.
+        """
+        ...
 
     @overload
-    async def request(self, request: _Request, model: _ResponseStatus) -> int: ...
+    async def request(self, request: _Request, model: _ResponseStatus) -> int:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting the HTTP status code.
+
+        Returns:
+            Response HTTP status code.
+        """
+        ...
 
     @overload
-    async def request(self, request: _Request, model: _ResponseBytes) -> bytes: ...
+    async def request(self, request: _Request, model: _ResponseBytes) -> bytes:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting response bytes.
+
+        Returns:
+            Downloaded response bytes.
+        """
+        ...
 
     @overload
-    async def request(self, request: _Request, model: _ResponseText) -> Completion: ...
+    async def request(self, request: _Request, model: _ResponseText) -> Completion:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting generated text and request metadata.
+
+        Returns:
+            Generated text with its server request_id.
+        """
+        ...
 
     @overload
     async def request(
         self, request: _Request, model: _ResponseObjectText
-    ) -> Completion: ...
+    ) -> Completion:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Sentinel selecting generated JSON text and request metadata.
+
+        Returns:
+            Generated text with its server request_id.
+        """
+        ...
 
     async def request(
         self,
@@ -676,6 +950,18 @@ class AsyncTransport:
             | None
         ),
     ) -> _ModelT | Completion | bytes | int | None:
+        """Send an HTTP request and decode its response.
+
+        Args:
+            request: Prepared HTTP request.
+            model: Response Pydantic model, decoding sentinel, or None.
+
+        Returns:
+            Decoded response selected by model, or None.
+
+        Raises:
+            StreamError: Response body read failed.
+        """
         started_at = perf_counter()
         response: httpx.Response | None = None
         transport_error: APIConnectionError | None = None
@@ -716,20 +1002,51 @@ class AsyncTransport:
         return _response_value(response, model, request.sensitive_values)
 
     @overload
-    async def stream(self, request: _Request) -> AsyncByteStream: ...
+    async def stream(self, request: _Request) -> AsyncByteStream:
+        """Send an HTTP request and wrap its streamed response.
+
+        Args:
+            request: Prepared HTTP request.
+
+        Returns:
+            Open async byte stream.
+        """
+        ...
 
     @overload
     async def stream(
         self,
         request: _Request,
         response_factory: Callable[[httpx.Response], _StreamT],
-    ) -> _StreamT: ...
+    ) -> _StreamT:
+        """Send an HTTP request and wrap its streamed response.
+
+        Args:
+            request: Prepared HTTP request.
+            response_factory: Factory that wraps the open streaming response.
+
+        Returns:
+            Stream returned by response_factory.
+        """
+        ...
 
     async def stream(
         self,
         request: _Request,
         response_factory: Callable[[httpx.Response], _StreamT] | None = None,
     ) -> AsyncByteStream | _StreamT:
+        """Send an HTTP request and wrap its streamed response.
+
+        Args:
+            request: Prepared HTTP request.
+            response_factory: Factory that wraps the open streaming response.
+
+        Returns:
+            Open byte stream, or the stream returned by response_factory.
+
+        Raises:
+            AssertionError: stream response did not produce a stream
+        """
         started_at = perf_counter()
         response: httpx.Response | None = None
         transport_error: APIConnectionError | None = None
@@ -780,5 +1097,6 @@ class AsyncTransport:
         raise AssertionError("stream response did not produce a stream")
 
     async def close(self) -> None:
+        """Close resources owned by this client."""
         if self._owns_client:
             await self._client.aclose()

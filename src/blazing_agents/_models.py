@@ -110,6 +110,7 @@ MetadataKey: TypeAlias = Annotated[
 
 
 def _unique_strings(values: list[str]) -> list[str]:
+    """Reject duplicate strings."""
     if len(values) != len(set(values)):
         msg = "values must be unique"
         raise ValueError(msg)
@@ -117,6 +118,7 @@ def _unique_strings(values: list[str]) -> list[str]:
 
 
 def _memory_text(value: str) -> str:
+    """Reject blank or oversized Memory text."""
     if len(value.encode()) > 10_240:
         msg = "Memory text must be at most 10240 bytes"
         raise ValueError(msg)
@@ -124,6 +126,7 @@ def _memory_text(value: str) -> str:
 
 
 def _skill_name(value: str) -> str:
+    """Validate a Skill name."""
     if value in {"anthropic", "claude"}:
         msg = "Skill name is reserved"
         raise ValueError(msg)
@@ -131,6 +134,7 @@ def _skill_name(value: str) -> str:
 
 
 def _skill_file_path(value: str) -> str:
+    """Reject invalid or unsafe paths within a Skill."""
     segments = value.split("/")
     if (
         value.startswith("/")
@@ -143,6 +147,7 @@ def _skill_file_path(value: str) -> str:
 
 
 def _artifact_filename(value: str) -> str:
+    """Validate an Artifact filename."""
     if not value.strip() or value in {".", ".."} or "/" in value or "\\" in value:
         msg = "Artifact filename must be a non-blank flat filename"
         raise ValueError(msg)
@@ -207,6 +212,7 @@ def _cron_values(
     maximum: int,
     step_maximum: int,
 ) -> set[int] | None:
+    """Expand cron field values and validate their bounds."""
     values: set[int] = set()
     for item in value.split(","):
         base, separator, step = item.partition("/")
@@ -236,6 +242,7 @@ def _cron_values(
 
 
 def _validate_cron(expression: str) -> None:
+    """Validate a five-field cron expression."""
     fields = expression.split()
     invalid = (
         not expression.strip()
@@ -267,6 +274,7 @@ def _validate_cron(expression: str) -> None:
 
 
 def _validate_timezone(timezone: str) -> str:
+    """Validate an IANA timezone name."""
     timezone = timezone.strip()
     if len(timezone) > 64 or _IANA_TIMEZONE.fullmatch(timezone) is None:
         msg = "cron schedule timezone must be a canonical IANA timezone"
@@ -420,6 +428,7 @@ class McpConnectionAuthorization(CredentialSafeResponseModel):
     @field_validator("authorization_url")
     @classmethod
     def _validate_authorization_url(cls, value: AnyUrl) -> AnyUrl:
+        """Reject authorization URLs containing credential material."""
         parsed = urlsplit(str(value))
         query = parse_qsl(parsed.query, keep_blank_values=True)
         if (
@@ -457,6 +466,7 @@ class McpConnectionTestResult(CredentialSafeResponseModel):
 
     @model_validator(mode="after")
     def _validate_result(self) -> McpConnectionTestResult:
+        """Require consistent success or failure fields in the MCP test result."""
         successful = (
             self.latency_ms is not None
             and self.server is not None
@@ -557,6 +567,7 @@ class Agent(ResponseModel):
 
     @model_validator(mode="after")
     def _validate_provider_model(self) -> Agent:
+        """Require a consistent provider and model configuration."""
         if (self.provider_id is None) != (self.model is None):
             msg = "providerId and model must both be present or both be null"
             raise ValueError(msg)
@@ -591,6 +602,7 @@ class AgentConfig(ResponseModel):
 
     @model_validator(mode="after")
     def _validate_provider_model(self) -> AgentConfig:
+        """Require a consistent provider and model configuration."""
         if (self.provider_id is None) != (self.model is None):
             msg = "providerId and model must both be present or both be null"
             raise ValueError(msg)
@@ -668,6 +680,7 @@ class Prompt(ResponseModel):
 
     @model_validator(mode="after")
     def _validate_variables(self) -> Prompt:
+        """Check template variable names, count, and first-occurrence order."""
         inferred = list(
             dict.fromkeys(
                 value.strip() for value in re.findall(r"{{([\s\S]*?)}}", self.template)
@@ -723,6 +736,7 @@ class Skill(ResponseModel):
     @field_validator("metadata", mode="before")
     @classmethod
     def _reject_null_metadata(cls, value: object) -> object:
+        """Reject explicit null metadata."""
         if value is None:
             msg = "Skill metadata may be omitted but cannot be null"
             raise ValueError(msg)
@@ -845,6 +859,11 @@ class SessionMessagesPage(ResponseModel):
 
 
 def _not_dot_segment(value: str) -> str:
+    """Reject identity values that URL normalization would collapse.
+
+    Raises:
+        ValueError: requestId must not be a URL dot segment.
+    """
     if value in {".", ".."}:
         raise ValueError("requestId must not be a URL dot segment.")
     return value
@@ -944,12 +963,14 @@ class TaskCronConfig(ResponseModel):
     @field_validator("expression")
     @classmethod
     def _validate_expression(cls, value: str) -> str:
+        """Validate the cron expression."""
         _validate_cron(value)
         return value
 
     @field_validator("timezone")
     @classmethod
     def _validate_timezone(cls, value: str) -> str:
+        """Validate an IANA timezone name."""
         return _validate_timezone(value)
 
 
@@ -1068,6 +1089,11 @@ class ToolApproval(ResponseModel):
     @field_validator("assistant_message_id", "created_at")
     @classmethod
     def _reject_explicit_null(cls, value: object) -> object:
+        """Reject null assistant_message_id and created_at response fields.
+
+        Raises:
+            ValueError: Field may be omitted but cannot be null
+        """
         if value is None:
             raise ValueError("Field may be omitted but cannot be null")
         return value

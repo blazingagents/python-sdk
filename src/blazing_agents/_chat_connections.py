@@ -16,6 +16,7 @@ from ._types import (
 
 
 def _wire(values: Mapping[str, object]) -> dict[str, object]:
+    """Convert provided connection fields to wire names."""
     return {
         key.split("_")[0] + "".join(part.title() for part in key.split("_")[1:]): value
         for key, value in values.items()
@@ -23,11 +24,17 @@ def _wire(values: Mapping[str, object]) -> dict[str, object]:
 
 
 def _path(chat_connection_id: str) -> str:
+    """Build the encoded Chat Connection endpoint path."""
     return f"/v1/chat-connections/{quote(chat_connection_id, safe='')}"
 
 
 class ChatConnectionsResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Chat Connection operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def list(
@@ -36,6 +43,21 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnections:
+        """Fetch the available Chat Connections.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Available Chat Connections.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -53,6 +75,22 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Fetch the requested Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -70,6 +108,22 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Check the Chat Connection health.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Chat Connection with refreshed health and status.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -87,6 +141,22 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Enable the Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -104,6 +174,22 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Disable the Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -121,6 +207,19 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -142,6 +241,26 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Update the provided Chat Connection fields.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            name: Name of the entity.
+            configuration: Settings for the selected chat platform.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            ValueError: Provide a name or configuration change Configuration contains
+                unsupported fields
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body: dict[str, object] = {}
         if not isinstance(name, _Omitted):
             body["name"] = name
@@ -179,7 +298,24 @@ class ChatConnectionsResource:
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Create a Chat Connection.
+
+        Args:
+            name: Name of the entity.
+            agent_id: Agent identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            configuration: Settings for the selected chat platform.
+            credentials: Credentials for the selected authentication type.
+            enabled: Whether the connection is enabled.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     @overload
     def create(
@@ -193,7 +329,24 @@ class ChatConnectionsResource:
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Create a Chat Connection.
+
+        Args:
+            name: Name of the entity.
+            agent_id: Agent identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            configuration: Settings for the selected chat platform.
+            credentials: Credentials for the selected authentication type.
+            enabled: Whether the connection is enabled.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     def create(
         self,
@@ -209,6 +362,29 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Create a Chat Connection.
+
+        Args:
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            name: Name of the entity.
+            agent_id: Agent identifier.
+            configuration: Settings for the selected chat platform.
+            enabled: Whether the connection is enabled.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            ValueError: Credentials must match the selected platform Configuration
+                must match the selected platform
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         credentials_body = _wire(credentials)
         required = (
             {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
@@ -258,7 +434,21 @@ class ChatConnectionsResource:
         credentials: SlackChatCredentialsInput,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Replace the Chat Connection credentials.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     @overload
     def rotate_credentials(
@@ -269,7 +459,21 @@ class ChatConnectionsResource:
         credentials: TelegramChatCredentialsInput,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Replace the Chat Connection credentials.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     def rotate_credentials(
         self,
@@ -280,6 +484,25 @@ class ChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Replace the Chat Connection credentials.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            ValueError: Credentials must match the selected platform
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         credentials_body = _wire(credentials)
         required = (
             {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
@@ -306,6 +529,11 @@ class ChatConnectionsResource:
 
 class AsyncChatConnectionsResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Chat Connection operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def list(
@@ -314,6 +542,21 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnections:
+        """Fetch the available Chat Connections.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Available Chat Connections.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -331,6 +574,22 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Fetch the requested Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -348,6 +607,22 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Check the Chat Connection health.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Chat Connection with refreshed health and status.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -365,6 +640,22 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Enable the Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -382,6 +673,22 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Disable the Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -399,6 +706,19 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Chat Connection.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -420,6 +740,26 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Update the provided Chat Connection fields.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            name: Name of the entity.
+            configuration: Settings for the selected chat platform.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            ValueError: Provide a name or configuration change Configuration contains
+                unsupported fields
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body: dict[str, object] = {}
         if not isinstance(name, _Omitted):
             body["name"] = name
@@ -457,7 +797,24 @@ class AsyncChatConnectionsResource:
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Create a Chat Connection.
+
+        Args:
+            name: Name of the entity.
+            agent_id: Agent identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            configuration: Settings for the selected chat platform.
+            credentials: Credentials for the selected authentication type.
+            enabled: Whether the connection is enabled.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     @overload
     async def create(
@@ -471,7 +828,24 @@ class AsyncChatConnectionsResource:
         enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Create a Chat Connection.
+
+        Args:
+            name: Name of the entity.
+            agent_id: Agent identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            configuration: Settings for the selected chat platform.
+            credentials: Credentials for the selected authentication type.
+            enabled: Whether the connection is enabled.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     async def create(
         self,
@@ -487,6 +861,29 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Create a Chat Connection.
+
+        Args:
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            name: Name of the entity.
+            agent_id: Agent identifier.
+            configuration: Settings for the selected chat platform.
+            enabled: Whether the connection is enabled.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            ValueError: Credentials must match the selected platform Configuration
+                must match the selected platform
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         credentials_body = _wire(credentials)
         required = (
             {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
@@ -536,7 +933,21 @@ class AsyncChatConnectionsResource:
         credentials: SlackChatCredentialsInput,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Replace the Chat Connection credentials.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     @overload
     async def rotate_credentials(
@@ -547,7 +958,21 @@ class AsyncChatConnectionsResource:
         credentials: TelegramChatCredentialsInput,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnection: ...
+    ) -> ChatConnection:
+        """Replace the Chat Connection credentials.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+        """
+        ...
 
     async def rotate_credentials(
         self,
@@ -558,6 +983,25 @@ class AsyncChatConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatConnection:
+        """Replace the Chat Connection credentials.
+
+        Args:
+            chat_connection_id: Chat Connection identifier.
+            platform: Chat platform. Must match the configuration and credentials.
+            credentials: Credentials for the selected authentication type.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Chat Connection details.
+
+        Raises:
+            ValueError: Credentials must match the selected platform
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         credentials_body = _wire(credentials)
         required = (
             {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}

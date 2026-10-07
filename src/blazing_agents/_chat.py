@@ -33,11 +33,20 @@ class ChatStream(ByteStream):
         session_id: str | None,
         functions: (Callable[[str], SyncFunctionRunner] | None) = None,
     ) -> None:
+        """Initialize ChatStream.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            session_id: Session identifier.
+            functions: Factory for a function runner bound to the resolved Session,
+                or None.
+        """
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
         self._functions = None if functions is None else functions(self.session_id)
 
     def _consume(self) -> Iterator[bytes]:
+        """Yield response chunks and close the response when consumption ends."""
         runner = self._functions
         if runner is None:
             yield from super()._consume()
@@ -62,6 +71,7 @@ class ChatStream(ByteStream):
             self.close()
 
     def close(self) -> None:
+        """Close the response and release resources."""
         if self._functions is not None:
             self._functions.close()
         super().close()
@@ -79,11 +89,20 @@ class AsyncChatStream(AsyncByteStream):
         session_id: str | None,
         functions: (Callable[[str], AsyncFunctionRunner] | None) = None,
     ) -> None:
+        """Initialize AsyncChatStream.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            session_id: Session identifier.
+            functions: Factory for a function runner bound to the resolved Session,
+                or None.
+        """
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
         self._functions = None if functions is None else functions(self.session_id)
 
     async def _consume(self) -> AsyncIterator[bytes]:
+        """Yield response chunks and close the response when consumption ends."""
         runner = self._functions
         if runner is None:
             async for chunk in super()._consume():
@@ -109,12 +128,19 @@ class AsyncChatStream(AsyncByteStream):
             await self.aclose()
 
     async def aclose(self) -> None:
+        """Close the response and release resources."""
         if self._functions is not None:
             await self._functions.aclose()
         await super().aclose()
 
 
 def _session_id(response: httpx.Response) -> str:
+    """Read and validate the Session ID in the Location header.
+
+    Raises:
+        StreamError: The server did not return a Session ID in the Location header.
+            The server returned a malformed Session Location header.
+    """
     location: str | None = response.headers.get("location")
     if location is None:
         raise StreamError(
@@ -142,6 +168,14 @@ def _chat_body(
     metadata: dict[str, object] | _Omitted,
     functions: dict[str, object] | _Omitted,
 ) -> dict[str, object]:
+    """Build the chat request body, omitting unspecified fields.
+
+    Raises:
+        ValueError: Provide exactly one of message, messages or prompt_id. messages
+            must not be empty. regenerate-message requires exactly one message.
+            variables can only be used with prompt_id. trigger must be submit-message
+            or regenerate-message. message_id must not be empty.
+    """
     has_message = not isinstance(message, _Omitted)
     has_prompt = not isinstance(prompt_id, _Omitted)
     has_messages = not isinstance(messages, _Omitted)
@@ -203,6 +237,32 @@ def chat_request(
     extra_headers: Mapping[str, str] | None = None,
     timeout: Timeout | _Omitted = OMITTED,
 ) -> tuple[_Request, str | None]:
+    """Build a chat request and resolve whether it resumes a Session.
+
+    Args:
+        agent_id: Agent identifier.
+        message: One message. Provide exactly one of message, messages, or prompt_id.
+        messages: Nonempty message batch. Regeneration accepts one message.
+        prompt_id: Stored Prompt identifier.
+        variables: Template substitutions. Requires prompt_id.
+        trigger: Submit a message or regenerate an existing Session message.
+        message_id: Message identifier for the chat trigger.
+        session_id: Session identifier. Omit to create a new Session.
+        user_id: Caller-defined user identifier.
+        metadata: Caller-defined JSON metadata.
+        functions: Factory for a function runner bound to the resolved Session,
+                or None.
+        client_request_id: Caller correlation ID sent as X-Client-Request-Id.
+        extra_headers: Headers for this request. Authorization uses the client API
+            key.
+        timeout: Request timeout override. OMITTED inherits the client timeout.
+
+    Returns:
+        Prepared request and existing Session ID, or None for a new Session.
+
+    Raises:
+        ValueError: regenerate-message can only resume an existing Session.
+    """
     path = f"/v1/agents/{quote(agent_id, safe='')}/sessions"
     if isinstance(session_id, _Omitted):
         resolved_session_id = None
@@ -235,7 +295,15 @@ def chat_request(
 
 
 def path_segment(name: str, value: str) -> str:
-    """Percent-encode a caller identity, rejecting values a URL would collapse."""
+    """Percent-encode an identity and reject empty or dot segments.
+
+    Args:
+        name: Name of the entity.
+        value: Value to validate or transform.
+
+    Returns:
+        Encoded or validated string.
+    """
     if value in {"", ".", ".."}:
         raise ValueError(f"{name} must not be empty, '.' or '..'.")
     return quote(value, safe="")
@@ -251,6 +319,22 @@ def continue_request(
     extra_headers: Mapping[str, str] | None,
     timeout: Timeout | _Omitted,
 ) -> _Request:
+    """Build the request that decides a complete approval round.
+
+    Args:
+        agent_id: Agent identifier.
+        session_id: Session identifier.
+        decisions: Decisions for the complete pending approval round.
+        functions: Factory for a function runner bound to the resolved Session,
+                or None.
+        client_request_id: Caller correlation ID sent as X-Client-Request-Id.
+        extra_headers: Headers for this request. Authorization uses the client API
+            key.
+        timeout: Request timeout override. OMITTED inherits the client timeout.
+
+    Returns:
+        Prepared HTTP request.
+    """
     body: dict[str, object] = {
         "decisions": [
             {

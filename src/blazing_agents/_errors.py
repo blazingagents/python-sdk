@@ -27,6 +27,18 @@ class APIStatusError(BlazingAgentsError):
         request_id: str | None,
         response_body: str,
     ) -> None:
+        """Initialize APIStatusError.
+
+        Args:
+            message: Error message for the caller.
+            status_code: HTTP status code returned by the API.
+            headers: HTTP headers.
+            code: API error code.
+            details: Structured API error details, if present.
+            param: Request parameter named by the API error, if present.
+            request_id: Server request ID, if present.
+            response_body: Response body with submitted credentials redacted.
+        """
         super().__init__(f"[{code}] {message}")
         self.status_code = status_code
         self.headers = headers
@@ -55,6 +67,12 @@ class StreamError(BlazingAgentsError):
         *,
         response: httpx.Response,
     ) -> None:
+        """Initialize StreamError.
+
+        Args:
+            message: Error message for the caller.
+            response: HTTPX response supplying the body and response metadata.
+        """
         super().__init__(message)
         self.status_code = response.status_code
         self.headers = httpx.Headers(response.headers)
@@ -71,6 +89,12 @@ class ObjectTruncationError(StreamError):
         response: httpx.Response,
         json_error: json.JSONDecodeError,
     ) -> None:
+        """Initialize ObjectTruncationError.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            json_error: JSON decoder error for the generated text.
+        """
         super().__init__("The agent produced truncated JSON.", response=response)
         self.json_error = json_error
 
@@ -84,6 +108,12 @@ class ObjectJSONDecodeError(StreamError):
         response: httpx.Response,
         json_error: json.JSONDecodeError,
     ) -> None:
+        """Initialize ObjectJSONDecodeError.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            json_error: JSON decoder error for the generated text.
+        """
         super().__init__("The agent produced invalid JSON.", response=response)
         self.json_error = json_error
 
@@ -97,6 +127,12 @@ class ObjectValidationError(StreamError):
         response: httpx.Response,
         validation_error: ValidationError,
     ) -> None:
+        """Initialize ObjectValidationError.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            validation_error: Pydantic validation failure for the generated object.
+        """
         super().__init__(
             "The generated object did not match the requested output type.",
             response=response,
