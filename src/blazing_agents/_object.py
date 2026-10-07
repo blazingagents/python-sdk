@@ -35,7 +35,31 @@ def decode_object(
     response: httpx.Response,
     adapter: TypeAdapter[_T] | None,
 ) -> _T | JsonValue:
+    """Decode strict JSON and validate the requested output type.
+
+    Args:
+        text: Text to decode.
+        response: HTTPX response supplying the body and response metadata.
+        adapter: Pydantic adapter, or None to return decoded JSON.
+
+    Returns:
+        Decoded JSON, validated with adapter when supplied.
+
+    Raises:
+        ObjectValidationError: The JSON does not match output_type.
+        ObjectJSONDecodeError: The generated text is invalid JSON.
+        ObjectTruncationError: The generated JSON is incomplete.
+    """
+
     def reject_constant(constant: str) -> None:
+        """Reject nonstandard JSON constants such as NaN and Infinity.
+
+        Args:
+            constant: Nonstandard JSON constant to reject.
+
+        Raises:
+            json.JSONDecodeError: Invalid JSON constant
+        """
         raise json.JSONDecodeError(
             "Invalid JSON constant",
             text,
@@ -63,6 +87,7 @@ def decode_object(
 
 
 def _is_truncated(error: json.JSONDecodeError, text: str) -> bool:
+    """Check whether the JSON error indicates an incomplete value."""
     stripped = text.rstrip()
     suffix = stripped[error.pos :].strip()
     return (
@@ -83,6 +108,12 @@ class _ObjectStreamBase(_ByteStreamBase, Generic[_T]):
         response: httpx.Response,
         adapter: TypeAdapter[_T] | None,
     ) -> None:
+        """Initialize ObjectStreamBase.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            adapter: Pydantic adapter, or None to return decoded JSON.
+        """
         super().__init__(response)
         self._adapter = adapter
         self._deltas: list[str] = []
@@ -92,6 +123,11 @@ class _ObjectStreamBase(_ByteStreamBase, Generic[_T]):
         self._validated = False
 
     def _final_object(self) -> _T:
+        """Validate and cache buffered JSON after successful completion.
+
+        Raises:
+            StreamError: Stream did not complete successfully.
+        """
         if self._failure is not None:
             raise self._failure
         if not self._complete:
@@ -121,15 +157,30 @@ class ObjectStream(_ObjectStreamBase[_T]):
         response: httpx.Response,
         adapter: TypeAdapter[_T] | None,
     ) -> None:
+        """Initialize ObjectStream.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            adapter: Pydantic adapter, or None to return decoded JSON.
+        """
         super().__init__(response, adapter)
         self._text_iterator: Iterator[str] | None = None
 
     def __iter__(self) -> Iterator[str]:
+        """Claim the body and return its single-consumer iterator.
+
+        Returns:
+            Single-consumer iterator over response chunks.
+
+        Raises:
+            StreamError: The stream is consumed, closed, or fails to complete.
+        """
         self._claim()
         self._text_iterator = self._consume_text()
         return self._text_iterator
 
     def _consume_text(self) -> Iterator[str]:
+        """Yield response chunks and close the response when consumption ends."""
         try:
             for delta in self._response.iter_text():
                 self._deltas.append(delta)
@@ -143,6 +194,19 @@ class ObjectStream(_ObjectStreamBase[_T]):
             self.close()
 
     def get_final_object(self) -> _T:
+        """Consume remaining deltas and return the validated final object.
+
+        This drains any unread deltas. Repeated calls return the buffered result.
+
+        Returns:
+            Decoded JSON, validated with the requested output type.
+
+        Raises:
+            ObjectJSONDecodeError: The generated text is invalid JSON.
+            ObjectTruncationError: The generated JSON is incomplete.
+            ObjectValidationError: The JSON does not match output_type.
+            StreamError: The stream is consumed, closed, or fails to complete.
+        """
         if not self._complete and self._failure is None:
             if self._text_iterator is None:
                 self._claim()
@@ -152,12 +216,19 @@ class ObjectStream(_ObjectStreamBase[_T]):
         return self._final_object()
 
     def close(self) -> None:
+        """Close the response and release resources."""
         self._response.close()
 
     def __enter__(self) -> Self:
+        """Return this object for use in a context manager.
+
+        Returns:
+            This object.
+        """
         return self
 
     def __exit__(self, *_: object) -> None:
+        """Close resources when the context manager exits."""
         self.close()
 
 
@@ -169,15 +240,30 @@ class AsyncObjectStream(_ObjectStreamBase[_T]):
         response: httpx.Response,
         adapter: TypeAdapter[_T] | None,
     ) -> None:
+        """Initialize AsyncObjectStream.
+
+        Args:
+            response: HTTPX response supplying the body and response metadata.
+            adapter: Pydantic adapter, or None to return decoded JSON.
+        """
         super().__init__(response, adapter)
         self._text_iterator: AsyncIterator[str] | None = None
 
     def __aiter__(self) -> AsyncIterator[str]:
+        """Claim the body and return its single-consumer iterator.
+
+        Returns:
+            Single-consumer iterator over response chunks.
+
+        Raises:
+            StreamError: The stream is consumed, closed, or fails to complete.
+        """
         self._claim()
         self._text_iterator = self._consume_text()
         return self._text_iterator
 
     async def _consume_text(self) -> AsyncIterator[str]:
+        """Yield response chunks and close the response when consumption ends."""
         try:
             async for delta in self._response.aiter_text():
                 self._deltas.append(delta)
@@ -191,6 +277,19 @@ class AsyncObjectStream(_ObjectStreamBase[_T]):
             await self.aclose()
 
     async def get_final_object(self) -> _T:
+        """Consume remaining deltas and return the validated final object.
+
+        This drains any unread deltas. Repeated calls return the buffered result.
+
+        Returns:
+            Decoded JSON, validated with the requested output type.
+
+        Raises:
+            ObjectJSONDecodeError: The generated text is invalid JSON.
+            ObjectTruncationError: The generated JSON is incomplete.
+            ObjectValidationError: The JSON does not match output_type.
+            StreamError: The stream is consumed, closed, or fails to complete.
+        """
         if not self._complete and self._failure is None:
             if self._text_iterator is None:
                 self._claim()
@@ -200,12 +299,19 @@ class AsyncObjectStream(_ObjectStreamBase[_T]):
         return self._final_object()
 
     async def aclose(self) -> None:
+        """Close the response and release resources."""
         await self._response.aclose()
 
     async def __aenter__(self) -> Self:
+        """Return this object for use in a context manager.
+
+        Returns:
+            This object.
+        """
         return self
 
     async def __aexit__(self, *_: object) -> None:
+        """Close resources when the context manager exits."""
         await self.aclose()
 
 
@@ -213,6 +319,19 @@ def resolve_output(
     output_type: TypeForm[Any] | None | _Omitted,
     json_schema: JsonSchema | None | _Omitted,
 ) -> tuple[TypeAdapter[Any] | None, JsonSchema]:
+    """Resolve exactly one output type or JSON Schema.
+
+    Args:
+        output_type: Python output type for Pydantic validation. Mutually exclusive
+            with json_schema.
+        json_schema: Output JSON Schema. Mutually exclusive with output_type.
+
+    Returns:
+        Pydantic adapter, if requested, and the output JSON Schema.
+
+    Raises:
+        ValueError: Provide exactly one of output_type or json_schema.
+    """
     has_output_type = output_type is not None and not isinstance(
         output_type,
         _Omitted,

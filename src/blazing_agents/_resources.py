@@ -131,6 +131,7 @@ def _agent_body(
     metadata: dict[str, object] | _Omitted,
     mcp_connection_ids: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
+    """Build the agent request body, omitting unspecified fields."""
     body: dict[str, object] = {}
     for wire_name, value in (
         ("name", name),
@@ -159,6 +160,7 @@ def _agent_body(
 
 
 def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
+    """Build the approval policy request body, omitting unspecified fields."""
     body: dict[str, object] = {"default": policy["default"]}
     if "overrides" in policy:
         body["overrides"] = [
@@ -183,6 +185,7 @@ def _validate_agent_create_configuration(
     model: object,
     provider_id: str | None | _Omitted,
 ) -> None:
+    """Require provider_id and model together when configuring an Agent."""
     if isinstance(model, _Omitted) and isinstance(provider_id, _Omitted):
         return
     if (
@@ -199,6 +202,7 @@ def _validate_agent_update_configuration(
     model: str | None | _Omitted,
     provider_id: str | None | _Omitted,
 ) -> None:
+    """Validate provider changes and paired null configuration values."""
     if not isinstance(provider_id, _Omitted) and isinstance(model, _Omitted):
         msg = "Changing provider_id requires model"
         raise ValueError(msg)
@@ -211,10 +215,12 @@ def _validate_agent_update_configuration(
 
 
 def _agent_path(agent_id: str) -> str:
+    """Build the encoded agent endpoint path."""
     return f"/v1/agents/{quote(agent_id, safe='')}"
 
 
 def _sessions_path(agent_id: str, session_id: str | None = None) -> str:
+    """Build the encoded sessions endpoint path."""
     path = f"/v1/agents/{quote(agent_id, safe='')}/sessions"
     if session_id is not None:
         return f"{path}/{quote(session_id, safe='')}"
@@ -225,6 +231,7 @@ def _inputs_body(
     request_id: str,
     message: Mapping[str, object],
 ) -> dict[str, object]:
+    """Build the inputs request body, omitting unspecified fields."""
     path_segment("request_id", request_id)
     body: dict[str, object] = {"requestId": request_id, "message": message}
     return body
@@ -235,6 +242,7 @@ def _inputs_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the inputs query, omitting unspecified filters."""
     query: dict[str, str | int] = {}
     if not isinstance(include_completed, _Omitted):
         query["includeCompleted"] = str(include_completed).lower()
@@ -251,6 +259,7 @@ def _sessions_query(
     limit: int | _Omitted,
     by_agent: bool | None = None,
 ) -> dict[str, str | int]:
+    """Build the sessions query, omitting unspecified filters."""
     query: dict[str, str | int] = {}
     for wire_name, value in (
         ("userId", user_id),
@@ -269,6 +278,7 @@ def _session_messages_query(
     after: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the session messages query, omitting unspecified filters."""
     query: dict[str, str | int] = {}
     for wire_name, value in (
         ("cursor", cursor),
@@ -281,6 +291,7 @@ def _session_messages_query(
 
 
 def _task_path(task_id: str | None = None) -> str:
+    """Build the encoded task endpoint path."""
     path = "/v1/tasks"
     if task_id is None:
         return path
@@ -288,6 +299,7 @@ def _task_path(task_id: str | None = None) -> str:
 
 
 def _task_run_path(task_id: str, run_id: str | None = None) -> str:
+    """Build the encoded task run endpoint path."""
     path = f"{_task_path(task_id)}/runs"
     if run_id is None:
         return path
@@ -295,6 +307,7 @@ def _task_run_path(task_id: str, run_id: str | None = None) -> str:
 
 
 def _validate_offset_datetime(value: str) -> None:
+    """Validate an ISO datetime with a timezone offset."""
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -309,6 +322,7 @@ def _validate_offset_datetime(value: str) -> None:
 
 
 def _task_schedule(schedule: TaskScheduleInput) -> dict[str, object]:
+    """Validate and serialize a one-time, interval, or cron Task schedule."""
     if not isinstance(schedule, dict) or set(schedule) != {"kind", "config"}:
         msg = "schedule must contain exactly kind and config"
         raise TypeError(msg)
@@ -382,6 +396,7 @@ def _task_body(
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
 ) -> dict[str, object]:
+    """Build the task request body, omitting unspecified fields."""
     body: dict[str, object] = {}
     for wire_name, value in (
         ("agentId", agent_id),
@@ -405,6 +420,7 @@ def _tasks_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the tasks query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -420,6 +436,7 @@ def _tasks_query(
 def _task_run_body(
     idempotency_key: str | _Omitted,
 ) -> dict[str, object]:
+    """Build the task run request body, omitting unspecified fields."""
     if isinstance(idempotency_key, _Omitted):
         return {}
     if not isinstance(idempotency_key, str):
@@ -435,6 +452,7 @@ def _agents_query(
     user_id: str | _Omitted,
     workspace_id: str | _Omitted,
 ) -> dict[str, str]:
+    """Build the agents query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -449,6 +467,7 @@ def _cursor_limit_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the cursor limit query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (("cursor", cursor), ("limit", limit))
@@ -457,6 +476,7 @@ def _cursor_limit_query(
 
 
 def _workspace_path(workspace_id: str) -> str:
+    """Build the encoded workspace endpoint path."""
     return f"/v1/workspaces/{quote(workspace_id, safe='')}"
 
 
@@ -467,6 +487,7 @@ def _workspace_body(
     metadata: dict[str, object] | _Omitted,
     network_policy: WorkspaceNetworkPolicy | _Omitted,
 ) -> dict[str, object]:
+    """Build the workspace request body, omitting unspecified fields."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -495,6 +516,7 @@ def _workspaces_query(
     limit: int | _Omitted,
     user_id: str | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the workspaces query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -510,6 +532,7 @@ def _mcp_attachment_body(
     forward_user_id: bool | _Omitted,
     forwarded_metadata_keys: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
+    """Build the mcp attachment request body, omitting unspecified fields."""
     body: dict[str, object] = {
         wire_name: value
         for wire_name, value in (
@@ -532,6 +555,7 @@ def _provider_body(
     name: str | _Omitted,
     base_url: str | None | _Omitted,
 ) -> dict[str, object]:
+    """Build the provider request body, omitting unspecified fields."""
     if provider_type not in _PROVIDER_TYPES:
         msg = "provider_type must be a supported Provider type"
         raise ValueError(msg)
@@ -562,6 +586,7 @@ def _provider_body(
 def _provider_update_body(
     name: str | _Omitted,
 ) -> dict[str, object]:
+    """Build the provider update request body, omitting unspecified fields."""
     body: dict[str, object] = {} if isinstance(name, _Omitted) else {"name": name}
     if not body:
         msg = "At least one Provider field must be provided."
@@ -570,18 +595,22 @@ def _provider_update_body(
 
 
 def _provider_path(provider_id: str) -> str:
+    """Build the encoded provider endpoint path."""
     return f"/v1/providers/{quote(provider_id, safe='')}"
 
 
 def _mcp_connection_path(mcp_connection_id: str) -> str:
+    """Build the encoded mcp connection endpoint path."""
     return f"/v1/mcp-connections/{quote(mcp_connection_id, safe='')}"
 
 
 def _prompt_path(prompt_id: str) -> str:
+    """Build the encoded prompt endpoint path."""
     return f"/v1/prompts/{quote(prompt_id, safe='')}"
 
 
 def _memory_path(agent_id: str, memory_id: str | None = None) -> str:
+    """Build the encoded memory endpoint path."""
     path = f"{_agent_path(agent_id)}/memories"
     if memory_id is None:
         return path
@@ -589,6 +618,7 @@ def _memory_path(agent_id: str, memory_id: str | None = None) -> str:
 
 
 def _skill_path(agent_id: str, skill_id: str | None = None) -> str:
+    """Build the encoded skill endpoint path."""
     path = f"{_agent_path(agent_id)}/skills"
     if skill_id is None:
         return path
@@ -596,6 +626,7 @@ def _skill_path(agent_id: str, skill_id: str | None = None) -> str:
 
 
 def _artifact_path(artifact_id: str) -> str:
+    """Build the encoded artifact endpoint path."""
     return f"/v1/artifacts/{quote(artifact_id, safe='')}"
 
 
@@ -604,6 +635,7 @@ def _artifacts_query(
     session_id: str | _Omitted,
     cursor: str | _Omitted,
 ) -> dict[str, str]:
+    """Build the artifacts query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -619,6 +651,7 @@ def _skills_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the skills query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (("cursor", cursor), ("limit", limit))
@@ -631,6 +664,7 @@ def _memory_body(
     text: str,
     user_id: str | _Omitted,
 ) -> dict[str, object]:
+    """Build the memory request body, omitting unspecified fields."""
     body: dict[str, object] = {"text": text}
     if not isinstance(user_id, _Omitted):
         body["userId"] = user_id
@@ -644,6 +678,7 @@ def _memories_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the memories query, omitting unspecified filters."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -664,6 +699,7 @@ def _prompt_body(
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
 ) -> dict[str, object]:
+    """Build the prompt request body, omitting unspecified fields."""
     return {
         wire_name: value
         for wire_name, value in (
@@ -687,6 +723,7 @@ def _mcp_connection_body(
     client_secret: str | _Omitted,
     scope: str | _Omitted,
 ) -> dict[str, object]:
+    """Build the mcp connection request body, omitting unspecified fields."""
     if auth_type not in _MCP_CONNECTION_AUTH_TYPES:
         msg = "auth_type must be a supported MCP Connection authentication type"
         raise ValueError(msg)
@@ -735,6 +772,7 @@ def _mcp_connection_body(
 
 
 def _credential_values(*values: str | _Omitted) -> tuple[str, ...]:
+    """Collect credential values for response redaction."""
     return tuple(value for value in values if isinstance(value, str) and value)
 
 
@@ -746,6 +784,7 @@ def _upload_part(
     content_type: str | None,
     fallback_filename: str | None = None,
 ) -> Generator[dict[str, tuple[str, object, str]]]:
+    """Open or normalize an upload part and close owned file handles."""
     opened = None
     source_name: str | None = None
     if isinstance(file, bytes):
@@ -789,6 +828,7 @@ def _skill_upload_request(
     extra_headers: Mapping[str, str] | None,
     timeout: Timeout | _Omitted,
 ) -> Generator[_Request]:
+    """Build a multipart Skill upload request."""
     if archive_type not in _SKILL_ARCHIVE_TYPES:
         msg = "archive_type must be zip, tar, or tar.gz"
         raise ValueError(msg)
@@ -812,6 +852,7 @@ def _skill_upload_request(
 
 
 def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
+    """Attach the response request ID to each Skill copy result."""
     for result in response.root:
         result._request_id = response._request_id
     return response.root
@@ -819,6 +860,11 @@ def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
 
 class AgentsResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Agent operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def create(
@@ -842,6 +888,41 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Create an Agent.
+
+        Omitted fields retain server defaults or existing values.
+
+        Args:
+            name: Name of the entity.
+            model: Provider model identifier.
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            workspace_id: Workspace identifier.
+            thinking_level: Provider-supported reasoning level.
+            auto_compaction: Whether the Agent compacts its context automatically.
+            compaction_reserve_tokens: Tokens reserved for context compaction.
+            memory_injection_enabled: Whether the Agent injects matching Memories.
+            tools: Built-in tools available to the Agent.
+            approval_in_chat: Tool approval policy for chat Turns.
+            approval_in_tasks: Tool approval policy for Task Turns.
+            instructions: Agent instructions.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            mcp_connection_ids: MCP Connections attached to the Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: provider_id and model are not both supplied when configuring
+                an Agent.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         _validate_agent_create_configuration(model, provider_id)
         return self._transport.request(
             _Request(
@@ -880,6 +961,25 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AgentsPage:
+        """Fetch one page of Agent records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -901,6 +1001,22 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Fetch the requested Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -918,6 +1034,22 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpAttachments:
+        """Fetch MCP attachments for an Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            MCP attachments for the Agent.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -938,6 +1070,26 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpAttachment:
+        """Update an Agent MCP attachment.
+
+        Args:
+            agent_id: Agent identifier.
+            mcp_connection_id: MCP Connection identifier.
+            forward_user_id: Whether to forward the user identifier to this MCP
+                Connection.
+            forwarded_metadata_keys: Metadata keys to forward to this MCP Connection.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Updated MCP attachment settings.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -976,6 +1128,42 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Update the provided Agent fields.
+
+        Omitted fields retain server defaults or existing values. Changing
+        provider_id requires model. Set both to None to clear them.
+
+        Args:
+            agent_id: Agent identifier.
+            name: Name of the entity.
+            model: Provider model identifier.
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            workspace_id: Workspace identifier.
+            thinking_level: Provider-supported reasoning level. None clears the
+                setting. Omission retains the current value.
+            auto_compaction: Whether the Agent compacts its context automatically.
+            compaction_reserve_tokens: Tokens reserved for context compaction.
+            memory_injection_enabled: Whether the Agent injects matching Memories.
+            tools: Built-in tools available to the Agent.
+            approval_in_chat: Tool approval policy for chat Turns.
+            approval_in_tasks: Tool approval policy for Task Turns.
+            instructions: Agent instructions.
+            metadata: Caller-defined JSON metadata.
+            mcp_connection_ids: MCP Connections attached to the Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: Provider and model changes are inconsistent.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         _validate_agent_update_configuration(model, provider_id)
         body = _agent_body(
             name=name,
@@ -1015,6 +1203,22 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Disable the Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -1032,6 +1236,22 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Enable the Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -1050,6 +1270,20 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            include_artifacts: Whether to include the Agent Artifacts in deletion.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -1071,6 +1305,29 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Upload an Agent avatar.
+
+        Paths are opened and closed by the SDK. Caller-owned file objects remain
+        open.
+
+        Args:
+            agent_id: Agent identifier.
+            file: File upload input.
+            filename: Filename supplied for the upload.
+            content_type: Media type for the upload.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: No filename is available for bytes or an unnamed file object.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         with _upload_part(
             file,
             filename=filename,
@@ -1094,6 +1351,22 @@ class AgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Remove an Agent avatar.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -1107,6 +1380,11 @@ class AgentsResource:
 
 class AsyncAgentsResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Agent operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def create(
@@ -1130,6 +1408,41 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Create an Agent.
+
+        Omitted fields retain server defaults or existing values.
+
+        Args:
+            name: Name of the entity.
+            model: Provider model identifier.
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            workspace_id: Workspace identifier.
+            thinking_level: Provider-supported reasoning level.
+            auto_compaction: Whether the Agent compacts its context automatically.
+            compaction_reserve_tokens: Tokens reserved for context compaction.
+            memory_injection_enabled: Whether the Agent injects matching Memories.
+            tools: Built-in tools available to the Agent.
+            approval_in_chat: Tool approval policy for chat Turns.
+            approval_in_tasks: Tool approval policy for Task Turns.
+            instructions: Agent instructions.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            mcp_connection_ids: MCP Connections attached to the Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: provider_id and model are not both supplied when configuring
+                an Agent.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         _validate_agent_create_configuration(model, provider_id)
         return await self._transport.request(
             _Request(
@@ -1168,6 +1481,25 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AgentsPage:
+        """Fetch one page of Agent records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1189,6 +1521,22 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Fetch the requested Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1206,6 +1554,22 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpAttachments:
+        """Fetch MCP attachments for an Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            MCP attachments for the Agent.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1226,6 +1590,26 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpAttachment:
+        """Update an Agent MCP attachment.
+
+        Args:
+            agent_id: Agent identifier.
+            mcp_connection_id: MCP Connection identifier.
+            forward_user_id: Whether to forward the user identifier to this MCP
+                Connection.
+            forwarded_metadata_keys: Metadata keys to forward to this MCP Connection.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Updated MCP attachment settings.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "PATCH",
@@ -1264,6 +1648,42 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Update the provided Agent fields.
+
+        Omitted fields retain server defaults or existing values. Changing
+        provider_id requires model. Set both to None to clear them.
+
+        Args:
+            agent_id: Agent identifier.
+            name: Name of the entity.
+            model: Provider model identifier.
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            workspace_id: Workspace identifier.
+            thinking_level: Provider-supported reasoning level. None clears the
+                setting. Omission retains the current value.
+            auto_compaction: Whether the Agent compacts its context automatically.
+            compaction_reserve_tokens: Tokens reserved for context compaction.
+            memory_injection_enabled: Whether the Agent injects matching Memories.
+            tools: Built-in tools available to the Agent.
+            approval_in_chat: Tool approval policy for chat Turns.
+            approval_in_tasks: Tool approval policy for Task Turns.
+            instructions: Agent instructions.
+            metadata: Caller-defined JSON metadata.
+            mcp_connection_ids: MCP Connections attached to the Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: Provider and model changes are inconsistent.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         _validate_agent_update_configuration(model, provider_id)
         body = _agent_body(
             name=name,
@@ -1303,6 +1723,22 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Disable the Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -1320,6 +1756,22 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Enable the Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -1338,6 +1790,20 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            include_artifacts: Whether to include the Agent Artifacts in deletion.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -1359,6 +1825,29 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Upload an Agent avatar.
+
+        Paths are opened and closed by the SDK. Caller-owned file objects remain
+        open.
+
+        Args:
+            agent_id: Agent identifier.
+            file: File upload input.
+            filename: Filename supplied for the upload.
+            content_type: Media type for the upload.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: No filename is available for bytes or an unnamed file object.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         with _upload_part(
             file,
             filename=filename,
@@ -1382,6 +1871,22 @@ class AsyncAgentsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Agent:
+        """Remove an Agent avatar.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -1395,6 +1900,11 @@ class AsyncAgentsResource:
 
 class ProvidersResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Provider operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def create(
@@ -1407,6 +1917,25 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Provider:
+        """Create a Provider.
+
+        Args:
+            name: Name of the entity.
+            provider_type: Provider API type.
+            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
+            base_url: API base URL. Trailing slashes are removed.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Provider details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -1431,6 +1960,21 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Providers:
+        """Fetch one page of Provider records.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Available Providers.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -1448,6 +1992,23 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Provider:
+        """Fetch the requested Provider.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Provider details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -1465,6 +2026,23 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ProviderModels:
+        """Fetch available models for a Provider.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Models advertised by the Provider.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -1483,6 +2061,24 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ThinkingLevels:
+        """Fetch supported thinking levels for a model.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            model: Provider model identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Thinking levels supported by the selected model.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -1502,6 +2098,24 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Provider:
+        """Update the provided Provider fields.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            name: Name of the entity.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Provider details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -1521,6 +2135,22 @@ class ProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Provider.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            confirm_snapshot_invalidation: Explicit consent to invalidate dependent
+                snapshots.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -1539,6 +2169,11 @@ class ProvidersResource:
 
 class AsyncProvidersResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Provider operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def create(
@@ -1551,6 +2186,25 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Provider:
+        """Create a Provider.
+
+        Args:
+            name: Name of the entity.
+            provider_type: Provider API type.
+            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
+            base_url: API base URL. Trailing slashes are removed.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Provider details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -1575,6 +2229,21 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Providers:
+        """Fetch one page of Provider records.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Available Providers.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1592,6 +2261,23 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Provider:
+        """Fetch the requested Provider.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Provider details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1609,6 +2295,23 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ProviderModels:
+        """Fetch available models for a Provider.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Models advertised by the Provider.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1627,6 +2330,24 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ThinkingLevels:
+        """Fetch supported thinking levels for a model.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            model: Provider model identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Thinking levels supported by the selected model.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1646,6 +2367,24 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Provider:
+        """Update the provided Provider fields.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            name: Name of the entity.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Provider details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "PATCH",
@@ -1665,6 +2404,22 @@ class AsyncProvidersResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Provider.
+
+        Args:
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            confirm_snapshot_invalidation: Explicit consent to invalidate dependent
+                snapshots.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -1683,6 +2438,11 @@ class AsyncProvidersResource:
 
 class McpConnectionsResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind MCP Connection operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def connect(
@@ -1692,6 +2452,22 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnectionAuthorization:
+        """Start authorization for an MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Authorization response for connecting the MCP service.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -1715,6 +2491,34 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnection:
+        """Create a MCP Connection.
+
+        Bearer authentication accepts only bearer_token. OAuth client credentials
+        require client_id and client_secret. Authorization code credentials must be
+        paired.
+
+        Args:
+            name: Name of the entity.
+            url: Service endpoint URL.
+            auth_type: Connection authentication type.
+            bearer_token: Bearer token for bearer authentication.
+            client_id: OAuth client identifier.
+            client_secret: OAuth client secret.
+            scope: OAuth scopes requested from the MCP service.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested MCP Connection details.
+
+        Raises:
+            ValueError: The authentication type and supplied credential fields do not
+                match.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _mcp_connection_body(
             auth_type=auth_type,
             url=url,
@@ -1745,6 +2549,21 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnections:
+        """Fetch one page of MCP Connection records.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Available MCP Connections.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -1762,6 +2581,22 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnection:
+        """Fetch the requested MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested MCP Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -1780,6 +2615,23 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnection:
+        """Update the provided MCP Connection fields.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            name: Name of the entity.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested MCP Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         if isinstance(name, _Omitted):
             msg = "At least one MCP Connection field must be provided."
             raise ValueError(msg)
@@ -1801,6 +2653,19 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -1818,6 +2683,22 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnectionTestResult:
+        """Test an MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Connectivity test result.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -1841,6 +2722,34 @@ class McpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnectionReconnectResult:
+        """Reconnect an MCP Connection.
+
+        Bearer authentication accepts only bearer_token. OAuth client credentials
+        require client_id and client_secret. Authorization code credentials must be
+        paired.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            url: Service endpoint URL.
+            auth_type: Connection authentication type.
+            bearer_token: Bearer token for bearer authentication.
+            client_id: OAuth client identifier.
+            client_secret: OAuth client secret.
+            scope: OAuth scopes requested from the MCP service.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Result of the reconnect request.
+
+        Raises:
+            ValueError: The authentication type and supplied credential fields do not
+                match.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _mcp_connection_body(
             auth_type=auth_type,
             url=url,
@@ -1868,6 +2777,11 @@ class McpConnectionsResource:
 
 class AsyncMcpConnectionsResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind MCP Connection operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def connect(
@@ -1877,6 +2791,22 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnectionAuthorization:
+        """Start authorization for an MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Authorization response for connecting the MCP service.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -1900,6 +2830,34 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnection:
+        """Create a MCP Connection.
+
+        Bearer authentication accepts only bearer_token. OAuth client credentials
+        require client_id and client_secret. Authorization code credentials must be
+        paired.
+
+        Args:
+            name: Name of the entity.
+            url: Service endpoint URL.
+            auth_type: Connection authentication type.
+            bearer_token: Bearer token for bearer authentication.
+            client_id: OAuth client identifier.
+            client_secret: OAuth client secret.
+            scope: OAuth scopes requested from the MCP service.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested MCP Connection details.
+
+        Raises:
+            ValueError: The authentication type and supplied credential fields do not
+                match.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _mcp_connection_body(
             auth_type=auth_type,
             url=url,
@@ -1930,6 +2888,21 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnections:
+        """Fetch one page of MCP Connection records.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Available MCP Connections.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1947,6 +2920,22 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnection:
+        """Fetch the requested MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested MCP Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -1965,6 +2954,23 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnection:
+        """Update the provided MCP Connection fields.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            name: Name of the entity.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested MCP Connection details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         if isinstance(name, _Omitted):
             msg = "At least one MCP Connection field must be provided."
             raise ValueError(msg)
@@ -1986,6 +2992,19 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -2003,6 +3022,22 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnectionTestResult:
+        """Test an MCP Connection.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Connectivity test result.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -2026,6 +3061,34 @@ class AsyncMcpConnectionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> McpConnectionReconnectResult:
+        """Reconnect an MCP Connection.
+
+        Bearer authentication accepts only bearer_token. OAuth client credentials
+        require client_id and client_secret. Authorization code credentials must be
+        paired.
+
+        Args:
+            mcp_connection_id: MCP Connection identifier.
+            url: Service endpoint URL.
+            auth_type: Connection authentication type.
+            bearer_token: Bearer token for bearer authentication.
+            client_id: OAuth client identifier.
+            client_secret: OAuth client secret.
+            scope: OAuth scopes requested from the MCP service.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Result of the reconnect request.
+
+        Raises:
+            ValueError: The authentication type and supplied credential fields do not
+                match.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _mcp_connection_body(
             auth_type=auth_type,
             url=url,
@@ -2053,6 +3116,11 @@ class AsyncMcpConnectionsResource:
 
 class MemoriesResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Memory operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def create(
@@ -2064,6 +3132,24 @@ class MemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoryResponse:
+        """Create a Memory.
+
+        Args:
+            agent_id: Agent identifier.
+            text: Memory text to store.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Memory response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -2086,6 +3172,26 @@ class MemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoriesPage:
+        """Fetch one page of Memory records.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            search: Search filter sent to the API.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2113,6 +3219,23 @@ class MemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[Memory]:
+        """Iterate Memory records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            search: Search filter sent to the API.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Memory records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -2137,6 +3260,23 @@ class MemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoryResponse:
+        """Fetch the requested Memory.
+
+        Args:
+            agent_id: Agent identifier.
+            memory_id: Memory identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Memory response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2156,6 +3296,24 @@ class MemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoryResponse:
+        """Update the provided Memory fields.
+
+        Args:
+            agent_id: Agent identifier.
+            memory_id: Memory identifier.
+            text: Memory text to store.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Memory response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -2175,6 +3333,20 @@ class MemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Memory.
+
+        Args:
+            agent_id: Agent identifier.
+            memory_id: Memory identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -2188,6 +3360,11 @@ class MemoriesResource:
 
 class AsyncMemoriesResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Memory operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def create(
@@ -2199,6 +3376,24 @@ class AsyncMemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoryResponse:
+        """Create a Memory.
+
+        Args:
+            agent_id: Agent identifier.
+            text: Memory text to store.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Memory response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -2221,6 +3416,26 @@ class AsyncMemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoriesPage:
+        """Fetch one page of Memory records.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            search: Search filter sent to the API.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2248,6 +3463,23 @@ class AsyncMemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[Memory]:
+        """Iterate Memory records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            search: Search filter sent to the API.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Memory records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(
@@ -2273,6 +3505,23 @@ class AsyncMemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoryResponse:
+        """Fetch the requested Memory.
+
+        Args:
+            agent_id: Agent identifier.
+            memory_id: Memory identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Memory response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2292,6 +3541,24 @@ class AsyncMemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MemoryResponse:
+        """Update the provided Memory fields.
+
+        Args:
+            agent_id: Agent identifier.
+            memory_id: Memory identifier.
+            text: Memory text to store.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Memory response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "PATCH",
@@ -2311,6 +3578,20 @@ class AsyncMemoriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Memory.
+
+        Args:
+            agent_id: Agent identifier.
+            memory_id: Memory identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -2324,6 +3605,11 @@ class AsyncMemoriesResource:
 
 class PromptsResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Prompt operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def create(
@@ -2337,6 +3623,26 @@ class PromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Prompt:
+        """Create a Prompt.
+
+        Args:
+            name: Name of the entity.
+            template: Prompt template text.
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Prompt details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -2364,6 +3670,25 @@ class PromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> PromptsPage:
+        """Fetch one page of Prompt records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2387,6 +3712,22 @@ class PromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Prompt:
+        """Fetch the requested Prompt.
+
+        Args:
+            prompt_id: Stored Prompt identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Prompt details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2408,6 +3749,26 @@ class PromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Prompt:
+        """Update the provided Prompt fields.
+
+        Args:
+            prompt_id: Stored Prompt identifier.
+            agent_id: Agent identifier.
+            name: Name of the entity.
+            template: Prompt template text.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Prompt details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _prompt_body(
             name=name,
             template=template,
@@ -2436,6 +3797,19 @@ class PromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Prompt.
+
+        Args:
+            prompt_id: Stored Prompt identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -2449,6 +3823,11 @@ class PromptsResource:
 
 class AsyncPromptsResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Prompt operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def create(
@@ -2462,6 +3841,26 @@ class AsyncPromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Prompt:
+        """Create a Prompt.
+
+        Args:
+            name: Name of the entity.
+            template: Prompt template text.
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Prompt details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -2489,6 +3888,25 @@ class AsyncPromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> PromptsPage:
+        """Fetch one page of Prompt records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2512,6 +3930,22 @@ class AsyncPromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Prompt:
+        """Fetch the requested Prompt.
+
+        Args:
+            prompt_id: Stored Prompt identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Prompt details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2533,6 +3967,26 @@ class AsyncPromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Prompt:
+        """Update the provided Prompt fields.
+
+        Args:
+            prompt_id: Stored Prompt identifier.
+            agent_id: Agent identifier.
+            name: Name of the entity.
+            template: Prompt template text.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Prompt details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _prompt_body(
             name=name,
             template=template,
@@ -2561,6 +4015,19 @@ class AsyncPromptsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Prompt.
+
+        Args:
+            prompt_id: Stored Prompt identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -2574,6 +4041,11 @@ class AsyncPromptsResource:
 
 class WorkspacesResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Workspace operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def create(
@@ -2586,6 +4058,25 @@ class WorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Workspace:
+        """Create a Workspace.
+
+        Args:
+            name: Name of the entity.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            network_policy: Workspace network access policy.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Workspace details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -2611,6 +4102,24 @@ class WorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> WorkspacesPage:
+        """Fetch one page of Workspace records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2631,6 +4140,21 @@ class WorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[Workspace]:
+        """Iterate Workspace records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Workspace records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -2652,6 +4176,22 @@ class WorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Workspace:
+        """Fetch the requested Workspace.
+
+        Args:
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Workspace details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2672,6 +4212,25 @@ class WorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Workspace:
+        """Update the provided Workspace fields.
+
+        Args:
+            workspace_id: Workspace identifier.
+            name: Name of the entity.
+            metadata: Caller-defined JSON metadata.
+            network_policy: Workspace network access policy.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Workspace details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _workspace_body(
             name=name,
             user_id=OMITTED,
@@ -2699,6 +4258,22 @@ class WorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> WorkspaceDeletionOutcome:
+        """Delete the requested Workspace.
+
+        Args:
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Outcome of the Workspace deletion.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         status = self._transport.request(
             _Request(
                 "DELETE",
@@ -2713,6 +4288,11 @@ class WorkspacesResource:
 
 class AsyncWorkspacesResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Workspace operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def create(
@@ -2725,6 +4305,25 @@ class AsyncWorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Workspace:
+        """Create a Workspace.
+
+        Args:
+            name: Name of the entity.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            network_policy: Workspace network access policy.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Workspace details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -2750,6 +4349,24 @@ class AsyncWorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> WorkspacesPage:
+        """Fetch one page of Workspace records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2770,6 +4387,21 @@ class AsyncWorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[Workspace]:
+        """Iterate Workspace records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Workspace records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(
@@ -2792,6 +4424,22 @@ class AsyncWorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Workspace:
+        """Fetch the requested Workspace.
+
+        Args:
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Workspace details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2812,6 +4460,25 @@ class AsyncWorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Workspace:
+        """Update the provided Workspace fields.
+
+        Args:
+            workspace_id: Workspace identifier.
+            name: Name of the entity.
+            metadata: Caller-defined JSON metadata.
+            network_policy: Workspace network access policy.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Workspace details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _workspace_body(
             name=name,
             user_id=OMITTED,
@@ -2839,6 +4506,22 @@ class AsyncWorkspacesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> WorkspaceDeletionOutcome:
+        """Delete the requested Workspace.
+
+        Args:
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Outcome of the Workspace deletion.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         status = await self._transport.request(
             _Request(
                 "DELETE",
@@ -2855,6 +4538,7 @@ def _tenant_body(
     name: str | _Omitted,
     quota: QuotaUpdate | None | _Omitted,
 ) -> dict[str, object]:
+    """Build the tenant request body, omitting unspecified fields."""
     body: dict[str, object] = {}
     if not isinstance(name, _Omitted):
         body["name"] = name
@@ -2886,6 +4570,7 @@ def _usage_query(
     group_by: UsageGroupBy | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the usage query, omitting unspecified filters."""
     query: dict[str, str | int] = {}
     for wire_name, value in (
         ("from", from_),
@@ -2907,6 +4592,7 @@ def _usage_overview_query(
     to: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the usage overview query, omitting unspecified filters."""
     query: dict[str, str | int] = {}
     for wire_name, value in (("from", from_), ("to", to), ("limit", limit)):
         if not isinstance(value, _Omitted):
@@ -2916,6 +4602,11 @@ def _usage_overview_query(
 
 class TenantResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Tenant settings operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def get(
@@ -2924,6 +4615,21 @@ class TenantResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TenantSettings:
+        """Fetch the requested Tenant settings.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Tenant settings and quota limits.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -2942,6 +4648,23 @@ class TenantResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TenantSettings:
+        """Update the provided Tenant settings fields.
+
+        Args:
+            name: Name of the entity.
+            quota: Tenant usage limit updates.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Tenant settings and quota limits.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -2956,6 +4679,11 @@ class TenantResource:
 
 class AsyncTenantResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Tenant settings operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def get(
@@ -2964,6 +4692,21 @@ class AsyncTenantResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TenantSettings:
+        """Fetch the requested Tenant settings.
+
+        Args:
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Tenant settings and quota limits.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -2982,6 +4725,23 @@ class AsyncTenantResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TenantSettings:
+        """Update the provided Tenant settings fields.
+
+        Args:
+            name: Name of the entity.
+            quota: Tenant usage limit updates.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Tenant settings and quota limits.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "PATCH",
@@ -2996,6 +4756,11 @@ class AsyncTenantResource:
 
 class UsageResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind usage operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def get(
@@ -3011,6 +4776,28 @@ class UsageResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Usage:
+        """Fetch the requested usage.
+
+        Args:
+            from_: Start of the usage interval.
+            to: End of the usage interval.
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            user_id: Caller-defined user identifier.
+            group_by: Dimension used to group usage totals.
+            limit: Maximum number of grouped results returned.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage totals grouped as requested.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         query = _usage_query(
             from_=from_,
             to=to,
@@ -3044,6 +4831,28 @@ class UsageResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Usage:
+        """Fetch usage for one Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            from_: Start of the usage interval.
+            to: End of the usage interval.
+            session_id: Session identifier.
+            user_id: Caller-defined user identifier.
+            group_by: Dimension used to group usage totals.
+            limit: Maximum number of grouped results returned.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage totals grouped as requested.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         query = _usage_query(
             from_=from_,
             to=to,
@@ -3073,6 +4882,24 @@ class UsageResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> UsageOverview:
+        """Fetch the usage overview.
+
+        Args:
+            from_: Start of the usage interval.
+            to: End of the usage interval.
+            limit: Maximum number of overview entries returned.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage overview for the requested interval.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3087,6 +4914,11 @@ class UsageResource:
 
 class AsyncUsageResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind usage operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def get(
@@ -3102,6 +4934,28 @@ class AsyncUsageResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Usage:
+        """Fetch the requested usage.
+
+        Args:
+            from_: Start of the usage interval.
+            to: End of the usage interval.
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            user_id: Caller-defined user identifier.
+            group_by: Dimension used to group usage totals.
+            limit: Maximum number of grouped results returned.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage totals grouped as requested.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         query = _usage_query(
             from_=from_,
             to=to,
@@ -3135,6 +4989,28 @@ class AsyncUsageResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Usage:
+        """Fetch usage for one Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            from_: Start of the usage interval.
+            to: End of the usage interval.
+            session_id: Session identifier.
+            user_id: Caller-defined user identifier.
+            group_by: Dimension used to group usage totals.
+            limit: Maximum number of grouped results returned.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage totals grouped as requested.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         query = _usage_query(
             from_=from_,
             to=to,
@@ -3164,6 +5040,24 @@ class AsyncUsageResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> UsageOverview:
+        """Fetch the usage overview.
+
+        Args:
+            from_: Start of the usage interval.
+            to: End of the usage interval.
+            limit: Maximum number of overview entries returned.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage overview for the requested interval.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -3178,6 +5072,11 @@ class AsyncUsageResource:
 
 class ArtifactsResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Artifact operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def list(
@@ -3189,6 +5088,24 @@ class ArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ArtifactsPage:
+        """Fetch one page of Artifact records.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            cursor: Continuation cursor from a previous page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3209,6 +5126,21 @@ class ArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[Artifact]:
+        """Iterate Artifact records across all pages.
+
+        Pages are fetched lazily until the API returns no continuation cursor.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            cursor: Continuation cursor from a previous page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Artifact records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -3230,6 +5162,22 @@ class ArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ArtifactDownloadUrl:
+        """Create an expiring Artifact download URL.
+
+        Args:
+            artifact_id: Artifact identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Expiring URL for downloading the Artifact.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -3247,6 +5195,22 @@ class ArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Artifact:
+        """Fetch the requested Artifact.
+
+        Args:
+            artifact_id: Artifact identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Artifact details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3264,6 +5228,19 @@ class ArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Artifact.
+
+        Args:
+            artifact_id: Artifact identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -3277,6 +5254,11 @@ class ArtifactsResource:
 
 class TasksResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Task operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def create(
@@ -3293,6 +5275,34 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskCreateResponse:
+        """Create a Task.
+
+        Args:
+            agent_id: Agent identifier.
+            name: Name of the entity.
+            prompt: Task prompt text.
+            schedule: One-time, interval, or cron schedule. Intervals use
+                every_ms of at least 60000. Cron timezone is optional.
+                None clears the schedule. Omission leaves it unset.
+            enabled: Whether the Task is enabled.
+            submit: Optional initial Task Run submission.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Created Task and any submitted initial Run.
+
+        Raises:
+            TypeError: The schedule structure or field types are invalid.
+            ValueError: The Task schedule, offset datetime, cron expression, or
+                timezone is invalid.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -3323,6 +5333,25 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TasksPage:
+        """Fetch one page of Task records.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3344,6 +5373,22 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[TaskListItem]:
+        """Iterate Task records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            TaskListItem records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -3366,6 +5411,22 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Task:
+        """Fetch the requested Task.
+
+        Args:
+            task_id: Task identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Task details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3388,6 +5449,32 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Task:
+        """Update the provided Task fields.
+
+        Args:
+            task_id: Task identifier.
+            name: Name of the entity.
+            prompt: Task prompt text. Omission retains the current value.
+            schedule: One-time, interval, or cron schedule. Intervals use
+                every_ms of at least 60000. Cron timezone is optional.
+                None clears the schedule. Omission preserves it.
+            enabled: Whether the Task is enabled.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Task details.
+
+        Raises:
+            TypeError: The schedule structure or field types are invalid.
+            ValueError: The Task schedule, offset datetime, cron expression, or
+                timezone is invalid.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _task_body(
             agent_id=OMITTED,
             name=name,
@@ -3419,6 +5506,19 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Task.
+
+        Args:
+            task_id: Task identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -3437,6 +5537,27 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunSubmission:
+        """Submit a Task Run for execution.
+
+        The idempotency key is sent in the JSON body, not an HTTP header.
+
+        Args:
+            task_id: Task identifier.
+            idempotency_key: Stable key for retrying the same operation without
+                duplicating it.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Acknowledgement of the submitted Task Run.
+
+        Raises:
+            ValueError: The idempotency key is empty or not a string.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -3457,6 +5578,24 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunsPage:
+        """Fetch one page of Task Runs.
+
+        Args:
+            task_id: Task identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3477,6 +5616,21 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[TaskRun]:
+        """Iterate Task Runs across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            task_id: Task identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            TaskRun records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list_runs(
@@ -3499,6 +5653,23 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRun:
+        """Fetch a Task Run.
+
+        Args:
+            task_id: Task identifier.
+            run_id: Task Run identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Task Run details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3520,6 +5691,26 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunMessagesPage:
+        """Fetch a page of messages for a Task Run.
+
+        Args:
+            task_id: Task identifier.
+            run_id: Task Run identifier.
+            cursor: Continuation cursor from a previous page.
+            after: Message cursor for fetching later messages.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3539,6 +5730,20 @@ class TasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Cancel a Task Run.
+
+        Args:
+            task_id: Task identifier.
+            run_id: Task Run identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "POST",
@@ -3552,6 +5757,11 @@ class TasksResource:
 
 class AsyncTasksResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Task operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def create(
@@ -3568,6 +5778,34 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskCreateResponse:
+        """Create a Task.
+
+        Args:
+            agent_id: Agent identifier.
+            name: Name of the entity.
+            prompt: Task prompt text.
+            schedule: One-time, interval, or cron schedule. Intervals use
+                every_ms of at least 60000. Cron timezone is optional.
+                None clears the schedule. Omission leaves it unset.
+            enabled: Whether the Task is enabled.
+            submit: Optional initial Task Run submission.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Created Task and any submitted initial Run.
+
+        Raises:
+            TypeError: The schedule structure or field types are invalid.
+            ValueError: The Task schedule, offset datetime, cron expression, or
+                timezone is invalid.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -3598,6 +5836,25 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TasksPage:
+        """Fetch one page of Task records.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -3619,6 +5876,22 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[TaskListItem]:
+        """Iterate Task records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            TaskListItem records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(
@@ -3642,6 +5915,22 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Task:
+        """Fetch the requested Task.
+
+        Args:
+            task_id: Task identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Task details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -3664,6 +5953,32 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Task:
+        """Update the provided Task fields.
+
+        Args:
+            task_id: Task identifier.
+            name: Name of the entity.
+            prompt: Task prompt text. Omission retains the current value.
+            schedule: One-time, interval, or cron schedule. Intervals use
+                every_ms of at least 60000. Cron timezone is optional.
+                None clears the schedule. Omission preserves it.
+            enabled: Whether the Task is enabled.
+            metadata: Caller-defined JSON metadata.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Task details.
+
+        Raises:
+            TypeError: The schedule structure or field types are invalid.
+            ValueError: The Task schedule, offset datetime, cron expression, or
+                timezone is invalid.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         body = _task_body(
             agent_id=OMITTED,
             name=name,
@@ -3695,6 +6010,19 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Task.
+
+        Args:
+            task_id: Task identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -3713,6 +6041,27 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunSubmission:
+        """Submit a Task Run for execution.
+
+        The idempotency key is sent in the JSON body, not an HTTP header.
+
+        Args:
+            task_id: Task identifier.
+            idempotency_key: Stable key for retrying the same operation without
+                duplicating it.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Acknowledgement of the submitted Task Run.
+
+        Raises:
+            ValueError: The idempotency key is empty or not a string.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -3733,6 +6082,24 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunsPage:
+        """Fetch one page of Task Runs.
+
+        Args:
+            task_id: Task identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -3753,6 +6120,21 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[TaskRun]:
+        """Iterate Task Runs across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            task_id: Task identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            TaskRun records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list_runs(
@@ -3776,6 +6158,23 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRun:
+        """Fetch a Task Run.
+
+        Args:
+            task_id: Task identifier.
+            run_id: Task Run identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Task Run details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -3797,6 +6196,26 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunMessagesPage:
+        """Fetch a page of messages for a Task Run.
+
+        Args:
+            task_id: Task identifier.
+            run_id: Task Run identifier.
+            cursor: Continuation cursor from a previous page.
+            after: Message cursor for fetching later messages.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -3816,6 +6235,20 @@ class AsyncTasksResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Cancel a Task Run.
+
+        Args:
+            task_id: Task identifier.
+            run_id: Task Run identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -3829,6 +6262,11 @@ class AsyncTasksResource:
 
 class SessionsResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Session operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def fork(
@@ -3841,7 +6279,30 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionResponse:
-        """Retry uncertain acknowledgements with the same explicit key."""
+        """Fork a Session at the selected message.
+
+        The idempotency_key replaces any Idempotency-Key in extra_headers.
+
+        Retry uncertain acknowledgements with the same explicit key.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            message_id: Message at which to fork the Session.
+            idempotency_key: Stable key for retrying the same operation without
+                duplicating it.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Session response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         headers = {
             name: value
             for name, value in (extra_headers or {}).items()
@@ -3867,6 +6328,23 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionResponse:
+        """Fetch the requested Session.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Session response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3887,6 +6365,25 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionsPage:
+        """Fetch one page of Session records.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3908,6 +6405,25 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> LatestSessionsPage:
+        """Fetch the latest Session for each matching user or Agent grouping.
+
+        Args:
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            by_agent: Whether latest Sessions are grouped by Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3929,6 +6445,22 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[Session]:
+        """Iterate Session records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Session records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -3955,6 +6487,26 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionMessagesPage:
+        """Fetch a page of Session messages.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            cursor: Continuation cursor from a previous page.
+            after: Message cursor for fetching later messages.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3974,6 +6526,23 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ToolApprovals:
+        """Fetch pending tool approvals for the Session.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Pending approval round for the Session.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -3996,8 +6565,26 @@ class SessionsResource:
     ) -> SessionInputResponse:
         """Steer a running Turn with one user message.
 
-        Retry with the same ``request_id`` and message to recover its receipt.
+        Retry with the same request_id and message to recover its receipt.
         If steering is unavailable, no message waits for a future Turn.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            request_id: Idempotency identifier for the submitted input.
+            message: Message to queue for the Session.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Acknowledgement of the queued input.
+
+        Raises:
+            ValueError: request_id is empty or a dot segment.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
         """
         return self._transport.request(
             _Request(
@@ -4021,9 +6608,27 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionInputsPage:
-        """List input receipts in admission order with the Session activity.
+        """List input receipts in admission order with Session activity.
 
-        Poll without ``cursor`` to observe changes; ``cursor`` only pages.
+        Poll without cursor to observe changes. cursor only pages the results.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            include_completed: Whether to include completed inputs.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
         """
         return self._transport.request(
             _Request(
@@ -4048,6 +6653,22 @@ class SessionsResource:
         """Record cancellation and return immediately.
 
         Read the existing Turn stream to observe settlement.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            turn_id: Active Turn identifier to stop.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Result of the stop request.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
         """
         return self._transport.request(
             _Request(
@@ -4069,6 +6690,22 @@ class SessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Session.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            delete_artifacts: Whether to delete Artifacts associated with the
+                Session.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -4083,6 +6720,11 @@ class SessionsResource:
 
 class AsyncSessionsResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Session operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def fork(
@@ -4095,7 +6737,30 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionResponse:
-        """Retry uncertain acknowledgements with the same explicit key."""
+        """Fork a Session at the selected message.
+
+        The idempotency_key replaces any Idempotency-Key in extra_headers.
+
+        Retry uncertain acknowledgements with the same explicit key.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            message_id: Message at which to fork the Session.
+            idempotency_key: Stable key for retrying the same operation without
+                duplicating it.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Session response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         headers = {
             name: value
             for name, value in (extra_headers or {}).items()
@@ -4121,6 +6786,23 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionResponse:
+        """Fetch the requested Session.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Session response details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4141,6 +6823,25 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionsPage:
+        """Fetch one page of Session records.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4162,6 +6863,25 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> LatestSessionsPage:
+        """Fetch the latest Session for each matching user or Agent grouping.
+
+        Args:
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            by_agent: Whether latest Sessions are grouped by Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4183,6 +6903,22 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[Session]:
+        """Iterate Session records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            agent_id: Agent identifier.
+            user_id: Caller-defined user identifier.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Session records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(
@@ -4210,6 +6946,26 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionMessagesPage:
+        """Fetch a page of Session messages.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            cursor: Continuation cursor from a previous page.
+            after: Message cursor for fetching later messages.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4229,6 +6985,23 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ToolApprovals:
+        """Fetch pending tool approvals for the Session.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Pending approval round for the Session.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4251,8 +7024,26 @@ class AsyncSessionsResource:
     ) -> SessionInputResponse:
         """Steer a running Turn with one user message.
 
-        Retry with the same ``request_id`` and message to recover its receipt.
+        Retry with the same request_id and message to recover its receipt.
         If steering is unavailable, no message waits for a future Turn.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            request_id: Idempotency identifier for the submitted input.
+            message: Message to queue for the Session.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Acknowledgement of the queued input.
+
+        Raises:
+            ValueError: request_id is empty or a dot segment.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
         """
         return await self._transport.request(
             _Request(
@@ -4276,9 +7067,27 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SessionInputsPage:
-        """List input receipts in admission order with the Session activity.
+        """List input receipts in admission order with Session activity.
 
-        Poll without ``cursor`` to observe changes; ``cursor`` only pages.
+        Poll without cursor to observe changes. cursor only pages the results.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            include_completed: Whether to include completed inputs.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
         """
         return await self._transport.request(
             _Request(
@@ -4303,6 +7112,22 @@ class AsyncSessionsResource:
         """Record cancellation and return immediately.
 
         Read the existing Turn stream to observe settlement.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            turn_id: Active Turn identifier to stop.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Result of the stop request.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
         """
         return await self._transport.request(
             _Request(
@@ -4324,6 +7149,22 @@ class AsyncSessionsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Session.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            delete_artifacts: Whether to delete Artifacts associated with the
+                Session.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -4338,6 +7179,11 @@ class AsyncSessionsResource:
 
 class AsyncArtifactsResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Artifact operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def list(
@@ -4349,6 +7195,24 @@ class AsyncArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ArtifactsPage:
+        """Fetch one page of Artifact records.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            cursor: Continuation cursor from a previous page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4369,6 +7233,21 @@ class AsyncArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[Artifact]:
+        """Iterate Artifact records across all pages.
+
+        Pages are fetched lazily until the API returns no continuation cursor.
+
+        Args:
+            agent_id: Agent identifier.
+            session_id: Session identifier.
+            cursor: Continuation cursor from a previous page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Artifact records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(
@@ -4391,6 +7270,22 @@ class AsyncArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ArtifactDownloadUrl:
+        """Create an expiring Artifact download URL.
+
+        Args:
+            artifact_id: Artifact identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Expiring URL for downloading the Artifact.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "POST",
@@ -4408,6 +7303,22 @@ class AsyncArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Artifact:
+        """Fetch the requested Artifact.
+
+        Args:
+            artifact_id: Artifact identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Artifact details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4425,6 +7336,19 @@ class AsyncArtifactsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Artifact.
+
+        Args:
+            artifact_id: Artifact identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -4438,6 +7362,12 @@ class AsyncArtifactsResource:
 
 class AgentSkillsResource:
     def __init__(self, transport: SyncTransport, agent_id: str) -> None:
+        """Bind Skill operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+            agent_id: Agent identifier.
+        """
         self._transport = transport
         self._agent_id = agent_id
 
@@ -4449,6 +7379,23 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Create a Skill.
+
+        Args:
+            path: Path to the requested file.
+            content: UTF-8 Skill document or file contents.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         if path != "SKILL.md":
             msg = "path must be SKILL.md"
             raise ValueError(msg)
@@ -4472,6 +7419,28 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Upload a Skill archive.
+
+        Paths are opened and closed by the SDK. Caller-owned file objects remain
+        open.
+
+        Args:
+            archive_type: Archive format: zip, tar, or tar.gz.
+            file: File upload input.
+            filename: Filename supplied for the upload.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            ValueError: The archive format is unsupported.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         with _skill_upload_request(
             agent_id=self._agent_id,
             archive_type=archive_type,
@@ -4490,6 +7459,23 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillsPage:
+        """Fetch one page of Skill records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -4509,6 +7495,20 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[Skill]:
+        """Iterate Skill records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Skill records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -4529,6 +7529,22 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Fetch the requested Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -4546,6 +7562,19 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -4564,6 +7593,23 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> bytes:
+        """Read a file within an attached Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            path: Path to the requested file.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Downloaded response bytes.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -4584,6 +7630,24 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Replace a file within an attached Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            path: Path to the requested file.
+            content: Raw file bytes.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "PUT",
@@ -4604,6 +7668,23 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Delete a file within an attached Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            path: Path to the requested file.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "DELETE",
@@ -4623,6 +7704,23 @@ class AgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> _SkillCopyResultList:
+        """Copy Skills to another Agent.
+
+        Args:
+            skill_id: Skill identifier.
+            destination_agent_ids: Agents that receive a copy of the Skill.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Per-destination copy results.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         response = self._transport.request(
             _Request(
                 "POST",
@@ -4638,6 +7736,12 @@ class AgentSkillsResource:
 
 class AsyncAgentSkillsResource:
     def __init__(self, transport: AsyncTransport, agent_id: str) -> None:
+        """Bind Skill operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+            agent_id: Agent identifier.
+        """
         self._transport = transport
         self._agent_id = agent_id
 
@@ -4649,6 +7753,23 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Create a Skill.
+
+        Args:
+            path: Path to the requested file.
+            content: UTF-8 Skill document or file contents.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         if path != "SKILL.md":
             msg = "path must be SKILL.md"
             raise ValueError(msg)
@@ -4672,6 +7793,28 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Upload a Skill archive.
+
+        Paths are opened and closed by the SDK. Caller-owned file objects remain
+        open.
+
+        Args:
+            archive_type: Archive format: zip, tar, or tar.gz.
+            file: File upload input.
+            filename: Filename supplied for the upload.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            ValueError: The archive format is unsupported.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         with _skill_upload_request(
             agent_id=self._agent_id,
             archive_type=archive_type,
@@ -4690,6 +7833,23 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillsPage:
+        """Fetch one page of Skill records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4709,6 +7869,20 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[Skill]:
+        """Iterate Skill records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            Skill records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(
@@ -4730,6 +7904,22 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Fetch the requested Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4747,6 +7937,19 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
+        """Delete the requested Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -4765,6 +7968,23 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> bytes:
+        """Read a file within an attached Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            path: Path to the requested file.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Downloaded response bytes.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -4785,6 +8005,24 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Replace a file within an attached Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            path: Path to the requested file.
+            content: Raw file bytes.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "PUT",
@@ -4805,6 +8043,23 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
+        """Delete a file within an attached Skill.
+
+        Args:
+            skill_id: Skill identifier.
+            path: Path to the requested file.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Skill details and file listing.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "DELETE",
@@ -4824,6 +8079,23 @@ class AsyncAgentSkillsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> _SkillCopyResultList:
+        """Copy Skills to another Agent.
+
+        Args:
+            skill_id: Skill identifier.
+            destination_agent_ids: Agents that receive a copy of the Skill.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Per-destination copy results.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         response = await self._transport.request(
             _Request(
                 "POST",

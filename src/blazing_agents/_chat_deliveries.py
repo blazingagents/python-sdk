@@ -13,6 +13,7 @@ def _chat_deliveries_query(
     cursor: str | _Omitted,
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
+    """Build the chat deliveries query, omitting unspecified filters."""
     query: dict[str, str | int] = {}
     if not isinstance(status, _Omitted) and status:
         # One comma-separated parameter carries the multi-value filter.
@@ -29,6 +30,11 @@ def _chat_deliveries_query(
 
 class ChatDeliveriesResource:
     def __init__(self, transport: SyncTransport) -> None:
+        """Bind Chat Delivery operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     def list(
@@ -41,6 +47,25 @@ class ChatDeliveriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatDeliveriesPage:
+        """Fetch one page of Chat Delivery records.
+
+        Args:
+            status: Status filter.
+            since: Lower bound for the list query.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return self._transport.request(
             _Request(
                 "GET",
@@ -62,6 +87,22 @@ class ChatDeliveriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[TenantChatDelivery]:
+        """Iterate Chat Delivery records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            status: Status filter.
+            since: Lower bound for the list query.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            TenantChatDelivery records in server order.
+        """
         next_cursor = cursor
         while True:
             page = self.list(
@@ -80,6 +121,11 @@ class ChatDeliveriesResource:
 
 class AsyncChatDeliveriesResource:
     def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Chat Delivery operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
         self._transport = transport
 
     async def list(
@@ -92,6 +138,25 @@ class AsyncChatDeliveriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ChatDeliveriesPage:
+        """Fetch one page of Chat Delivery records.
+
+        Args:
+            status: Status filter.
+            since: Lower bound for the list query.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
         return await self._transport.request(
             _Request(
                 "GET",
@@ -113,6 +178,22 @@ class AsyncChatDeliveriesResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> AsyncIterator[TenantChatDelivery]:
+        """Iterate Chat Delivery records across all pages.
+
+        Pages are fetched lazily. limit controls each page, not the total.
+
+        Args:
+            status: Status filter.
+            since: Lower bound for the list query.
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Yields:
+            TenantChatDelivery records in server order.
+        """
         next_cursor = cursor
         while True:
             page = await self.list(

@@ -10,6 +10,15 @@ class Completion(str):
     _response: httpx.Response
 
     def __new__(cls, content: str, response: httpx.Response) -> Completion:
+        """Create completion text with HTTP response metadata.
+
+        Args:
+            content: Completion text.
+            response: HTTPX response supplying the body and response metadata.
+
+        Returns:
+            Generated text with its server request_id.
+        """
         value = super().__new__(cls, content)
         value.request_id = response.headers.get("x-request-id")
         value._response = response

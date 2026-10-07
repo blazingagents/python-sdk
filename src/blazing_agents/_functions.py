@@ -55,10 +55,12 @@ INVALID_RESULT = "Function returned an invalid result."
 
 
 def _unknown_function(name: str) -> str:
+    """Format the result for an unavailable function."""
     return f"Function {name} is not available."
 
 
 def _valid_name(name: object) -> bool:
+    """Check function name syntax and reserved names."""
     return (
         isinstance(name, str)
         and _NAME.fullmatch(name) is not None
@@ -68,6 +70,11 @@ def _valid_name(name: object) -> bool:
 
 
 def _function_name(name: str) -> str:
+    """Validate a function name for parsed call events.
+
+    Raises:
+        ValueError: Invalid or reserved function name.
+    """
     if not _valid_name(name):
         raise ValueError("Invalid or reserved function name.")
     return name
@@ -103,7 +110,21 @@ def define_function(
     input_schema: TypeForm[_InputT],
     execute: Callable[[_InputT, FunctionContext], object],
 ) -> ChatFunction:
-    """Define a chat function whose input is validated by ``input_schema``."""
+    """Define a chat function with validated object input.
+
+    Cancellation is cooperative. Use the context idempotency key for effects.
+
+    Args:
+        description: Nonempty description supplied to the agent.
+        input_schema: Python type whose JSON Schema describes an object.
+        execute: Handler receiving validated input and FunctionContext.
+
+    Returns:
+        Function definition and handler for the chat functions mapping.
+
+    Raises:
+        ValueError: description is blank or input_schema does not describe an object.
+    """
     if not description.strip():
         raise ValueError("description must not be empty.")
     adapter: TypeAdapter[Any] = TypeAdapter(input_schema)
@@ -118,6 +139,22 @@ def function_definitions(
     *,
     asynchronous: bool,
 ) -> dict[str, object]:
+    """Validate function names, handler mode, and serialized definitions.
+
+    Definition limits are 32 functions and 64 KiB of serialized JSON.
+
+    Args:
+        functions: Named functions available for this invocation.
+        asynchronous: Whether async function handlers are allowed.
+
+    Returns:
+        Validated function definitions keyed by function name.
+
+    Raises:
+        ValueError: More than 32 functions, reserved names, async handlers in sync
+            mode, or definitions above 64 KiB.
+        TypeError: A mapping value is not a ChatFunction.
+    """
     if len(functions) > MAX_FUNCTIONS:
         raise ValueError(f"At most {MAX_FUNCTIONS} functions are allowed.")
     definitions: dict[str, object] = {}
@@ -159,9 +196,18 @@ class SseFrames:
     """Splits an SSE byte stream into complete events, preserving their bytes."""
 
     def __init__(self) -> None:
+        """Initialize SseFrames."""
         self._buffer = b""
 
     def feed(self, chunk: bytes) -> list[bytes]:
+        """Append bytes and return complete SSE frames.
+
+        Args:
+            chunk: Next chunk of SSE bytes.
+
+        Returns:
+            Complete SSE frames, including their delimiters.
+        """
         self._buffer += chunk
         frames: list[bytes] = []
         start = 0
@@ -172,15 +218,29 @@ class SseFrames:
         return frames
 
     def flush(self) -> bytes:
+        """Return and clear the remaining incomplete SSE bytes.
+
+        Returns:
+            Residual buffered SSE bytes.
+        """
         rest, self._buffer = self._buffer, b""
         return rest
 
 
 def function_call(frame: bytes, response: httpx.Response) -> _FunctionCall | None:
-    """The function call a frame authorizes, or None to relay it unchanged.
+    """Decode private function events and preserve unrelated SSE frames.
 
-    A frame naming the private event that does not parse or validate never
-    reaches the consumer; it fails the stream instead.
+    Malformed private function events fail the stream before reaching the consumer.
+
+    Args:
+        frame: Complete SSE frame.
+        response: HTTPX response supplying the body and response metadata.
+
+    Returns:
+        Validated function call, or None for a frame to relay unchanged.
+
+    Raises:
+        StreamError: The server sent a malformed function call event.
     """
     if _EVENT_TYPE.encode() not in frame:
         return None
@@ -210,6 +270,7 @@ def _prepare(
     functions: Mapping[str, ChatFunction],
     call: _FunctionCall,
 ) -> tuple[ChatFunction, object] | dict[str, object]:
+    """Resolve the handler and validate its input, or return an error result."""
     function = functions.get(call.name)
     if function is None:
         return _error(_unknown_function(call.name))
@@ -220,11 +281,12 @@ def _prepare(
 
 
 def _error(message: str) -> dict[str, object]:
+    """Build a function failure result."""
     return {"kind": "error", "message": message}
 
 
 def _output(name: str, value: object) -> dict[str, object]:
-    """Accept only plain JSON: no NaN, Infinity, tuples, non-str keys or objects."""
+    """Accept only plain JSON, rejecting NaN, Infinity, tuples, and non-string keys."""
     outcome: dict[str, object] = {"kind": "output", "value": value}
     encoded = ""
     snapshot: dict[str, object] = {}
@@ -246,7 +308,7 @@ def _output(name: str, value: object) -> dict[str, object]:
 
 
 def _retry_delay(error: BlazingAgentsError, attempt: int) -> float | None:
-    """Delay before retrying a claim or result, or None for a permanent failure."""
+    """Return the retry delay, or None for a permanent submission failure."""
     if isinstance(error, APIStatusError):
         if error.status_code < 500 and error.status_code not in _RETRYABLE_STATUS:
             return None
@@ -269,6 +331,16 @@ class _CallScope:
     extra_headers: Mapping[str, str] | None
 
     def request(self, call_id: str, action: str, body: object) -> _Request:
+        """Build a scoped Function Call endpoint request.
+
+        Args:
+            call_id: Function Call identifier.
+            action: Function Call endpoint action.
+            body: Request body.
+
+        Returns:
+            Prepared HTTP request.
+        """
         return _Request(
             "POST",
             (
@@ -282,6 +354,7 @@ class _CallScope:
 
 
 def _log_execution_failure(call: _FunctionCall) -> None:
+    """Log a function failure without handler exception details."""
     _LOGGER.warning("Function %s (%s) raised an exception", call.name, call.id)
 
 
@@ -292,6 +365,7 @@ class _Runner:
     def _give_up(
         self, action: str, call: _FunctionCall, error: BlazingAgentsError
     ) -> None:
+        """Record a stream failure after result submission retries end."""
         if isinstance(error, APIStatusError) and error.status_code == 409:
             _LOGGER.debug("Function call %s %s was refused", call.id, action)
             return
@@ -307,6 +381,13 @@ class SyncFunctionRunner(_Runner):
         scope: _CallScope,
         functions: Mapping[str, ChatFunction],
     ) -> None:
+        """Initialize SyncFunctionRunner.
+
+        Args:
+            transport: Transport used for requests.
+            scope: Agent, Session, and headers for Function Call requests.
+            functions: Named functions available for this invocation.
+        """
         self._transport = transport
         self._scope = scope
         self._functions = dict(functions)
@@ -316,6 +397,11 @@ class SyncFunctionRunner(_Runner):
         self._closed = threading.Event()
 
     def dispatch(self, call: _FunctionCall) -> None:
+        """Schedule a function call for execution.
+
+        Args:
+            call: Function call to execute.
+        """
         if call.id in self._seen or self._closed.is_set():
             return
         self._seen.add(call.id)
@@ -327,12 +413,14 @@ class SyncFunctionRunner(_Runner):
         ).start()
 
     def close(self) -> None:
+        """Signal cancellation to active handlers and prevent new calls."""
         self._closed.set()
         with self._lock:
             for cancelled in self._active:
                 cancelled.set()
 
     def _run(self, call: _FunctionCall) -> None:
+        """Execute a call until completion or its deadline."""
         cancelled = threading.Event()
         with self._lock:
             if self._closed.is_set():
@@ -363,6 +451,7 @@ class SyncFunctionRunner(_Runner):
         cancelled: threading.Event,
         deadline: float,
     ) -> dict[str, object] | None:
+        """Run the handler and convert failures into function results."""
         prepared = _prepare(self._functions, call)
         if isinstance(prepared, dict):
             return prepared
@@ -396,6 +485,7 @@ class SyncFunctionRunner(_Runner):
         *,
         until: float,
     ) -> bool:
+        """Submit a call claim or result with deadline-bounded retries."""
         attempt = 0
         while True:
             try:
@@ -416,6 +506,9 @@ class SyncFunctionRunner(_Runner):
 async def _invoke(
     function: ChatFunction, value: object, context: FunctionContext
 ) -> object:
+    """Await async handlers, or run sync handlers in a worker thread.
+
+    Await a synchronous handler result when it is awaitable."""
     if inspect.iscoroutinefunction(function._execute):
         return await function._execute(value, context)
     result = await asyncio.to_thread(function._execute, value, context)
@@ -429,6 +522,13 @@ class AsyncFunctionRunner(_Runner):
         scope: _CallScope,
         functions: Mapping[str, ChatFunction],
     ) -> None:
+        """Initialize AsyncFunctionRunner.
+
+        Args:
+            transport: Transport used for requests.
+            scope: Agent, Session, and headers for Function Call requests.
+            functions: Named functions available for this invocation.
+        """
         self._transport = transport
         self._scope = scope
         self._functions = dict(functions)
@@ -437,6 +537,11 @@ class AsyncFunctionRunner(_Runner):
         self._closed = False
 
     def dispatch(self, call: _FunctionCall) -> None:
+        """Schedule a function call for execution.
+
+        Args:
+            call: Function call to execute.
+        """
         if call.id in self._seen or self._closed:
             return
         self._seen.add(call.id)
@@ -445,6 +550,7 @@ class AsyncFunctionRunner(_Runner):
         task.add_done_callback(self._tasks.discard)
 
     async def aclose(self) -> None:
+        """Signal cancellation to active handlers and prevent new calls."""
         self._closed = True
         tasks = list(self._tasks)
         for task in tasks:
@@ -452,6 +558,7 @@ class AsyncFunctionRunner(_Runner):
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _run(self, call: _FunctionCall) -> None:
+        """Execute a call until completion or its deadline."""
         deadline = call.deadline_at.timestamp()
         claim = {"claimRequestId": str(uuid.uuid4())}
         if not await self._post(call, "claim", claim, until=deadline):
@@ -466,6 +573,7 @@ class AsyncFunctionRunner(_Runner):
         claim: dict[str, str],
         outcome: dict[str, object] | None,
     ) -> None:
+        """Submit a handler result and record unrecoverable failures."""
         if outcome is None:
             return
         await self._post(
@@ -480,6 +588,7 @@ class AsyncFunctionRunner(_Runner):
         call: _FunctionCall,
         deadline: float,
     ) -> dict[str, object] | None:
+        """Run the handler and convert failures into function results."""
         prepared = _prepare(self._functions, call)
         if isinstance(prepared, dict):
             return prepared
@@ -516,6 +625,7 @@ class AsyncFunctionRunner(_Runner):
         *,
         until: float,
     ) -> bool:
+        """Submit a call claim or result with deadline-bounded retries."""
         attempt = 0
         while True:
             try:
