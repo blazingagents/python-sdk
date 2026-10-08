@@ -85,6 +85,7 @@ from ._types import (
     UsageGroupBy,
     WorkspaceDeletionOutcome,
     WorkspaceNetworkPolicy,
+    WorkspaceTier,
 )
 
 _QUOTA_FIELDS = {
@@ -120,6 +121,7 @@ def _agent_body(
     provider_id: str | None | _Omitted,
     thinking_level: str | None | _Omitted,
     workspace_id: str | _Omitted,
+    workspace_tier: WorkspaceTier | _Omitted = OMITTED,
     auto_compaction: bool | _Omitted,
     compaction_reserve_tokens: int | _Omitted,
     memory_injection_enabled: bool | _Omitted,
@@ -132,6 +134,10 @@ def _agent_body(
     mcp_connection_ids: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
     """Build the agent request body, omitting unspecified fields."""
+    if not isinstance(workspace_id, _Omitted) and not isinstance(
+        workspace_tier, _Omitted
+    ):
+        raise ValueError("workspace_id and workspace_tier are mutually exclusive")
     body: dict[str, object] = {}
     for wire_name, value in (
         ("name", name),
@@ -139,6 +145,7 @@ def _agent_body(
         ("providerId", provider_id),
         ("thinkingLevel", thinking_level),
         ("workspaceId", workspace_id),
+        ("workspaceTier", workspace_tier),
         ("autoCompaction", auto_compaction),
         ("compactionReserveTokens", compaction_reserve_tokens),
         ("memoryInjectionEnabled", memory_injection_enabled),
@@ -486,12 +493,14 @@ def _workspace_body(
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
     network_policy: WorkspaceNetworkPolicy | _Omitted,
+    tier: WorkspaceTier | _Omitted = OMITTED,
 ) -> dict[str, object]:
     """Build the workspace request body, omitting unspecified fields."""
     return {
         wire_name: value
         for wire_name, value in (
             ("name", name),
+            ("tier", tier),
             ("userId", user_id),
             ("metadata", metadata),
             (
@@ -874,6 +883,7 @@ class AgentsResource:
         model: str | _Omitted = OMITTED,
         provider_id: str | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
+        workspace_tier: WorkspaceTier | _Omitted = OMITTED,
         thinking_level: str | None | _Omitted = OMITTED,
         auto_compaction: bool | _Omitted = OMITTED,
         compaction_reserve_tokens: int | _Omitted = OMITTED,
@@ -898,6 +908,8 @@ class AgentsResource:
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
             workspace_id: Workspace identifier.
+            workspace_tier: Tier for an automatic Workspace; defaults to Core.
+                Mutually exclusive with workspace_id.
             thinking_level: Provider-supported reasoning level.
             auto_compaction: Whether the Agent compacts its context automatically.
             compaction_reserve_tokens: Tokens reserved for context compaction.
@@ -933,6 +945,7 @@ class AgentsResource:
                     model=model,
                     provider_id=provider_id,
                     workspace_id=workspace_id,
+                    workspace_tier=workspace_tier,
                     thinking_level=thinking_level,
                     auto_compaction=auto_compaction,
                     compaction_reserve_tokens=compaction_reserve_tokens,
@@ -1394,6 +1407,7 @@ class AsyncAgentsResource:
         model: str | _Omitted = OMITTED,
         provider_id: str | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
+        workspace_tier: WorkspaceTier | _Omitted = OMITTED,
         thinking_level: str | None | _Omitted = OMITTED,
         auto_compaction: bool | _Omitted = OMITTED,
         compaction_reserve_tokens: int | _Omitted = OMITTED,
@@ -1418,6 +1432,8 @@ class AsyncAgentsResource:
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
             workspace_id: Workspace identifier.
+            workspace_tier: Tier for an automatic Workspace; defaults to Core.
+                Mutually exclusive with workspace_id.
             thinking_level: Provider-supported reasoning level.
             auto_compaction: Whether the Agent compacts its context automatically.
             compaction_reserve_tokens: Tokens reserved for context compaction.
@@ -1453,6 +1469,7 @@ class AsyncAgentsResource:
                     model=model,
                     provider_id=provider_id,
                     workspace_id=workspace_id,
+                    workspace_tier=workspace_tier,
                     thinking_level=thinking_level,
                     auto_compaction=auto_compaction,
                     compaction_reserve_tokens=compaction_reserve_tokens,
@@ -4051,6 +4068,7 @@ class WorkspacesResource:
     def create(
         self,
         *,
+        tier: WorkspaceTier | _Omitted = OMITTED,
         name: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
@@ -4061,6 +4079,7 @@ class WorkspacesResource:
         """Create a Workspace.
 
         Args:
+            tier: Immutable Workspace tier; defaults to Core.
             name: Name of the entity.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
@@ -4082,6 +4101,7 @@ class WorkspacesResource:
                 "POST",
                 "/v1/workspaces",
                 json_body=_workspace_body(
+                    tier=tier,
                     name=name,
                     user_id=user_id,
                     metadata=metadata,
@@ -4298,6 +4318,7 @@ class AsyncWorkspacesResource:
     async def create(
         self,
         *,
+        tier: WorkspaceTier | _Omitted = OMITTED,
         name: str | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
@@ -4308,6 +4329,7 @@ class AsyncWorkspacesResource:
         """Create a Workspace.
 
         Args:
+            tier: Immutable Workspace tier; defaults to Core.
             name: Name of the entity.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
@@ -4329,6 +4351,7 @@ class AsyncWorkspacesResource:
                 "POST",
                 "/v1/workspaces",
                 json_body=_workspace_body(
+                    tier=tier,
                     name=name,
                     user_id=user_id,
                     metadata=metadata,

@@ -28,6 +28,7 @@ from ._types import (
     SessionActivityState,
     SessionInputReason,
     SessionInputState,
+    WorkspaceTier,
 )
 
 SkillId: TypeAlias = Annotated[
@@ -645,6 +646,7 @@ WorkspaceNetworkPolicy: TypeAlias = Annotated[
 
 
 class Workspace(ResponseModel):
+    tier: WorkspaceTier
     id: WorkspaceId
     tenant_id: TenantId = Field(alias="tenantId")
     name: WorkspaceName | None

@@ -18,6 +18,8 @@ import httpx
 if TYPE_CHECKING:
     from ._functions import ChatFunction
 
+WorkspaceTier: TypeAlias = Literal["core", "plus"]
+
 Timeout = float | httpx.Timeout | None
 JsonValue: TypeAlias = (
     None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
@@ -339,6 +341,7 @@ class _AgentCreateBase(TypedDict, total=False):
     thinking_level: str | None
     name: Required[str]
     workspace_id: str
+    workspace_tier: WorkspaceTier
     auto_compaction: bool
     compaction_reserve_tokens: int
     memory_injection_enabled: bool
@@ -506,6 +509,7 @@ McpConnectionReconnect: TypeAlias = (
 
 
 class WorkspaceCreate(TypedDict, total=False):
+    tier: WorkspaceTier
     name: str
     user_id: str
     metadata: dict[str, object]
