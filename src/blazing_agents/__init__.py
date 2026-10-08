@@ -202,6 +202,7 @@ from ._types import (
     WorkspaceDeletionOutcome,
     WorkspaceNetworkPolicy,
     WorkspacesListOptions,
+    WorkspaceTier,
     WorkspaceUpdate,
 )
 from ._version import __version__
@@ -408,6 +409,7 @@ __all__ = [
     "UsageTotals",
     "Workspace",
     "WorkspaceCreate",
+    "WorkspaceTier",
     "WorkspaceDeletionOutcome",
     "WorkspaceNetworkPolicy",
     "WorkspacesListOptions",

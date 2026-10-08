@@ -201,6 +201,7 @@ MCP_ATTACHMENT: dict[str, Any] = {
     "updatedAt": "2026-08-01T00:00:00.000Z",
 }
 WORKSPACE: dict[str, Any] = {
+    "tier": "core",
     "id": "ws_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "name": "Build files",
@@ -2582,6 +2583,8 @@ def test_async_workspaces_match_every_sync_operation() -> None:
 
 def test_workspace_boundaries_reject_invalid_inputs_and_responses() -> None:
     invalid_workspaces: list[dict[str, Any]] = [
+        {**WORKSPACE, "tier": "invalid"},
+        {key: value for key, value in WORKSPACE.items() if key != "tier"},
         {**WORKSPACE, "id": "wrong"},
         {**WORKSPACE, "tenantId": "wrong"},
         {**WORKSPACE, "name": " "},
@@ -6970,3 +6973,59 @@ def test_session_detail_and_message_require_fork_fields() -> None:
     with pytest.raises(ValidationError):
         SessionMessage.model_validate({**message, "branchable": "true"})
     assert SessionMessage.model_validate({**message, "branchable": True}).branchable
+
+
+@pytest.mark.parametrize("tier", ["core", "plus"])
+def test_workspace_tier_creation_and_conflicts(tier: str) -> None:
+    with loopback(Response(body={**WORKSPACE, "tier": tier}), Response(body=AGENT)) as (
+        base_url,
+        state,
+    ):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            workspace = client.workspaces.create(tier=cast(Any, tier))
+            assert workspace.tier == tier
+            client.agents.create(name="Agent", workspace_tier=cast(Any, tier))
+            with pytest.raises(ValueError, match="mutually exclusive"):
+                client.agents.create(
+                    name="Agent",
+                    workspace_id=WORKSPACE["id"],
+                    workspace_tier=cast(Any, tier),
+                )
+            with pytest.raises(TypeError):
+                cast(Any, client.workspaces.update)(
+                    workspace_id=WORKSPACE["id"], tier=tier
+                )
+            with pytest.raises(TypeError):
+                cast(Any, client.agents.update)(
+                    agent_id=AGENT["id"], workspace_tier=tier
+                )
+    assert json.loads(state.requests[0].body) == {"tier": tier}
+    assert json.loads(state.requests[1].body) == {
+        "name": "Agent",
+        "workspaceTier": tier,
+    }
+
+    async def exercise() -> None:
+        with loopback(
+            Response(body={**WORKSPACE, "tier": tier}), Response(body=AGENT)
+        ) as (base_url, state):
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                assert (
+                    await client.workspaces.create(tier=cast(Any, tier))
+                ).tier == tier
+                await client.agents.create(name="Agent", workspace_tier=cast(Any, tier))
+                with pytest.raises(ValueError, match="mutually exclusive"):
+                    await client.agents.create(
+                        name="Agent",
+                        workspace_id=WORKSPACE["id"],
+                        workspace_tier=cast(Any, tier),
+                    )
+            assert json.loads(state.requests[0].body) == {"tier": tier}
+            assert json.loads(state.requests[1].body) == {
+                "name": "Agent",
+                "workspaceTier": tier,
+            }
+
+    asyncio.run(exercise())
