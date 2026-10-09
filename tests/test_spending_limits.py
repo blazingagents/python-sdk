@@ -264,6 +264,36 @@ def test_typed_stop_event_decode() -> None:
     assert event.data.next_reset_at is not None
 
 
+@pytest.mark.parametrize("transient", [True, 1, 1.0, False])
+@pytest.mark.parametrize("json_input", [False, True])
+def test_stop_event_transient_requires_true_boolean(
+    transient: object, json_input: bool
+) -> None:
+    payload = {
+        "type": "data-model-spending-limit",
+        "data": {
+            "code": "model_spending_limit_exceeded",
+            **STOP_DETAILS,
+            "nextResetAt": None,
+        },
+        "transient": transient,
+    }
+
+    if transient is True:
+        event = (
+            SpendingLimitStopEvent.model_validate_json(json.dumps(payload))
+            if json_input
+            else SpendingLimitStopEvent.model_validate(payload)
+        )
+        assert event.transient is True
+    else:
+        with pytest.raises(ValidationError):
+            if json_input:
+                SpendingLimitStopEvent.model_validate_json(json.dumps(payload))
+            else:
+                SpendingLimitStopEvent.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     "patch",
     [

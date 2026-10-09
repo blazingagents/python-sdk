@@ -374,6 +374,14 @@ class SpendingLimitStopEvent(ResponseModel):
     data: SpendingLimitStopData
     transient: Literal[True]
 
+    @field_validator("transient", mode="before")
+    @classmethod
+    def _validate_transient(cls, value: object) -> Literal[True]:
+        if value is not True:
+            msg = "transient must be the boolean true"
+            raise ValueError(msg)
+        return value
+
 
 class TenantSettings(ResponseModel):
     name: str
