@@ -29,6 +29,7 @@ def main() -> None:
     project = Path(__file__).resolve().parents[1]
     valid = project / "typing" / "valid.py"
     invalid = [
+        project / "typing" / "invalid_spending_limit.py",
         project / "typing" / "invalid_session_fork.py",
         project / "typing" / "invalid_chat_connection.py",
         project / "typing" / "invalid_chat_batch.py",

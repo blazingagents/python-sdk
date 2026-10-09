@@ -45,6 +45,7 @@ from ._models import (
     SkillCopyResults,
     SkillDetail,
     SkillsPage,
+    SpendingLimitResponse,
     Task,
     TaskCreateResponse,
     TaskListItem,
@@ -79,6 +80,7 @@ from ._types import (
     ProviderType,
     QuotaUpdate,
     SkillArchiveType,
+    SpendingLimitInput,
     TaskScheduleInput,
     Timeout,
     UploadFile,
@@ -87,6 +89,21 @@ from ._types import (
     WorkspaceNetworkPolicy,
     WorkspaceTier,
 )
+
+
+def _spending_limit_body(
+    spending_limit: SpendingLimitInput | None,
+) -> dict[str, object]:
+    return {
+        "spendingLimit": None
+        if spending_limit is None
+        else {
+            "amountUsd": spending_limit["amount_usd"],
+            "resetStartDate": spending_limit["reset_start_date"],
+            "resetInterval": spending_limit["reset_interval"],
+        }
+    }
+
 
 _QUOTA_FIELDS = {
     "monthly_token_limit",
@@ -868,6 +885,44 @@ def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
 
 
 class AgentsResource:
+    def get_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Fetch the Agent model spending limit using tenant authority."""
+        return self._transport.request(
+            _Request(
+                "GET",
+                _agent_path(agent_id) + "/spending-limit",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
+    def update_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        spending_limit: SpendingLimitInput | None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Set or disable the Agent model spending limit using tenant authority."""
+        return self._transport.request(
+            _Request(
+                "PUT",
+                _agent_path(agent_id) + "/spending-limit",
+                json_body=_spending_limit_body(spending_limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
     def __init__(self, transport: SyncTransport) -> None:
         """Bind Agent operations to the transport.
 
@@ -1392,6 +1447,44 @@ class AgentsResource:
 
 
 class AsyncAgentsResource:
+    async def get_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Fetch the Agent model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "GET",
+                _agent_path(agent_id) + "/spending-limit",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
+    async def update_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        spending_limit: SpendingLimitInput | None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Set or disable the Agent model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "PUT",
+                _agent_path(agent_id) + "/spending-limit",
+                json_body=_spending_limit_body(spending_limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
     def __init__(self, transport: AsyncTransport) -> None:
         """Bind Agent operations to the transport.
 
@@ -4624,6 +4717,42 @@ def _usage_overview_query(
 
 
 class TenantResource:
+    def get_spending_limit(
+        self,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Fetch the tenant model spending limit using tenant authority."""
+        return self._transport.request(
+            _Request(
+                "GET",
+                "/v1/tenant/spending-limit",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
+    def update_spending_limit(
+        self,
+        *,
+        spending_limit: SpendingLimitInput | None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Set or disable the tenant model spending limit using tenant authority."""
+        return self._transport.request(
+            _Request(
+                "PUT",
+                "/v1/tenant/spending-limit",
+                json_body=_spending_limit_body(spending_limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
     def __init__(self, transport: SyncTransport) -> None:
         """Bind Tenant settings operations to the transport.
 
@@ -4701,6 +4830,42 @@ class TenantResource:
 
 
 class AsyncTenantResource:
+    async def get_spending_limit(
+        self,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Fetch the tenant model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "GET",
+                "/v1/tenant/spending-limit",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
+    async def update_spending_limit(
+        self,
+        *,
+        spending_limit: SpendingLimitInput | None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Set or disable the tenant model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "PUT",
+                "/v1/tenant/spending-limit",
+                json_body=_spending_limit_body(spending_limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
     def __init__(self, transport: AsyncTransport) -> None:
         """Bind Tenant settings operations to the transport.
 
