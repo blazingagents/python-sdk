@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
+from datetime import date
 from typing import Annotated, ClassVar, Literal, TypeAlias, cast
 from urllib.parse import parse_qsl, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -28,6 +29,7 @@ from ._types import (
     SessionActivityState,
     SessionInputReason,
     SessionInputState,
+    SpendingLimitResetInterval,
     WorkspaceTier,
 )
 
@@ -325,6 +327,60 @@ class Quota(ResponseModel):
     monthly_token_limit: int | None = Field(alias="monthlyTokenLimit")
     monthly_request_limit: int | None = Field(alias="monthlyRequestLimit")
     reset_day: int = Field(alias="resetDay")
+
+
+class SpendingLimit(ResponseModel):
+    amount_usd: float = Field(
+        alias="amountUsd", gt=0, le=1_000_000_000, multiple_of=0.000001
+    )
+    reset_start_date: date = Field(alias="resetStartDate")
+    reset_interval: SpendingLimitResetInterval = Field(alias="resetInterval")
+
+
+class SpendingLimitPeriod(ResponseModel):
+    starts_at: AwareDatetime = Field(alias="startsAt")
+    ends_at: AwareDatetime = Field(alias="endsAt")
+    spent_usd: float = Field(alias="spentUsd", ge=0)
+    reserved_usd: float = Field(alias="reservedUsd", ge=0)
+    available_usd: float = Field(alias="availableUsd", ge=0)
+
+
+class SpendingLimitResponse(ResponseModel):
+    spending_limit: SpendingLimit | None = Field(alias="spendingLimit")
+    period: SpendingLimitPeriod | None
+    next_reset_at: AwareDatetime | None = Field(alias="nextResetAt")
+    schedule_change_at: AwareDatetime | None = Field(alias="scheduleChangeAt")
+
+
+class SpendingLimitStopDetails(ResponseModel):
+    scope: Literal["agent", "tenant", "both"]
+    reason: Literal["exhausted", "reserved", "unpriced", "unknown_usage"]
+    spent_usd: float = Field(alias="spentUsd", ge=0)
+    reserved_usd: float = Field(alias="reservedUsd", ge=0)
+    available_usd: float = Field(alias="availableUsd", ge=0)
+    next_reset_at: AwareDatetime | None = Field(alias="nextResetAt")
+
+
+class SpendingLimitStopData(SpendingLimitStopDetails):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["model_spending_limit_exceeded"]
+
+
+class SpendingLimitStopEvent(ResponseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["data-model-spending-limit"]
+    data: SpendingLimitStopData
+    transient: Literal[True]
+
+    @field_validator("transient", mode="before")
+    @classmethod
+    def _validate_transient(cls, value: object) -> Literal[True]:
+        if value is not True:
+            msg = "transient must be the boolean true"
+            raise ValueError(msg)
+        return value
 
 
 class TenantSettings(ResponseModel):

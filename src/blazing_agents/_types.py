@@ -570,6 +570,19 @@ class QuotaUpdate(TypedDict):
     reset_day: int
 
 
+SpendingLimitResetInterval = Literal["daily", "weekly", "biweekly", "monthly"]
+
+
+class SpendingLimitInput(TypedDict):
+    amount_usd: float
+    reset_start_date: str
+    reset_interval: SpendingLimitResetInterval
+
+
+class SpendingLimitUpdate(TypedDict):
+    spending_limit: SpendingLimitInput | None
+
+
 class TenantUpdate(TypedDict, total=False):
     name: str
     quota: QuotaUpdate | None

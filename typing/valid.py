@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator, Iterator
 from datetime import datetime
-from typing import Annotated, assert_type
+from typing import Annotated, Literal, assert_type
 
 from pydantic import BaseModel
 
@@ -45,6 +45,11 @@ from blazing_agents import (
     Skill,
     SkillDetail,
     SkillsPage,
+    SpendingLimitInput,
+    SpendingLimitResponse,
+    SpendingLimitStopData,
+    SpendingLimitStopEvent,
+    SpendingLimitUpdate,
     TaskCreateResponse,
     TaskRunMessagesPage,
     TaskRunsPage,
@@ -618,3 +623,55 @@ async def async_session_fork_examples(client: AsyncBlazingAgents) -> None:
     )
     assert_type(child, SessionResponse)
     assert_type(child.forked_from, SessionForkedFrom | None)
+
+
+def spending_limits(client: BlazingAgents) -> None:
+    limit: SpendingLimitInput = {
+        "amount_usd": 25.0,
+        "reset_start_date": "2026-10-09",
+        "reset_interval": "weekly",
+    }
+    update: SpendingLimitUpdate = {"spending_limit": limit}
+    assert_type(
+        client.agents.get_spending_limit("ag_0123456789abcdef"), SpendingLimitResponse
+    )
+    assert_type(
+        client.agents.update_spending_limit("ag_0123456789abcdef", **update),
+        SpendingLimitResponse,
+    )
+    assert_type(client.tenant.get_spending_limit(), SpendingLimitResponse)
+    assert_type(
+        client.tenant.update_spending_limit(spending_limit=None), SpendingLimitResponse
+    )
+
+
+def spending_limit_stop_event(payload: str) -> None:
+    event = SpendingLimitStopEvent.model_validate_json(payload)
+    assert_type(event.type, Literal["data-model-spending-limit"])
+    assert_type(event.transient, Literal[True])
+    assert_type(event.data, SpendingLimitStopData)
+    assert_type(event.data.code, Literal["model_spending_limit_exceeded"])
+
+
+async def async_spending_limits(client: AsyncBlazingAgents) -> None:
+    assert_type(
+        await client.agents.get_spending_limit("ag_0123456789abcdef"),
+        SpendingLimitResponse,
+    )
+    assert_type(
+        await client.agents.update_spending_limit(
+            "ag_0123456789abcdef", spending_limit=None
+        ),
+        SpendingLimitResponse,
+    )
+    assert_type(await client.tenant.get_spending_limit(), SpendingLimitResponse)
+    assert_type(
+        await client.tenant.update_spending_limit(
+            spending_limit={
+                "amount_usd": 25.0,
+                "reset_start_date": "2026-10-09",
+                "reset_interval": "daily",
+            }
+        ),
+        SpendingLimitResponse,
+    )
