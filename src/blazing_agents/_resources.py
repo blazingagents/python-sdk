@@ -40,6 +40,7 @@ from ._models import (
     SessionResponse,
     SessionsPage,
     SessionStopResponse,
+    SessionUsageList,
     Skill,
     SkillCopyResult,
     SkillCopyResults,
@@ -419,9 +420,10 @@ def _task_body(
     submit: bool | _Omitted,
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
+    idempotency_key: str | _Omitted,
 ) -> dict[str, object]:
     """Build the task request body, omitting unspecified fields."""
-    body: dict[str, object] = {}
+    body: dict[str, object] = _task_run_body(idempotency_key)
     for wire_name, value in (
         ("agentId", agent_id),
         ("name", name),
@@ -4942,7 +4944,7 @@ class AsyncTenantResource:
         )
 
 
-class UsageResource:
+class UserUsageResource:
     def __init__(self, transport: SyncTransport) -> None:
         """Bind usage operations to the transport.
 
@@ -5006,6 +5008,50 @@ class UsageResource:
             Usage,
         )
 
+    def sessions(
+        self,
+        session_ids: Sequence[str],
+        *,
+        from_: str | _Omitted = OMITTED,
+        to: str | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionUsageList:
+        """Fetch usage totals for up to 100 Sessions.
+
+        Args:
+            session_ids: Unique Session identifiers, 1 to 100.
+            from_: First UTC day (YYYY-MM-DD) of the usage interval.
+            to: Last UTC day (YYYY-MM-DD) of the usage interval.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage totals for each requested Session.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        body: dict[str, object] = {"sessionIds": list(session_ids)}
+        for wire_name, value in (("from", from_), ("to", to)):
+            if not isinstance(value, _Omitted):
+                body[wire_name] = value
+        return self._transport.request(
+            _Request(
+                "POST",
+                "/v1/usage/sessions",
+                json_body=body,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionUsageList,
+        )
+
+
+class UsageResource(UserUsageResource):
     def get_for_agent(
         self,
         agent_id: str,
@@ -5100,7 +5146,7 @@ class UsageResource:
         )
 
 
-class AsyncUsageResource:
+class AsyncUserUsageResource:
     def __init__(self, transport: AsyncTransport) -> None:
         """Bind usage operations to the transport.
 
@@ -5164,6 +5210,50 @@ class AsyncUsageResource:
             Usage,
         )
 
+    async def sessions(
+        self,
+        session_ids: Sequence[str],
+        *,
+        from_: str | _Omitted = OMITTED,
+        to: str | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SessionUsageList:
+        """Fetch usage totals for up to 100 Sessions.
+
+        Args:
+            session_ids: Unique Session identifiers, 1 to 100.
+            from_: First UTC day (YYYY-MM-DD) of the usage interval.
+            to: Last UTC day (YYYY-MM-DD) of the usage interval.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Usage totals for each requested Session.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        body: dict[str, object] = {"sessionIds": list(session_ids)}
+        for wire_name, value in (("from", from_), ("to", to)):
+            if not isinstance(value, _Omitted):
+                body[wire_name] = value
+        return await self._transport.request(
+            _Request(
+                "POST",
+                "/v1/usage/sessions",
+                json_body=body,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SessionUsageList,
+        )
+
+
+class AsyncUsageResource(AsyncUserUsageResource):
     async def get_for_agent(
         self,
         agent_id: str,
@@ -5460,6 +5550,7 @@ class TasksResource:
         submit: bool | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
+        idempotency_key: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskCreateResponse:
@@ -5476,6 +5567,8 @@ class TasksResource:
             submit: Optional initial Task Run submission.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
+            idempotency_key: Stable key for retrying the same create without
+                creating another Task.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -5504,6 +5597,7 @@ class TasksResource:
                     submit=submit,
                     user_id=user_id,
                     metadata=metadata,
+                    idempotency_key=idempotency_key,
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -5672,6 +5766,7 @@ class TasksResource:
             submit=OMITTED,
             user_id=OMITTED,
             metadata=metadata,
+            idempotency_key=OMITTED,
         )
         if not body:
             msg = "At least one Task field must be provided."
@@ -5963,6 +6058,7 @@ class AsyncTasksResource:
         submit: bool | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
+        idempotency_key: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskCreateResponse:
@@ -5979,6 +6075,8 @@ class AsyncTasksResource:
             submit: Optional initial Task Run submission.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
+            idempotency_key: Stable key for retrying the same create without
+                creating another Task.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -6007,6 +6105,7 @@ class AsyncTasksResource:
                     submit=submit,
                     user_id=user_id,
                     metadata=metadata,
+                    idempotency_key=idempotency_key,
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -6176,6 +6275,7 @@ class AsyncTasksResource:
             submit=OMITTED,
             user_id=OMITTED,
             metadata=metadata,
+            idempotency_key=OMITTED,
         )
         if not body:
             msg = "At least one Task field must be provided."

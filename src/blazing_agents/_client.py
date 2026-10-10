@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar, cast, overload
 
 import httpx
 
@@ -21,6 +23,14 @@ from ._functions import (
     SyncFunctionRunner,
     _CallScope,
     function_definitions,
+)
+from ._merchant import (
+    AsyncMerchantBindingsResource,
+    AsyncMerchantConnectionResource,
+    AsyncMerchantUsageEventsResource,
+    MerchantBindingsResource,
+    MerchantConnectionResource,
+    MerchantUsageEventsResource,
 )
 from ._object import (
     AsyncObjectStream,
@@ -43,6 +53,7 @@ from ._resources import (
     AsyncTasksResource,
     AsyncTenantResource,
     AsyncUsageResource,
+    AsyncUserUsageResource,
     AsyncWorkspacesResource,
     McpConnectionsResource,
     MemoriesResource,
@@ -52,6 +63,7 @@ from ._resources import (
     TasksResource,
     TenantResource,
     UsageResource,
+    UserUsageResource,
     WorkspacesResource,
 )
 from ._responses import Completion
@@ -82,6 +94,20 @@ else:
 _DEFAULT_BASE_URL = "https://api.blazingagents.com"
 _ObjectT = TypeVar("_ObjectT")
 _Opaque = object
+
+
+_SCOPED_USER_ID = re.compile(r"[\x21-\x7e](?:[\x20-\x7e]*[\x21-\x7e])?")
+
+
+def _scoped_user_id(user_id: str) -> str:
+    """Validate an end-user ID for X-BA-User-Id."""
+    if len(user_id) > 256 or _SCOPED_USER_ID.fullmatch(user_id) is None:
+        msg = (
+            "user_id must be printable ASCII, at most 256 characters, with no "
+            "leading or trailing spaces"
+        )
+        raise ValueError(msg)
+    return user_id
 
 
 def _api_key(explicit: str | None) -> str:
@@ -117,69 +143,12 @@ class AsyncAgentClient:
         self.skills = AsyncAgentSkillsResource(transport, agent_id)
 
 
-class BlazingAgents:
-    def __init__(
-        self,
-        *,
-        api_key: str | None = None,
-        base_url: str = _DEFAULT_BASE_URL,
-        timeout: Timeout = 60.0,
-        default_headers: Mapping[str, str] | None = None,
-        http_client: httpx.Client | None = None,
-        on_response: Callable[[ResponseObservation], None] | None = None,
-    ) -> None:
-        """Initialize BlazingAgents.
+class _SyncClient(ABC):
+    _transport: SyncTransport
 
-        Args:
-            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
-            base_url: API base URL. Trailing slashes are removed.
-            timeout: Default HTTP timeout in seconds, an HTTPX timeout, or None.
-            default_headers: Headers applied to every request.
-            http_client: HTTPX client to reuse. The SDK closes only clients it
-                creates.
-            on_response: Response observer. Callback exceptions are ignored.
-
-        Raises:
-            ValueError: The API key is missing, base_url is empty, or the supplied
-                HTTP client has X-Request-Id defaults.
-            TypeError: http_client is not the matching sync or async HTTPX client.
-        """
-        if http_client is not None and not isinstance(http_client, httpx.Client):
-            msg = "http_client must be an httpx.Client"
-            raise TypeError(msg)
-        if http_client is not None and "x-request-id" in http_client.headers:
-            msg = (
-                "http_client default headers must not contain X-Request-Id; "
-                "it is server-owned"
-            )
-            raise ValueError(msg)
-        config = _TransportConfig(
-            api_key=_api_key(api_key),
-            base_url=base_url,
-            default_headers=default_headers,
-            timeout=timeout,
-            user_agent=f"blazing_agents/{__version__}",
-            on_response=on_response,
-            client_request_id=None,
-        )
-        self._bind_transport(SyncTransport(config, http_client))
-
+    @abstractmethod
     def _bind_transport(self, transport: SyncTransport) -> None:
         """Attach the transport and resource clients."""
-        self._transport = transport
-        self.agents = AgentsResource(transport)
-        self.artifacts = ArtifactsResource(transport)
-        self.providers = ProvidersResource(transport)
-        self.chat_connections = ChatConnectionsResource(transport)
-        self.chat_deliveries = ChatDeliveriesResource(transport)
-        self.mcp_connections = McpConnectionsResource(transport)
-        self.memories = MemoriesResource(transport)
-        self.prompts = PromptsResource(transport)
-        self.sessions = SessionsResource(transport)
-        self.tasks = TasksResource(transport)
-        self.workspaces = WorkspacesResource(transport)
-        self.tenant = TenantResource(transport)
-        self.usage = UsageResource(transport)
 
     def agent(self, agent_id: str) -> AgentClient:
         """Create a view of Skills attached to one Agent.
@@ -192,7 +161,7 @@ class BlazingAgents:
         """
         return AgentClient(self._transport, agent_id)
 
-    def with_options(self, *, client_request_id: str) -> BlazingAgents:
+    def with_options(self, *, client_request_id: str) -> Self:
         """Create a client view with a default caller correlation ID.
 
         The view shares the HTTP client and resource configuration.
@@ -201,17 +170,13 @@ class BlazingAgents:
             client_request_id: Caller correlation ID sent as X-Client-Request-Id.
 
         Returns:
-            Client view sharing the underlying HTTP client.
+            Client view of the same kind sharing the underlying HTTP client.
         """
         scoped = self.__class__.__new__(self.__class__)
         scoped._bind_transport(
             self._transport.with_client_request_id(client_request_id)
         )
         return scoped
-
-    def close(self) -> None:
-        """Close resources owned by this client."""
-        self._transport.close()
 
     @overload
     def chat(
@@ -928,20 +893,36 @@ class BlazingAgents:
             lambda response: ObjectStream(response, adapter),
         )
 
-    def __enter__(self) -> BlazingAgents:
-        """Return this object for use in a context manager.
 
-        Returns:
-            This object.
+class UserClient(_SyncClient):
+    """Client view whose requests act for one end user.
+
+    Create it with BlazingAgents.for_user. Every request sends X-BA-User-Id, so the API
+    limits reads and writes to resources that user owns.
+    """
+
+    def __init__(self, transport: SyncTransport) -> None:
+        """Initialize UserClient.
+
+        Args:
+            transport: Transport scoped to the end user.
         """
-        return self
+        self._bind_transport(transport)
 
-    def __exit__(self, *_: _Opaque) -> None:
-        """Close resources when the context manager exits."""
-        self.close()
+    def _bind_transport(self, transport: SyncTransport) -> None:
+        """Attach the transport and resource clients."""
+        self._transport = transport
+        self.agents = AgentsResource(transport)
+        self.artifacts = ArtifactsResource(transport)
+        self.memories = MemoriesResource(transport)
+        self.prompts = PromptsResource(transport)
+        self.sessions = SessionsResource(transport)
+        self.tasks = TasksResource(transport)
+        self.workspaces = WorkspacesResource(transport)
+        self.usage = UserUsageResource(transport)
 
 
-class AsyncBlazingAgents:
+class BlazingAgents(_SyncClient):
     def __init__(
         self,
         *,
@@ -949,10 +930,10 @@ class AsyncBlazingAgents:
         base_url: str = _DEFAULT_BASE_URL,
         timeout: Timeout = 60.0,
         default_headers: Mapping[str, str] | None = None,
-        http_client: httpx.AsyncClient | None = None,
+        http_client: httpx.Client | None = None,
         on_response: Callable[[ResponseObservation], None] | None = None,
     ) -> None:
-        """Initialize AsyncBlazingAgents.
+        """Initialize BlazingAgents.
 
         Args:
             api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
@@ -968,8 +949,8 @@ class AsyncBlazingAgents:
                 HTTP client has X-Request-Id defaults.
             TypeError: http_client is not the matching sync or async HTTPX client.
         """
-        if http_client is not None and not isinstance(http_client, httpx.AsyncClient):
-            msg = "http_client must be an httpx.AsyncClient"
+        if http_client is not None and not isinstance(http_client, httpx.Client):
+            msg = "http_client must be an httpx.Client"
             raise TypeError(msg)
         if http_client is not None and "x-request-id" in http_client.headers:
             msg = (
@@ -986,24 +967,69 @@ class AsyncBlazingAgents:
             on_response=on_response,
             client_request_id=None,
         )
-        self._bind_transport(AsyncTransport(config, http_client))
+        self._bind_transport(SyncTransport(config, http_client))
 
-    def _bind_transport(self, transport: AsyncTransport) -> None:
+    def _bind_transport(self, transport: SyncTransport) -> None:
         """Attach the transport and resource clients."""
         self._transport = transport
-        self.agents = AsyncAgentsResource(transport)
-        self.artifacts = AsyncArtifactsResource(transport)
-        self.providers = AsyncProvidersResource(transport)
-        self.chat_connections = AsyncChatConnectionsResource(transport)
-        self.chat_deliveries = AsyncChatDeliveriesResource(transport)
-        self.mcp_connections = AsyncMcpConnectionsResource(transport)
-        self.memories = AsyncMemoriesResource(transport)
-        self.prompts = AsyncPromptsResource(transport)
-        self.sessions = AsyncSessionsResource(transport)
-        self.tasks = AsyncTasksResource(transport)
-        self.workspaces = AsyncWorkspacesResource(transport)
-        self.tenant = AsyncTenantResource(transport)
-        self.usage = AsyncUsageResource(transport)
+        self.agents = AgentsResource(transport)
+        self.artifacts = ArtifactsResource(transport)
+        self.providers = ProvidersResource(transport)
+        self.chat_connections = ChatConnectionsResource(transport)
+        self.chat_deliveries = ChatDeliveriesResource(transport)
+        self.mcp_connections = McpConnectionsResource(transport)
+        self.memories = MemoriesResource(transport)
+        self.prompts = PromptsResource(transport)
+        self.sessions = SessionsResource(transport)
+        self.tasks = TasksResource(transport)
+        self.workspaces = WorkspacesResource(transport)
+        self.tenant = TenantResource(transport)
+        self.usage = UsageResource(transport)
+        self.merchant_connection = MerchantConnectionResource(transport)
+        self.merchant_bindings = MerchantBindingsResource(transport)
+        self.merchant_usage_events = MerchantUsageEventsResource(transport)
+
+    def for_user(self, user_id: str) -> UserClient:
+        """Create a client view that acts for one end user.
+
+        The view sends X-BA-User-Id on every request and shares the HTTP client.
+        It exposes only the resources an end user can own.
+
+        Args:
+            user_id: End-user ID from your verified sign-in. Printable ASCII, at
+                most 256 characters, with no leading or trailing spaces.
+
+        Returns:
+            End-user client view sharing the underlying HTTP client.
+
+        Raises:
+            ValueError: user_id is not a valid end-user ID.
+        """
+        return UserClient(self._transport.with_scope_user_id(_scoped_user_id(user_id)))
+
+    def close(self) -> None:
+        """Close resources owned by this client."""
+        self._transport.close()
+
+    def __enter__(self) -> BlazingAgents:
+        """Return this object for use in a context manager.
+
+        Returns:
+            This object.
+        """
+        return self
+
+    def __exit__(self, *_: _Opaque) -> None:
+        """Close resources when the context manager exits."""
+        self.close()
+
+
+class _AsyncClient(ABC):
+    _transport: AsyncTransport
+
+    @abstractmethod
+    def _bind_transport(self, transport: AsyncTransport) -> None:
+        """Attach the transport and resource clients."""
 
     def agent(self, agent_id: str) -> AsyncAgentClient:
         """Create a view of Skills attached to one Agent.
@@ -1016,7 +1042,7 @@ class AsyncBlazingAgents:
         """
         return AsyncAgentClient(self._transport, agent_id)
 
-    def with_options(self, *, client_request_id: str) -> AsyncBlazingAgents:
+    def with_options(self, *, client_request_id: str) -> Self:
         """Create a client view with a default caller correlation ID.
 
         The view shares the HTTP client and resource configuration.
@@ -1025,17 +1051,13 @@ class AsyncBlazingAgents:
             client_request_id: Caller correlation ID sent as X-Client-Request-Id.
 
         Returns:
-            Async client view sharing the underlying HTTP client.
+            Client view of the same kind sharing the underlying HTTP client.
         """
         scoped = self.__class__.__new__(self.__class__)
         scoped._bind_transport(
             self._transport.with_client_request_id(client_request_id)
         )
         return scoped
-
-    async def aclose(self) -> None:
-        """Close resources owned by this client."""
-        await self._transport.close()
 
     @overload
     async def chat(
@@ -1750,6 +1772,126 @@ class AsyncBlazingAgents:
             ),
             lambda response: AsyncObjectStream(response, adapter),
         )
+
+
+class AsyncUserClient(_AsyncClient):
+    """Client view whose requests act for one end user.
+
+    Create it with AsyncBlazingAgents.for_user. Every request sends
+    X-BA-User-Id, so the API limits reads and writes to resources that user owns.
+    """
+
+    def __init__(self, transport: AsyncTransport) -> None:
+        """Initialize AsyncUserClient.
+
+        Args:
+            transport: Transport scoped to the end user.
+        """
+        self._bind_transport(transport)
+
+    def _bind_transport(self, transport: AsyncTransport) -> None:
+        """Attach the transport and resource clients."""
+        self._transport = transport
+        self.agents = AsyncAgentsResource(transport)
+        self.artifacts = AsyncArtifactsResource(transport)
+        self.memories = AsyncMemoriesResource(transport)
+        self.prompts = AsyncPromptsResource(transport)
+        self.sessions = AsyncSessionsResource(transport)
+        self.tasks = AsyncTasksResource(transport)
+        self.workspaces = AsyncWorkspacesResource(transport)
+        self.usage = AsyncUserUsageResource(transport)
+
+
+class AsyncBlazingAgents(_AsyncClient):
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        base_url: str = _DEFAULT_BASE_URL,
+        timeout: Timeout = 60.0,
+        default_headers: Mapping[str, str] | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        on_response: Callable[[ResponseObservation], None] | None = None,
+    ) -> None:
+        """Initialize AsyncBlazingAgents.
+
+        Args:
+            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
+            base_url: API base URL. Trailing slashes are removed.
+            timeout: Default HTTP timeout in seconds, an HTTPX timeout, or None.
+            default_headers: Headers applied to every request.
+            http_client: HTTPX client to reuse. The SDK closes only clients it
+                creates.
+            on_response: Response observer. Callback exceptions are ignored.
+
+        Raises:
+            ValueError: The API key is missing, base_url is empty, or the supplied
+                HTTP client has X-Request-Id defaults.
+            TypeError: http_client is not the matching sync or async HTTPX client.
+        """
+        if http_client is not None and not isinstance(http_client, httpx.AsyncClient):
+            msg = "http_client must be an httpx.AsyncClient"
+            raise TypeError(msg)
+        if http_client is not None and "x-request-id" in http_client.headers:
+            msg = (
+                "http_client default headers must not contain X-Request-Id; "
+                "it is server-owned"
+            )
+            raise ValueError(msg)
+        config = _TransportConfig(
+            api_key=_api_key(api_key),
+            base_url=base_url,
+            default_headers=default_headers,
+            timeout=timeout,
+            user_agent=f"blazing_agents/{__version__}",
+            on_response=on_response,
+            client_request_id=None,
+        )
+        self._bind_transport(AsyncTransport(config, http_client))
+
+    def _bind_transport(self, transport: AsyncTransport) -> None:
+        """Attach the transport and resource clients."""
+        self._transport = transport
+        self.agents = AsyncAgentsResource(transport)
+        self.artifacts = AsyncArtifactsResource(transport)
+        self.providers = AsyncProvidersResource(transport)
+        self.chat_connections = AsyncChatConnectionsResource(transport)
+        self.chat_deliveries = AsyncChatDeliveriesResource(transport)
+        self.mcp_connections = AsyncMcpConnectionsResource(transport)
+        self.memories = AsyncMemoriesResource(transport)
+        self.prompts = AsyncPromptsResource(transport)
+        self.sessions = AsyncSessionsResource(transport)
+        self.tasks = AsyncTasksResource(transport)
+        self.workspaces = AsyncWorkspacesResource(transport)
+        self.tenant = AsyncTenantResource(transport)
+        self.usage = AsyncUsageResource(transport)
+        self.merchant_connection = AsyncMerchantConnectionResource(transport)
+        self.merchant_bindings = AsyncMerchantBindingsResource(transport)
+        self.merchant_usage_events = AsyncMerchantUsageEventsResource(transport)
+
+    def for_user(self, user_id: str) -> AsyncUserClient:
+        """Create a client view that acts for one end user.
+
+        The view sends X-BA-User-Id on every request and shares the HTTP client.
+        It exposes only the resources an end user can own.
+
+        Args:
+            user_id: End-user ID from your verified sign-in. Printable ASCII, at
+                most 256 characters, with no leading or trailing spaces.
+
+        Returns:
+            End-user client view sharing the underlying HTTP client.
+
+        Raises:
+            ValueError: user_id is not a valid end-user ID.
+        """
+        return AsyncUserClient(
+            self._transport.with_scope_user_id(_scoped_user_id(user_id))
+        )
+
+    async def aclose(self) -> None:
+        """Close resources owned by this client."""
+        await self._transport.close()
 
     async def __aenter__(self) -> AsyncBlazingAgents:
         """Return this object for use in a context manager.

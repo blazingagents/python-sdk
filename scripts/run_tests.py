@@ -21,6 +21,7 @@ PACKAGE_FILES = {
     "blazing_agents/_downloads.py",
     "blazing_agents/_errors.py",
     "blazing_agents/_functions.py",
+    "blazing_agents/_merchant.py",
     "blazing_agents/_models.py",
     "blazing_agents/_object.py",
     "blazing_agents/_resources.py",
