@@ -349,7 +349,6 @@ class SpendingLimitResponse(ResponseModel):
     spending_limit: SpendingLimit | None = Field(alias="spendingLimit")
     period: SpendingLimitPeriod | None
     next_reset_at: AwareDatetime | None = Field(alias="nextResetAt")
-    schedule_change_at: AwareDatetime | None = Field(alias="scheduleChangeAt")
 
 
 class SpendingLimitStopDetails(ResponseModel):
