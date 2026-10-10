@@ -28,6 +28,7 @@ from blazing_agents import (
 
 AGENT_ID = "ag_0123456789abcdef"
 SESSION_ID = "ss_0123456789abcdef"
+TURN_ID = "turn_0123456789abcdef"
 CALL_ID = "fc_0123456789abcdef"
 OTHER_CALL_ID = "fc_1123456789abcdef"
 THIRD_CALL_ID = "fc_2123456789abcdef"
@@ -240,7 +241,7 @@ class FakePlatform:
                 yield step
 
     def chat_response(self, request: httpx.Request, stream: Any) -> httpx.Response:
-        headers = {"content-type": "text/event-stream"}
+        headers = {"content-type": "text/event-stream", "x-ba-turn-id": TURN_ID}
         status = 200
         if request.url.path == f"/v1/agents/{AGENT_ID}/sessions":
             status = 201
@@ -947,6 +948,7 @@ def test_sync_continue_chat_decides_and_streams_with_functions() -> None:
             extra_headers={"X-BA-User-Id": "end-user"},
         )
         assert stream.session_id == SESSION_ID
+        assert stream.turn_id == TURN_ID
         assert b"".join(stream) == TEXT
     continuation = platform.requests[0]
     assert continuation.method == "POST"
@@ -1241,6 +1243,7 @@ def test_async_continue_chat_and_local_validation() -> None:
                 session_id=SESSION_ID,
                 functions={"getOrder": function},
             )
+            assert stream.turn_id == TURN_ID
             assert await drain(stream) == [TEXT]
             with pytest.raises(ValueError, match="Invalid or reserved"):
                 await client.continue_chat(

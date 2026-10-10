@@ -7,7 +7,7 @@ from typing import Any, get_args
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
-from test_clients import AGENT, Response, loopback
+from test_clients import AGENT, TURN_ID, Response, loopback
 
 from blazing_agents import (
     Agent,
@@ -251,7 +251,7 @@ def test_existing_approval_lifecycle_with_metadata(asynchronous: bool) -> None:
     }
     with loopback(
         Response(body={"data": [approval], "continuation": None}),
-        Response(raw_body=b"continued"),
+        Response(raw_body=b"continued", headers={"x-ba-turn-id": TURN_ID}),
     ) as (base_url, state):
 
         async def run_async() -> None:

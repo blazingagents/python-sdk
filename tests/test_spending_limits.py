@@ -340,6 +340,7 @@ def test_chat_preserves_spending_stop_event_bytes(asynchronous: bool) -> None:
             headers={
                 "content-type": "text/event-stream",
                 "location": f"/v1/agents/{AGENT_ID}/sessions/ss_0123456789abcdef",
+                "x-ba-turn-id": "turn_0123456789abcdef",
             },
         )
     ) as (base_url, _):

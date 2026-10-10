@@ -18,10 +18,11 @@ from ._transport import OMITTED, _Omitted, _Request
 from ._types import ChatTrigger, Timeout, ToolApprovalDecisionInput
 
 _SESSION_ID = re.compile(r"ss_[0-9A-Za-z]{16}\Z")
+_TURN_ID = re.compile(r"turn_[0-9A-Za-z]{16}\Z")
 
 
 class ChatStream(ByteStream):
-    """A single-consumer raw chat response with its resolved Session ID.
+    """A single-consumer raw chat response with its Session and running Turn IDs.
 
     With functions, the stream runs handlers while it is consumed and removes
     their control events from the relayed bytes.
@@ -43,6 +44,7 @@ class ChatStream(ByteStream):
         """
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
+        self.turn_id = _turn_id(response)
         self._functions = None if functions is None else functions(self.session_id)
 
     def _consume(self) -> Iterator[bytes]:
@@ -78,7 +80,7 @@ class ChatStream(ByteStream):
 
 
 class AsyncChatStream(AsyncByteStream):
-    """An asynchronous single-consumer raw chat response.
+    """An asynchronous single-consumer raw chat response with its Session and Turn IDs.
 
     With functions, handlers run concurrently while the stream is consumed.
     """
@@ -99,6 +101,7 @@ class AsyncChatStream(AsyncByteStream):
         """
         super().__init__(response)
         self.session_id = _session_id(response) if session_id is None else session_id
+        self.turn_id = _turn_id(response)
         self._functions = None if functions is None else functions(self.session_id)
 
     async def _consume(self) -> AsyncIterator[bytes]:
@@ -154,6 +157,27 @@ def _session_id(response: httpx.Response) -> str:
             response=response,
         )
     return candidate
+
+
+def _turn_id(response: httpx.Response) -> str:
+    """Read and validate the running Turn ID in the X-BA-Turn-Id header.
+
+    Raises:
+        StreamError: The server did not return a Turn ID in the X-BA-Turn-Id header.
+            The server returned a malformed X-BA-Turn-Id header.
+    """
+    turn_id: str | None = response.headers.get("x-ba-turn-id")
+    if turn_id is None:
+        raise StreamError(
+            "The server did not return a Turn ID in the X-BA-Turn-Id header.",
+            response=response,
+        )
+    if _TURN_ID.fullmatch(turn_id) is None:
+        raise StreamError(
+            "The server returned a malformed X-BA-Turn-Id header.",
+            response=response,
+        )
+    return turn_id
 
 
 def _chat_body(

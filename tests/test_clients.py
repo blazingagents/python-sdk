@@ -108,6 +108,7 @@ from blazing_agents import (
     TaskUpdate,
     ToolApproval,
     ToolApprovalContinuation,
+    ToolApprovalDecisionInput,
     ToolApprovals,
     UsageOverview,
     UsageOverviewQuery,
@@ -286,6 +287,7 @@ ARTIFACT: dict[str, Any] = {
     "createdAt": "2026-08-02T00:00:00.000Z",
     "updatedAt": "2026-08-02T01:00:00.000Z",
 }
+TURN_ID = "turn_0123456789abcdef"
 SESSION: dict[str, Any] = {
     "id": "ss_0123456789abcdef",
     "messageCount": 2,
@@ -5186,6 +5188,7 @@ def test_sync_chat_create_relays_exact_bytes_and_exposes_headers_immediately() -
                 "location": (
                     "/v1/agents/ag_0123456789abcdef/sessions/ss_1123456789abcdef"
                 ),
+                "x-ba-turn-id": "turn_1123456789abcdef",
                 "x-request-id": "req_chat_create",
                 "x-future-header": "preserved",
             },
@@ -5210,6 +5213,7 @@ def test_sync_chat_create_relays_exact_bytes_and_exposes_headers_immediately() -
             assert isinstance(stream, ChatStream)
             assert stream.status_code == 201
             assert stream.session_id == "ss_1123456789abcdef"
+            assert stream.turn_id == "turn_1123456789abcdef"
             assert stream.request_id == "req_chat_create"
             assert stream.headers["x-future-header"] == "preserved"
             body = iter(stream)
@@ -5244,6 +5248,7 @@ def test_sync_chat_resume_supports_prompt_input_and_retains_session_id() -> None
             chunks=chunks,
             headers={
                 "content-type": "text/event-stream",
+                "x-ba-turn-id": "turn_2123456789abcdef",
                 "x-request-id": "req_chat_resume",
             },
         )
@@ -5260,6 +5265,7 @@ def test_sync_chat_resume_supports_prompt_input_and_retains_session_id() -> None
                 metadata={"source": "resume"},
             )
             assert stream.session_id == SESSION["id"]
+            assert stream.turn_id == "turn_2123456789abcdef"
             assert stream.status_code == 200
             assert stream.request_id == "req_chat_resume"
             assert b"".join(stream) == b"".join(chunks)
@@ -5282,13 +5288,17 @@ def test_sync_chat_validates_create_location_and_request_shapes() -> None:
         Response(
             status=201,
             chunks=(b"unused",),
-            headers={"x-request-id": "req_missing_location"},
+            headers={
+                "x-ba-turn-id": TURN_ID,
+                "x-request-id": "req_missing_location",
+            },
         ),
         Response(
             status=201,
             chunks=(b"unused",),
             headers={
                 "location": "/v1/agents/ag_0123456789abcdef/sessions/not-a-session",
+                "x-ba-turn-id": TURN_ID,
                 "x-request-id": "req_bad_location",
             },
         ),
@@ -5356,7 +5366,8 @@ def test_sync_chat_close_cancels_and_failures_do_not_allow_body_reuse() -> None:
             headers={
                 "location": (
                     "/v1/agents/ag_0123456789abcdef/sessions/ss_2123456789abcdef"
-                )
+                ),
+                "x-ba-turn-id": TURN_ID,
             },
         ),
         Response(
@@ -5367,10 +5378,11 @@ def test_sync_chat_close_cancels_and_failures_do_not_allow_body_reuse() -> None:
                 "location": (
                     "/v1/agents/ag_0123456789abcdef/sessions/ss_3123456789abcdef"
                 ),
+                "x-ba-turn-id": TURN_ID,
                 "x-request-id": "req_chat_read_failure",
             },
         ),
-        Response(chunks=(b"context",)),
+        Response(chunks=(b"context",), headers={"x-ba-turn-id": TURN_ID}),
         Response(
             body=error,
             status=422,
@@ -5437,29 +5449,40 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
                 "location": (
                     "/v1/agents/ag_0123456789abcdef/sessions/ss_4123456789abcdef"
                 ),
+                "x-ba-turn-id": "turn_4123456789abcdef",
                 "x-request-id": "req_async_create",
             },
         ),
         Response(
             chunks=resume_chunks,
-            headers={"x-request-id": "req_async_resume"},
+            headers={
+                "x-ba-turn-id": "turn_5123456789abcdef",
+                "x-request-id": "req_async_resume",
+            },
         ),
         Response(
             chunks=(b"first", b"server-still-working"),
             chunk_gate=gate,
             cancelled=cancelled,
+            headers={"x-ba-turn-id": TURN_ID},
         ),
-        Response(chunks=(b"context",)),
+        Response(chunks=(b"context",), headers={"x-ba-turn-id": TURN_ID}),
         Response(
             chunks=(b"partial",),
             complete_chunks=False,
-            headers={"x-request-id": "req_async_read_failure"},
+            headers={
+                "x-ba-turn-id": TURN_ID,
+                "x-request-id": "req_async_read_failure",
+            },
         ),
-        Response(status=201, chunks=(b"unused",)),
+        Response(status=201, chunks=(b"unused",), headers={"x-ba-turn-id": TURN_ID}),
         Response(
             status=201,
             chunks=(b"unused",),
-            headers={"location": "/sessions/not-a-session"},
+            headers={
+                "location": "/sessions/not-a-session",
+                "x-ba-turn-id": TURN_ID,
+            },
         ),
         Response(
             status=429,
@@ -5488,6 +5511,7 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
                 )
                 assert isinstance(created, AsyncChatStream)
                 assert created.session_id == "ss_4123456789abcdef"
+                assert created.turn_id == "turn_4123456789abcdef"
                 assert created.status_code == 201
                 assert created.request_id == "req_async_create"
                 assert b"".join([chunk async for chunk in created]) == b"".join(
@@ -5503,6 +5527,7 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
                     message={"role": "user", "parts": []},
                 )
                 assert resumed.session_id == SESSION["id"]
+                assert resumed.turn_id == "turn_5123456789abcdef"
                 assert b"".join([chunk async for chunk in resumed]) == b"".join(
                     resume_chunks
                 )
@@ -5590,6 +5615,70 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
     }
 
 
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_chat_rejects_a_missing_or_malformed_turn_id_before_streaming(
+    asynchronous: bool,
+) -> None:
+    location = {"location": f"/v1/agents/{AGENT['id']}/sessions/{SESSION['id']}"}
+    with loopback(
+        Response(status=201, chunks=(b"unused",), headers={**location}),
+        Response(
+            chunks=(b"unused",),
+            headers={"x-ba-turn-id": "turn_short", "x-request-id": "req_bad_turn"},
+        ),
+        Response(chunks=(b"unused",), headers={"x-request-id": "req_no_turn"}),
+        Response(chunks=(b"unused",), headers={"x-ba-turn-id": f"{TURN_ID}/x"}),
+    ) as (base_url, state):
+        decisions: list[ToolApprovalDecisionInput] = [
+            {"approval_id": "a1", "approved": True}
+        ]
+        resume = {"agent_id": AGENT["id"], "session_id": SESSION["id"]}
+        calls: list[tuple[str, dict[str, Any]]] = [
+            ("chat", {"agent_id": AGENT["id"], "message": {"role": "user"}}),
+            ("chat", {**resume, "message": {"role": "user"}}),
+            ("continue_chat", {**resume, "decisions": decisions}),
+            ("continue_chat", {**resume, "decisions": decisions}),
+        ]
+
+        def sync_calls() -> list[StreamError]:
+            failures: list[StreamError] = []
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                for method, kwargs in calls:
+                    with pytest.raises(StreamError) as failure:
+                        getattr(client, method)(**kwargs)
+                    failures.append(failure.value)
+            return failures
+
+        async def async_calls() -> list[StreamError]:
+            failures: list[StreamError] = []
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                for method, kwargs in calls:
+                    with pytest.raises(StreamError) as failure:
+                        await getattr(client, method)(**kwargs)
+                    failures.append(failure.value)
+            return failures
+
+        failures = asyncio.run(async_calls()) if asynchronous else sync_calls()
+
+    assert [str(failure) for failure in failures] == [
+        "The server did not return a Turn ID in the X-BA-Turn-Id header.",
+        "The server returned a malformed X-BA-Turn-Id header.",
+        "The server did not return a Turn ID in the X-BA-Turn-Id header.",
+        "The server returned a malformed X-BA-Turn-Id header.",
+    ]
+    assert [failure.status_code for failure in failures] == [201, 200, 200, 200]
+    assert failures[1].request_id == "req_bad_turn"
+    assert failures[2].request_id == "req_no_turn"
+    assert [request.target.rsplit("/", 1)[-1] for request in state.requests] == [
+        "sessions",
+        SESSION["id"],
+        "continue",
+        "continue",
+    ]
+
+
 def test_chat_input_types_ship_in_the_installed_wheel() -> None:
     trigger: ChatTrigger = "regenerate-message"
     message: ChatMessageInput = {
@@ -5619,7 +5708,9 @@ def _sync_chat_context_typing(client: BlazingAgents) -> None:
         message={"role": "user"},
     ) as stream:
         session_id: str = stream.session_id
+        turn_id: str = stream.turn_id
         assert session_id
+        assert turn_id
 
 
 async def _async_chat_context_typing(client: AsyncBlazingAgents) -> None:
@@ -5628,7 +5719,9 @@ async def _async_chat_context_typing(client: AsyncBlazingAgents) -> None:
         message={"role": "user"},
     ) as stream:
         session_id: str = stream.session_id
+        turn_id: str = stream.turn_id
         assert session_id
+        assert turn_id
 
 
 def test_sync_buffered_completion_accepts_literal_and_stored_prompt() -> None:

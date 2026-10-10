@@ -189,7 +189,10 @@ def test_batches_and_steer_events_preserve_wire_order(asynchronous: bool) -> Non
         "data": {"requestId": "r1", "turnId": TURN, "sequence": 1, "message": MESSAGE},
     }
     raw = b"data: " + json.dumps(event).encode() + b"\n\ndata: [DONE]\n\n"
-    with loopback(Response(raw_body=raw)) as (url, state):
+    with loopback(Response(raw_body=raw, headers={"x-ba-turn-id": TURN})) as (
+        url,
+        state,
+    ):
 
         async def run() -> bytes:
             async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:
@@ -231,7 +234,9 @@ def test_chat_rejects_ambiguous_or_empty_batches(kwargs: dict[str, Any]) -> None
 def test_continuation_omits_functions_and_preserves_correlation(
     asynchronous: bool,
 ) -> None:
-    with loopback(Response(raw_body=b"data: [DONE]\n\n")) as (url, state):
+    with loopback(
+        Response(raw_body=b"data: [DONE]\n\n", headers={"x-ba-turn-id": TURN})
+    ) as (url, state):
 
         async def run() -> None:
             async with AsyncBlazingAgents(api_key="ba_test", base_url=url) as client:

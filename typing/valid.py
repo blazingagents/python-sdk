@@ -297,6 +297,8 @@ def sync_examples(client: BlazingAgents) -> None:
     with chat_stream as chunks:
         assert_type(chunks, ChatStream)
         assert_type(iter(chunks), Iterator[bytes])
+        assert_type(chunks.session_id, str)
+        assert_type(chunks.turn_id, str)
     with client as entered:
         assert_type(entered, BlazingAgents)
 
@@ -416,6 +418,8 @@ async def async_examples(client: AsyncBlazingAgents) -> None:
     async with chat_stream as chunks:
         assert_type(chunks, AsyncChatStream)
         assert_type(chunks.__aiter__(), AsyncIterator[bytes])
+        assert_type(chunks.session_id, str)
+        assert_type(chunks.turn_id, str)
     async with client as entered:
         assert_type(entered, AsyncBlazingAgents)
 
