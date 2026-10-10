@@ -34,13 +34,11 @@ STATUS: dict[str, Any] = {
         "availableUsd": 18.123456,
     },
     "nextResetAt": "2026-11-09T00:00:00Z",
-    "scheduleChangeAt": "2026-11-09T00:00:00Z",
 }
 DISABLED: dict[str, Any] = {
     "spendingLimit": None,
     "period": None,
     "nextResetAt": None,
-    "scheduleChangeAt": None,
 }
 STOP_DETAILS: dict[str, Any] = {
     "scope": "both",
@@ -67,7 +65,6 @@ def test_spending_limit_requests_and_statuses(asynchronous: bool) -> None:
                 assert agent.period is not None
                 assert agent.period.reserved_usd == 2
                 assert agent.next_reset_at is not None
-                assert agent.schedule_change_at == agent.next_reset_at
                 await c.agents.update_spending_limit(
                     AGENT_ID,
                     spending_limit={
@@ -109,7 +106,6 @@ def test_spending_limit_requests_and_statuses(asynchronous: bool) -> None:
                 assert agent.period is not None
                 assert agent.period.reserved_usd == 2
                 assert agent.next_reset_at is not None
-                assert agent.schedule_change_at == agent.next_reset_at
                 c.agents.update_spending_limit(
                     AGENT_ID,
                     spending_limit={
