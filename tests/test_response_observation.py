@@ -56,7 +56,12 @@ def test_sync_scopes_client_request_id_to_resource_client_view() -> None:
         headers.append(request.headers.get("x-client-request-id"))
         return httpx.Response(
             200,
-            json={"name": "Blazing", "quota": None},
+            json={
+                "name": "Blazing",
+                "quota": None,
+                "deletion": None,
+                "monetizationEnabled": False,
+            },
             headers={"x-request-id": "req_0123456789abcdef"},
         )
 
@@ -190,7 +195,12 @@ def test_async_scopes_client_request_id_to_resource_client_view() -> None:
             assert request.headers["x-client-request-id"] == "async-management-attempt"
             return httpx.Response(
                 200,
-                json={"name": "Blazing", "quota": None},
+                json={
+                    "name": "Blazing",
+                    "quota": None,
+                    "deletion": None,
+                    "monetizationEnabled": False,
+                },
                 headers={"x-request-id": "req_0123456789abcdef"},
             )
 
@@ -250,7 +260,12 @@ def test_sync_server_owns_request_id_header_and_preserves_correlation() -> None:
             )
         return httpx.Response(
             200,
-            json={"name": "Blazing", "quota": None},
+            json={
+                "name": "Blazing",
+                "quota": None,
+                "deletion": None,
+                "monetizationEnabled": False,
+            },
             headers={"x-request-id": f"req_tenant_{len(requests)}"},
         )
 
@@ -316,7 +331,12 @@ def test_async_server_owns_request_id_header_and_preserves_correlation() -> None
                 )
             return httpx.Response(
                 200,
-                json={"name": "Blazing", "quota": None},
+                json={
+                    "name": "Blazing",
+                    "quota": None,
+                    "deletion": None,
+                    "monetizationEnabled": False,
+                },
                 headers={"x-request-id": f"req_async_tenant_{len(requests)}"},
             )
 
@@ -397,7 +417,15 @@ def test_sync_preserves_injected_client_request_id_and_client_ownership() -> Non
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(200, json={"name": "Blazing", "quota": None})
+        return httpx.Response(
+            200,
+            json={
+                "name": "Blazing",
+                "quota": None,
+                "deletion": None,
+                "monetizationEnabled": False,
+            },
+        )
 
     http_client = httpx.Client(
         headers={"X-Client-Request-Id": "caller-correlation"},
@@ -449,7 +477,15 @@ def test_async_preserves_injected_client_request_id_and_client_ownership() -> No
 
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
-            return httpx.Response(200, json={"name": "Blazing", "quota": None})
+            return httpx.Response(
+                200,
+                json={
+                    "name": "Blazing",
+                    "quota": None,
+                    "deletion": None,
+                    "monetizationEnabled": False,
+                },
+            )
 
         async with httpx.AsyncClient(
             headers={"X-Client-Request-Id": "caller-correlation"},

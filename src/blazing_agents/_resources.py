@@ -4655,11 +4655,14 @@ class AsyncWorkspacesResource:
 def _tenant_body(
     name: str | _Omitted,
     quota: QuotaUpdate | None | _Omitted,
+    monetization_enabled: bool | _Omitted,
 ) -> dict[str, object]:
     """Build the tenant request body, omitting unspecified fields."""
     body: dict[str, object] = {}
     if not isinstance(name, _Omitted):
         body["name"] = name
+    if not isinstance(monetization_enabled, _Omitted):
+        body["monetizationEnabled"] = monetization_enabled
     if not isinstance(quota, _Omitted):
         if quota is None:
             body["quota"] = None
@@ -4799,6 +4802,7 @@ class TenantResource:
         *,
         name: str | _Omitted = OMITTED,
         quota: QuotaUpdate | _Omitted | None = OMITTED,
+        monetization_enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TenantSettings:
@@ -4807,6 +4811,9 @@ class TenantResource:
         Args:
             name: Name of the entity.
             quota: Tenant usage limit updates.
+            monetization_enabled: Bill usage to your end users through your
+                merchant account. Turning it off drops usage events the merchant
+                has not accepted yet.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -4823,7 +4830,7 @@ class TenantResource:
             _Request(
                 "PATCH",
                 "/v1/tenant",
-                json_body=_tenant_body(name, quota),
+                json_body=_tenant_body(name, quota, monetization_enabled),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -4912,6 +4919,7 @@ class AsyncTenantResource:
         *,
         name: str | _Omitted = OMITTED,
         quota: QuotaUpdate | _Omitted | None = OMITTED,
+        monetization_enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TenantSettings:
@@ -4920,6 +4928,9 @@ class AsyncTenantResource:
         Args:
             name: Name of the entity.
             quota: Tenant usage limit updates.
+            monetization_enabled: Bill usage to your end users through your
+                merchant account. Turning it off drops usage events the merchant
+                has not accepted yet.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -4936,7 +4947,7 @@ class AsyncTenantResource:
             _Request(
                 "PATCH",
                 "/v1/tenant",
-                json_body=_tenant_body(name, quota),
+                json_body=_tenant_body(name, quota, monetization_enabled),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

@@ -387,9 +387,16 @@ class SpendingLimitStopEvent(ResponseModel):
         return value
 
 
+class TenantDeletion(ResponseModel):
+    requested_at: AwareDatetime = Field(alias="requestedAt")
+    deletes_at: AwareDatetime = Field(alias="deletesAt")
+
+
 class TenantSettings(ResponseModel):
     name: str
     quota: Quota | None
+    deletion: TenantDeletion | None
+    monetization_enabled: bool = Field(alias="monetizationEnabled")
 
 
 class UsageBucket(ResponseModel):
@@ -1082,6 +1089,7 @@ class Task(ResponseModel):
     enabled: bool
     active_run_id: TaskRunId | None = Field(alias="activeRunId")
     latest_run_id: TaskRunId | None = Field(alias="latestRunId")
+    next_fire_at: AwareDatetime | None = Field(alias="nextFireAt")
     user_id: str = Field(alias="userId")
     metadata: dict[str, object]
     deleted_at: AwareDatetime | None = Field(alias="deletedAt")

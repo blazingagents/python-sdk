@@ -106,6 +106,7 @@ from blazing_agents import (
     TasksListOptions,
     TasksPage,
     TaskUpdate,
+    TenantSettings,
     ToolApproval,
     ToolApprovalContinuation,
     ToolApprovalDecisionInput,
@@ -122,6 +123,8 @@ TENANT = {
         "monthlyRequestLimit": None,
         "resetDay": 1,
     },
+    "deletion": None,
+    "monetizationEnabled": False,
 }
 USAGE = {
     "buckets": [
@@ -349,6 +352,7 @@ TASK: dict[str, Any] = {
     "enabled": True,
     "activeRunId": None,
     "latestRunId": "tr_0123456789abcdef",
+    "nextFireAt": None,
     "userId": "end-user",
     "metadata": {"OpaqueKey": {"nested_key": True}},
     "deletedAt": None,
@@ -1460,6 +1464,47 @@ def test_sync_tenant_update_preserves_omission_and_null() -> None:
     }
     assert json.loads(second.body) == {"quota": None}
     assert result.quota is None
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_tenant_monetization_switch_and_deletion(asynchronous: bool) -> None:
+    deleting = {
+        **TENANT,
+        "monetizationEnabled": True,
+        "deletion": {
+            "requestedAt": "2026-10-10T00:00:00.000Z",
+            "deletesAt": "2026-10-11T00:00:00.000Z",
+        },
+    }
+    with loopback(Response(body=deleting)) as (base_url, state):
+
+        async def run_async() -> TenantSettings:
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                return await client.tenant.update(monetization_enabled=True)
+
+        if asynchronous:
+            result = asyncio.run(run_async())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                result = client.tenant.update(monetization_enabled=True)
+
+    assert json.loads(state.requests[0].body) == {"monetizationEnabled": True}
+    assert result.monetization_enabled is True
+    assert result.deletion is not None
+    assert result.deletion.deletes_at.day == 11
+
+
+def test_task_next_fire_at() -> None:
+    with loopback(
+        Response(body={**TASK, "nextFireAt": "2026-10-12T09:00:00.000Z"})
+    ) as (base_url, _):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            task = client.tasks.get(TASK["id"])
+
+    assert task.next_fire_at is not None
+    assert task.next_fire_at.hour == 9
 
 
 def test_tenant_update_rejects_empty_and_unknown_nested_fields() -> None:
