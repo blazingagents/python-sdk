@@ -259,7 +259,8 @@ class BlazingAgents:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Single-consumer SSE byte stream with the resolved session_id.
+            Single-consumer SSE byte stream with the resolved session_id and
+                running turn_id.
 
         Raises:
             ValueError: Prompt, input, or output options conflict or are invalid.
@@ -315,7 +316,8 @@ class BlazingAgents:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Single-consumer SSE byte stream with the resolved session_id.
+            Single-consumer SSE byte stream with the resolved session_id and
+                running turn_id.
 
         Raises:
             ValueError: Prompt, input, or output options conflict or are invalid.
@@ -370,7 +372,8 @@ class BlazingAgents:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Single-consumer SSE byte stream with the resolved session_id.
+            Single-consumer SSE byte stream with the resolved session_id and
+                running turn_id.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -431,7 +434,8 @@ class BlazingAgents:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Single-consumer SSE byte stream with the resolved session_id.
+            Single-consumer SSE byte stream with the resolved session_id and
+                running turn_id.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -1080,7 +1084,7 @@ class AsyncBlazingAgents:
 
         Returns:
             Async single-consumer SSE byte stream with the resolved
-                session_id.
+                session_id and running turn_id.
 
         Raises:
             ValueError: Prompt, input, or output options conflict or are invalid.
@@ -1137,7 +1141,7 @@ class AsyncBlazingAgents:
 
         Returns:
             Async single-consumer SSE byte stream with the resolved
-                session_id.
+                session_id and running turn_id.
 
         Raises:
             ValueError: Prompt, input, or output options conflict or are invalid.
@@ -1193,7 +1197,7 @@ class AsyncBlazingAgents:
 
         Returns:
             Async single-consumer SSE byte stream with the resolved
-                session_id.
+                session_id and running turn_id.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -1255,7 +1259,7 @@ class AsyncBlazingAgents:
 
         Returns:
             Async single-consumer SSE byte stream with the resolved
-                session_id.
+                session_id and running turn_id.
 
         Raises:
             APIStatusError: The API returns a non-success status.
