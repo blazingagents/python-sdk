@@ -27,6 +27,19 @@ JsonValue: TypeAlias = (
 JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
 ChatDeliveryStatus = Literal["pending", "confirmed", "failed", "ambiguous"]
+MerchantProvider = Literal["polar", "dodo"]
+MerchantEnvironment = Literal["sandbox", "live"]
+MerchantConnectionStatus = Literal["active", "disconnected"]
+MerchantUsageEventStatus = Literal[
+    "pending",
+    "accepted",
+    "failed",
+    "uncertain",
+    "unmapped",
+    "incomplete",
+    "discarded",
+    "expired",
+]
 ChatDeliveryListStatus = Literal["failed", "ambiguous"]
 SessionInputState = Literal[
     "accepted", "delivered", "committed", "not_placed", "uncertain"
@@ -71,6 +84,17 @@ ToolReferenceInput: TypeAlias = BuiltinToolReferenceInput | McpToolReferenceInpu
 class ApprovalOverrideInput(TypedDict):
     tool: ToolReferenceInput
     decision: ApprovalDecision
+
+
+class MerchantGuardInput(TypedDict):
+    """Pre-Turn check of the end user's plan or balance.
+
+    An enabled guard needs at least one product ID or a meter ID.
+    """
+
+    enabled: bool
+    product_ids: list[str]
+    meter_id: str | None
 
 
 class ApprovalPolicyInput(TypedDict, total=False):

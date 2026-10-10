@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Callable, Mapping
 from contextlib import suppress
+from copy import copy
 from dataclasses import dataclass
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, overload
@@ -129,6 +130,7 @@ class _TransportConfig:
         self.user_agent = user_agent
         self.on_response = on_response
         self.client_request_id = client_request_id
+        self.scope_user_id: str | None = None
 
     def with_client_request_id(self, client_request_id: str) -> _TransportConfig:
         """Copy configuration with a caller correlation ID.
@@ -139,15 +141,22 @@ class _TransportConfig:
         Returns:
             Configuration copy with the requested correlation ID.
         """
-        return _TransportConfig(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            default_headers=self.default_headers,
-            timeout=self.timeout,
-            user_agent=self.user_agent,
-            on_response=self.on_response,
-            client_request_id=client_request_id,
-        )
+        config = copy(self)
+        config.client_request_id = client_request_id
+        return config
+
+    def with_scope_user_id(self, user_id: str) -> _TransportConfig:
+        """Copy configuration with an end-user scope.
+
+        Args:
+            user_id: End-user ID sent as X-BA-User-Id.
+
+        Returns:
+            Configuration copy whose requests act for the end user.
+        """
+        config = copy(self)
+        config.scope_user_id = user_id
+        return config
 
     def resolved_client_request_id(self, request: _Request) -> str | None:
         """Resolve the request ID override before the client default.
@@ -193,6 +202,8 @@ class _TransportConfig:
         resolved = self.resolved_client_request_id(request)
         if resolved is not None:
             headers["x-client-request-id"] = resolved
+        if self.scope_user_id is not None:
+            headers["x-ba-user-id"] = self.scope_user_id
         return headers
 
     def observe(
@@ -592,6 +603,17 @@ class SyncTransport:
             self._client,
         )
 
+    def with_scope_user_id(self, user_id: str) -> SyncTransport:
+        """Copy configuration with an end-user scope.
+
+        Args:
+            user_id: End-user ID sent as X-BA-User-Id.
+
+        Returns:
+            Transport view sharing the HTTP client.
+        """
+        return SyncTransport(self._config.with_scope_user_id(user_id), self._client)
+
     @overload
     def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
         """Send an HTTP request and decode its response.
@@ -860,6 +882,17 @@ class AsyncTransport:
             self._config.with_client_request_id(client_request_id),
             self._client,
         )
+
+    def with_scope_user_id(self, user_id: str) -> AsyncTransport:
+        """Copy configuration with an end-user scope.
+
+        Args:
+            user_id: End-user ID sent as X-BA-User-Id.
+
+        Returns:
+            Async transport view sharing the HTTP client.
+        """
+        return AsyncTransport(self._config.with_scope_user_id(user_id), self._client)
 
     @overload
     async def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
