@@ -2034,8 +2034,10 @@ class ProvidersResource:
         Args:
             name: Name of the entity.
             provider_type: Provider API type.
-            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
-            base_url: API base URL. Trailing slashes are removed.
+            api_key: The vendor API key. It is stored encrypted, never returned,
+                and cannot be changed later.
+            base_url: Endpoint override. Required for custom, not accepted for
+                vercel_ai_gateway, and optional otherwise. Cannot be changed later.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2303,8 +2305,10 @@ class AsyncProvidersResource:
         Args:
             name: Name of the entity.
             provider_type: Provider API type.
-            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
-            base_url: API base URL. Trailing slashes are removed.
+            api_key: The vendor API key. It is stored encrypted, never returned,
+                and cannot be changed later.
+            base_url: Endpoint override. Required for custom, not accepted for
+                vercel_ai_gateway, and optional otherwise. Cannot be changed later.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
