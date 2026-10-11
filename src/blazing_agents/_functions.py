@@ -434,6 +434,8 @@ class SyncFunctionRunner(_Runner):
             if self._closed.is_set() or time.time() >= deadline:
                 return
             outcome = self._execute(call, cancelled, deadline)
+            with self._lock:
+                self._active.discard(cancelled)
             if outcome is not None:
                 self._post(
                     call,
