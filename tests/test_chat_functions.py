@@ -715,6 +715,33 @@ def test_sync_stream_close_stops_claim_retries() -> None:
     assert executions == []
 
 
+def test_runner_close_during_result_post_leaves_finished_handler_uncancelled() -> None:
+    platform = FakePlatform([])
+    executions: list[tuple[Order, FunctionContext]] = []
+    with platform.sync_client() as client:
+        runner = functions_module.SyncFunctionRunner(
+            client._transport,
+            functions_module._CallScope(AGENT_ID, SESSION_ID, None),
+            {"getOrder": get_order(executions)},
+        )
+        request = client._transport.request
+
+        def close_before_result(prepared: Any, *args: Any) -> Any:
+            if prepared.path.endswith("/result"):
+                runner.close()
+            return request(prepared, *args)
+
+        client._transport.request = close_before_result  # type: ignore[assignment]
+        runner._run(
+            functions_module._FunctionCall.model_validate(
+                json.loads(ready()[6:])["data"]
+            )
+        )
+    [(_, context)] = executions
+    assert not context.cancelled.is_set()
+    assert len(platform.bodies("/result")) == 1
+
+
 def test_runner_skips_calls_started_after_close_and_parses_retry_after() -> None:
     platform = FakePlatform([])
     with platform.sync_client() as client:
