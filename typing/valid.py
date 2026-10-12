@@ -113,7 +113,7 @@ def sync_examples(client: BlazingAgents) -> None:
     )
     agent_request: AgentCreate = {
         "name": "Release agent",
-        "tools": ["workspace"],
+        "tools": ["read"],
         "metadata": {"OpaqueKey": True},
     }
     assert_type(client.agents.create(**agent_request), Agent)
@@ -445,6 +445,7 @@ async def async_approval_examples(client: AsyncBlazingAgents) -> None:
         "default": "full",
         "overrides": [
             {"tool": {"type": "builtin", "name": "bash"}, "decision": "manual"},
+            {"tool": {"type": "builtin", "name": "web_search"}, "decision": "deny"},
         ],
     }
     await client.agents.create(name="Reviewer", approval_in_chat=policy)
@@ -454,13 +455,13 @@ async def async_approval_examples(client: AsyncBlazingAgents) -> None:
 def agent_tools_round_trip_examples(client: BlazingAgents) -> None:
     agent = client.agents.get("ag_0123456789abcdef")
     assert_type(agent.tools, list[AgentTool])
-    client.agents.update(agent.id, tools=[*agent.tools, "workspace"])
+    client.agents.update(agent.id, tools=[*agent.tools, "web_search"])
     client.agents.create(name="Copy", tools=agent.tools)
 
 
 async def async_agent_tools_round_trip_examples(client: AsyncBlazingAgents) -> None:
     agent = await client.agents.get("ag_0123456789abcdef")
-    await client.agents.update(agent.id, tools=[*agent.tools, "memory"])
+    await client.agents.update(agent.id, tools=[*agent.tools, "save_memory"])
 
 
 # Chat Connection platform fields remain paired by create/rotation overloads.
