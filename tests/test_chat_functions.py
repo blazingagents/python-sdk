@@ -952,6 +952,7 @@ def test_reserved_names_match_builtin_tools() -> None:
         "search_memories",
         "update_memory",
         "delete_memory",
+        "web_search",
         "activate_skill",
     } == functions_module._RESERVED_NAMES
 

@@ -167,7 +167,7 @@ AGENT: dict[str, Any] = {
     "autoCompaction": True,
     "compactionReserveTokens": 16384,
     "memoryInjectionEnabled": False,
-    "tools": ["workspace", "write_todos"],
+    "tools": ["read", "grep", "write_todos"],
     "instructions": "Build carefully.",
     "userId": "",
     "metadata": {},
@@ -1965,7 +1965,7 @@ def test_response_validation_rejects_wrong_documented_types() -> None:
 
 
 def test_public_request_and_response_validation_rejects_invalid_invariants() -> None:
-    duplicate_tools = {**AGENT, "tools": ["memory", "memory"]}
+    duplicate_tools = {**AGENT, "tools": ["save_memory", "save_memory"]}
     oversized_memory = {**MEMORY, "text": "µ" * 5_121}
     with loopback(
         Response(body=duplicate_tools),
@@ -2136,7 +2136,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
                 provider_id="prv_0123456789abcdef",
                 workspace_id="ws_0123456789abcdef",
                 memory_injection_enabled=False,
-                tools=["workspace", "write_todos"],
+                tools=["read", "grep", "write_todos"],
                 instructions="Build carefully.",
                 user_id="end-user",
                 metadata={"OpaqueKey": {"nested_key": True}},
@@ -2186,7 +2186,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
         "providerId": "prv_0123456789abcdef",
         "workspaceId": "ws_0123456789abcdef",
         "memoryInjectionEnabled": False,
-        "tools": ["workspace", "write_todos"],
+        "tools": ["read", "grep", "write_todos"],
         "instructions": "Build carefully.",
         "userId": "end-user",
         "metadata": {"OpaqueKey": {"nested_key": True}},
@@ -2410,7 +2410,7 @@ def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
         {**configured, "model": None},
         {**configured, "providerId": None},
         {**AGENT_CONFIG, "tools": ["future_tool"]},
-        {**AGENT_CONFIG, "tools": ["memory", "memory"]},
+        {**AGENT_CONFIG, "tools": ["save_memory", "save_memory"]},
     ):
         with pytest.raises(ValidationError):
             AgentConfig.model_validate_json(json.dumps(invalid_config))
@@ -2428,6 +2428,7 @@ def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
         {key: value for key, value in AGENT.items() if key != "workspaceId"},
         {**AGENT, "tools": ["write_todos", "write_todos"]},
         {**AGENT, "tools": ["future_tool"]},
+        {**AGENT, "tools": ["workspace"]},
         {**AGENT, "instructions": "x" * 3_001},
         {**AGENT, "mcpConnectionIds": ["wrong"]},
         {**AGENT, "avatarUrl": "not a URL"},

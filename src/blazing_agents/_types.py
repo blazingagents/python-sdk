@@ -47,9 +47,7 @@ SessionInputState = Literal[
 SessionInputReason = Literal["stopped", "failed", "owner_lost", "turn_finished"]
 SessionActivityState = Literal["idle", "running", "stopping", "approval"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
-AgentTool = Literal["workspace", "write_todos", "memory"]
-ApprovalDecision = Literal["full", "deny", "manual", "auto"]
-BuiltinToolName = Literal[
+AgentTool = Literal[
     "read",
     "write",
     "edit",
@@ -63,8 +61,10 @@ BuiltinToolName = Literal[
     "search_memories",
     "update_memory",
     "delete_memory",
-    "activate_skill",
+    "web_search",
 ]
+ApprovalDecision = Literal["full", "deny", "manual", "auto"]
+BuiltinToolName = Literal[AgentTool, "activate_skill"]
 
 
 class BuiltinToolReferenceInput(TypedDict):
