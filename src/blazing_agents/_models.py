@@ -371,20 +371,42 @@ class SpendingLimitStopData(SpendingLimitStopDetails):
     code: Literal["model_spending_limit_exceeded"]
 
 
-class SpendingLimitStopEvent(ResponseModel):
+class _TransientEvent(ResponseModel):
+    """Base for stream events whose `transient` field must be the boolean true."""
+
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["data-model-spending-limit"]
-    data: SpendingLimitStopData
-    transient: Literal[True]
-
-    @field_validator("transient", mode="before")
+    @field_validator("transient", mode="before", check_fields=False)
     @classmethod
     def _validate_transient(cls, value: object) -> Literal[True]:
         if value is not True:
             msg = "transient must be the boolean true"
             raise ValueError(msg)
         return value
+
+
+class SpendingLimitStopEvent(_TransientEvent):
+    type: Literal["data-model-spending-limit"]
+    data: SpendingLimitStopData
+    transient: Literal[True]
+
+
+class TurnInterruptedData(ResponseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["turn_interrupted"]
+
+
+class TurnInterruptedEvent(_TransientEvent):
+    """Transient event that precedes the `error` chunk of a cut Turn stream.
+
+    `turn_interrupted` is the code of this event only, never an HTTP error code.
+    The Turn may have saved its work before the cut, so read the Session's messages.
+    """
+
+    type: Literal["data-turn-interrupted"]
+    data: TurnInterruptedData
+    transient: Literal[True]
 
 
 class TenantDeletion(ResponseModel):
