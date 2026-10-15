@@ -42,4 +42,7 @@ Use `list().chat_connections`, `get(id)`, `update(id, name=...)`,
 `delete(id)` to manage connections. `AsyncBlazingAgents` supports the same
 methods with `await`. Responses never return credentials.
 
+`create()` raises `APIStatusError` with `status_code` 409 and `code`
+`admin_agent_managed` when `agent_id` is the Admin Agent.
+
 If creation times out, list and reconcile before retrying.
