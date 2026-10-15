@@ -59,6 +59,8 @@ from blazing_agents import (
     TenantChatDelivery,
     ToolApprovalDecisionInput,
     ToolExecutionReference,
+    TurnInterruptedData,
+    TurnInterruptedEvent,
     define_function,
 )
 
@@ -656,6 +658,14 @@ def spending_limit_stop_event(payload: str) -> None:
     assert_type(event.transient, Literal[True])
     assert_type(event.data, SpendingLimitStopData)
     assert_type(event.data.code, Literal["model_spending_limit_exceeded"])
+
+
+def turn_interrupted_event(payload: str) -> None:
+    event = TurnInterruptedEvent.model_validate_json(payload)
+    assert_type(event.type, Literal["data-turn-interrupted"])
+    assert_type(event.transient, Literal[True])
+    assert_type(event.data, TurnInterruptedData)
+    assert_type(event.data.code, Literal["turn_interrupted"])
 
 
 async def async_spending_limits(client: AsyncBlazingAgents) -> None:
