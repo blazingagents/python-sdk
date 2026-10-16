@@ -13,6 +13,7 @@ from pathlib import Path
 
 PACKAGE_FILES = {
     "blazing_agents/__init__.py",
+    "blazing_agents/_agent_tools.py",
     "blazing_agents/_chat.py",
     "blazing_agents/_chat_connections.py",
     "blazing_agents/_chat_deliveries.py",
