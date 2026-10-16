@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.22.0
+
+- Add `AGENT_TOOLS` and `AGENT_TOOL_GROUPS`, the built-in tool catalog. Each
+  `AgentToolDefinition` has a description, `requires_workspace`, and `tags`:
+  its group tag first, plus `file_read`, `file_write`, or `execute` on file
+  operation tools. An Agent whose file tools are all `file_read` cannot change
+  Workspace files.
+
 ## 0.14.0
 
 - Send one message or an ordered `messages` batch through `chat()`. Literal

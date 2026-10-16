@@ -1,3 +1,12 @@
+from ._agent_tools import (
+    AGENT_TOOL_GROUPS,
+    AGENT_TOOLS,
+    AgentToolDefinition,
+    AgentToolFileAccessTag,
+    AgentToolGroup,
+    AgentToolGroupTag,
+    AgentToolTag,
+)
 from ._chat import AsyncChatStream, ChatStream
 from ._client import AsyncBlazingAgents, AsyncUserClient, BlazingAgents, UserClient
 from ._completion import AsyncCompletionStream, CompletionStream
@@ -240,6 +249,8 @@ from ._types import (
 from ._version import __version__
 
 __all__ = [
+    "AGENT_TOOLS",
+    "AGENT_TOOL_GROUPS",
     "SpendingLimit",
     "SpendingLimitInput",
     "SpendingLimitPeriod",
@@ -272,6 +283,11 @@ __all__ = [
     "AgentsPage",
     "AgentsListOptions",
     "AgentTool",
+    "AgentToolDefinition",
+    "AgentToolFileAccessTag",
+    "AgentToolGroup",
+    "AgentToolGroupTag",
+    "AgentToolTag",
     "AgentUpdate",
     "ApprovalDecision",
     "ApprovalOverride",
