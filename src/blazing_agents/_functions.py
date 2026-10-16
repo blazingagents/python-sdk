@@ -402,30 +402,28 @@ class SyncFunctionRunner(_Runner):
         Args:
             call: Function call to execute.
         """
-        if call.id in self._seen or self._closed.is_set():
-            return
-        self._seen.add(call.id)
+        with self._lock:
+            if call.id in self._seen or self._closed.is_set():
+                return
+            self._seen.add(call.id)
+            cancelled = threading.Event()
+            self._active.add(cancelled)
         threading.Thread(
             target=self._run,
-            args=(call,),
+            args=(call, cancelled),
             name=f"blazing-agents-function-{call.id}",
             daemon=True,
         ).start()
 
     def close(self) -> None:
         """Signal cancellation to active handlers and prevent new calls."""
-        self._closed.set()
         with self._lock:
+            self._closed.set()
             for cancelled in self._active:
                 cancelled.set()
 
-    def _run(self, call: _FunctionCall) -> None:
+    def _run(self, call: _FunctionCall, cancelled: threading.Event) -> None:
         """Execute a call until completion or its deadline."""
-        cancelled = threading.Event()
-        with self._lock:
-            if self._closed.is_set():
-                return
-            self._active.add(cancelled)
         deadline = call.deadline_at.timestamp()
         claim = {"claimRequestId": str(uuid.uuid4())}
         try:
