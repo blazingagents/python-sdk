@@ -24,7 +24,6 @@ from blazing_agents import (
     ToolExecutionReference,
     ToolReference,
 )
-from blazing_agents._transport import OMITTED
 
 POLICY: ApprovalPolicyInput = {
     "default": "deny",
@@ -90,8 +89,6 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
                 await client.agents.update(
                     AGENT["id"],
                     name="renamed",
-                    approval_in_chat=OMITTED,
-                    approval_in_tasks=OMITTED,
                 )
                 await client.agents.update(
                     AGENT["id"], approval_in_chat={"default": "full"}
@@ -119,8 +116,6 @@ def test_policy_client_round_trip_and_restoration(asynchronous: bool) -> None:
                 client.agents.update(
                     AGENT["id"],
                     name="renamed",
-                    approval_in_chat=OMITTED,
-                    approval_in_tasks=OMITTED,
                 )
                 client.agents.update(AGENT["id"], approval_in_chat={"default": "full"})
                 client.agents.update(

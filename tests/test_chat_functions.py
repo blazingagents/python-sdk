@@ -9,17 +9,17 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
-from typing import Any
+from typing import Any, get_args
 
 import httpx
 import pytest
 from pydantic import BaseModel, field_validator
 
-import blazing_agents._functions as functions_module
 from blazing_agents import (
     APIStatusError,
     AsyncBlazingAgents,
     BlazingAgents,
+    BuiltinToolName,
     ChatFunction,
     FunctionContext,
     StreamError,
@@ -46,6 +46,11 @@ DONE = b"data: [DONE]\n\n"
 
 class Order(BaseModel):
     order_id: str
+
+
+def http_date(seconds: float) -> str:
+    """Format an HTTP date ``seconds`` from now for a Retry-After header."""
+    return format_datetime(datetime.now(UTC) + timedelta(seconds=seconds))
 
 
 def ready(
@@ -108,8 +113,17 @@ class Later:
 Step = bytes | Wait | Until | Claims | Pause | Later
 
 
-Failure = int | str | Callable[[], None]
-"""A status, "drop"/"slow", or a hook run before answering 500."""
+@dataclass
+class Busy:
+    """Refuse once with ``status`` and the given Retry-After header, if any."""
+
+    retry_after: str | None
+    status: int = 503
+
+
+Failure = int | str | Busy | Callable[[], None]
+"""A status (Retry-After: 0 from 429 up), "drop"/"slow", a Busy refusal, or a
+hook run before answering 500."""
 
 
 @dataclass
@@ -126,6 +140,7 @@ class Recorded:
     path: str
     body: Any
     headers: httpx.Headers
+    at: float = field(default_factory=time.monotonic)
 
 
 @dataclass
@@ -138,6 +153,10 @@ class FakePlatform:
         default_factory=lambda: dict[str, list[Failure]]()
     )
     calls: dict[str, Call] = field(default_factory=lambda: dict[str, Call]())
+    hooks: dict[str, Callable[[], None]] = field(
+        default_factory=lambda: dict[str, Callable[[], None]]()
+    )
+    """Hooks run on the runner thread before a claim or result is answered."""
     requests: list[Recorded] = field(default_factory=lambda: list[Recorded]())
     receipt_replayed: threading.Event = field(default_factory=threading.Event)
 
@@ -149,6 +168,9 @@ class FakePlatform:
 
     def bodies(self, suffix: str) -> list[Any]:
         return [r.body for r in self.requests if r.path.endswith(suffix)]
+
+    def times(self, suffix: str) -> list[float]:
+        return [r.at for r in self.requests if r.path.endswith(suffix)]
 
     def handle(self, request: httpx.Request) -> httpx.Response | None:
         body = json.loads(request.content) if request.content else None
@@ -175,11 +197,20 @@ class FakePlatform:
                 failure()
                 failure = 500
             if isinstance(failure, int):
+                failure = Busy("0" if failure >= 429 else None, failure)
+            if isinstance(failure, Busy):
+                headers = (
+                    {}
+                    if failure.retry_after is None
+                    else {"retry-after": failure.retry_after}
+                )
                 return httpx.Response(
-                    failure,
-                    headers={"retry-after": "0"} if failure >= 429 else {},
+                    failure.status,
+                    headers=headers,
                     json={"error": {"code": "scripted", "message": "scripted"}},
                 )
+        if hook := self.hooks.get(f"{call_id}/{action}"):
+            hook()
         response = self._claim(call_id, body) if action == "claim" else None
         if response is None and action == "result":
             response = self._result(call_id, body)
@@ -279,12 +310,6 @@ def conflict() -> httpx.Response:
         409,
         json={"error": {"code": "function_call_conflict", "message": "conflict"}},
     )
-
-
-@pytest.fixture(autouse=True)
-def fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(functions_module, "_FIRST_RETRY_DELAY", 0.001)
-    monkeypatch.setattr(functions_module, "_MAX_RETRY_DELAY", 0.002)
 
 
 def get_order(executions: list[tuple[Order, FunctionContext]]) -> ChatFunction:
@@ -401,7 +426,7 @@ def test_sync_claim_and_result_retry_with_stable_nonce_and_outcome() -> None:
     platform = FakePlatform(
         [],
         failures={
-            f"{CALL_ID}/claim": [503, "drop", 429],
+            f"{CALL_ID}/claim": ["drop", 503, 429],
             f"{CALL_ID}/result": [500],
             f"{CALL_ID}/result-ack": ["drop"],
         },
@@ -715,68 +740,109 @@ def test_sync_stream_close_stops_claim_retries() -> None:
     assert executions == []
 
 
-def test_runner_close_during_result_post_leaves_finished_handler_uncancelled() -> None:
-    platform = FakePlatform([])
+def test_sync_close_during_result_post_leaves_finished_handler_uncancelled() -> None:
+    result_started, closed = threading.Event(), threading.Event()
+
+    def hold_result() -> None:
+        result_started.set()
+        assert closed.wait(5)
+
+    platform = FakePlatform(
+        [ready(), HEARTBEAT, Until(threading.Event())],
+        hooks={f"{CALL_ID}/result": hold_result},
+    )
     executions: list[tuple[Order, FunctionContext]] = []
     with platform.sync_client() as client:
-        runner = functions_module.SyncFunctionRunner(
-            client._transport,
-            functions_module._CallScope(AGENT_ID, SESSION_ID, None),
-            {"getOrder": get_order(executions)},
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": get_order(executions)},
         )
-        request = client._transport.request
-
-        def close_before_result(prepared: Any, *args: Any) -> Any:
-            if prepared.path.endswith("/result"):
-                runner.close()
-            return request(prepared, *args)
-
-        client._transport.request = close_before_result  # type: ignore[assignment]
-        runner._run(
-            functions_module._FunctionCall.model_validate(
-                json.loads(ready()[6:])["data"]
-            )
-        )
+        body = iter(stream)
+        assert next(body) == HEARTBEAT
+        assert result_started.wait(5)
+        stream.close()
+        closed.set()
+        assert platform.call(CALL_ID).resolved.wait(5)
     [(_, context)] = executions
     assert not context.cancelled.is_set()
+    assert platform.calls[CALL_ID].outcome == {
+        "kind": "output",
+        "value": {"status": "shipped o1"},
+    }
     assert len(platform.bodies("/result")) == 1
 
 
-def test_runner_skips_calls_started_after_close_and_parses_retry_after() -> None:
-    platform = FakePlatform([])
+def test_sync_calls_arriving_after_stream_close_are_ignored() -> None:
+    platform = FakePlatform([HEARTBEAT, ready(), TEXT])
+    executions: list[tuple[Order, FunctionContext]] = []
     with platform.sync_client() as client:
-        runner = functions_module.SyncFunctionRunner(
-            client._transport,
-            functions_module._CallScope(AGENT_ID, SESSION_ID, None),
-            {},
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": get_order(executions)},
         )
-        runner.close()
-        call = functions_module._FunctionCall.model_validate(
-            json.loads(ready()[6:])["data"]
-        )
-        runner._run(call)
-        runner.dispatch(call)
-    assert platform.requests == []
-    response = httpx.Response(503, headers={"retry-after": "Wed, 21 Oct 2026"})
-    error = APIStatusError(
-        "busy",
-        status_code=503,
-        headers=response.headers,
-        code="busy",
-        details=None,
-        param=None,
-        request_id=None,
-        response_body="",
+        body = iter(stream)
+        assert next(body) == HEARTBEAT
+        stream.close()
+        for _ in body:
+            pass
+        time.sleep(0.05)
+    assert platform.bodies("/claim") == []
+    assert executions == []
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "at_least", "at_most"),
+    [
+        ("0", 0.0, 0.2),
+        (http_date(-30), 0.0, 0.2),
+        (None, 0.25, 4.0),
+        ("not a date", 0.25, 4.0),
+    ],
+)
+def test_sync_claim_retry_honors_retry_after_or_backs_off(
+    retry_after: str | None, at_least: float, at_most: float
+) -> None:
+    platform = FakePlatform(
+        [ready(), Wait(CALL_ID), TEXT],
+        failures={f"{CALL_ID}/claim": [Busy(retry_after)]},
     )
-    assert functions_module._retry_delay(error, 10) == 0.002
-    for retry_after, expected in (
-        (format_datetime(datetime.now(UTC) + timedelta(seconds=30)), 25.0),
-        (format_datetime(datetime.now(UTC) - timedelta(seconds=30)), 0.0),
-    ):
-        error.retry_after = retry_after
-        delay = functions_module._retry_delay(error, 0)
-        assert delay is not None
-        assert expected <= delay <= expected + 5.5
+    executions: list[tuple[Order, FunctionContext]] = []
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": get_order(executions)},
+        )
+        assert b"".join(stream) == TEXT
+    first, second = platform.times("/claim")
+    assert at_least <= second - first <= at_most
+    assert len(executions) == 1
+
+
+def test_sync_claim_retry_after_beyond_deadline_is_abandoned_quietly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    platform = FakePlatform(
+        [ready(), Claims(1), Pause(0.3), TEXT],
+        failures={f"{CALL_ID}/claim": [Busy(http_date(60))]},
+    )
+    executions: list[tuple[Order, FunctionContext]] = []
+    with platform.sync_client() as client:
+        stream = client.chat(
+            agent_id=AGENT_ID,
+            session_id=SESSION_ID,
+            message=MESSAGE,
+            functions={"getOrder": get_order(executions)},
+        )
+        assert b"".join(stream) == TEXT
+    assert len(platform.bodies("/claim")) == 1
+    assert executions == []
+    assert "claim failed" in caplog.text
 
 
 class Shape(BaseModel):
@@ -828,15 +894,12 @@ def test_sync_results_must_already_be_plain_json(
     }
 
 
-def test_sync_expired_result_retries_end_without_failing_stream(
-    monkeypatch: pytest.MonkeyPatch,
+def test_sync_result_retry_beyond_grace_is_abandoned_without_failing_stream(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setattr(functions_module, "_RESULT_GRACE_SECONDS", 0)
-    exhausted = threading.Event()
     platform = FakePlatform(
-        [Later(0.2), Until(exhausted)],
-        failures={f"{CALL_ID}/result": ["drop"] * 100_000},
+        [ready(), Claims(1), Pause(0.3), TEXT],
+        failures={f"{CALL_ID}/result": [503, Busy(http_date(60))]},
     )
     with platform.sync_client() as client:
         stream = client.chat(
@@ -845,10 +908,9 @@ def test_sync_expired_result_retries_end_without_failing_stream(
             message=MESSAGE,
             functions={"getOrder": get_order([])},
         )
-        threading.Timer(0.5, exhausted.set).start()
-        assert b"".join(stream) == b""
+        assert b"".join(stream) == TEXT
     assert platform.call(CALL_ID).state == "running"
-    assert len(platform.bodies("/result")) > 1
+    assert len(platform.bodies("/result")) == 2
     assert "result failed" in caplog.text
 
 
@@ -915,8 +977,6 @@ def test_function_definitions_are_validated_locally() -> None:
             ({f"f{i}": function for i in range(33)}, "At most 32"),
             ({"1bad": function}, "Invalid or reserved"),
             ({"_bad": function}, "Invalid or reserved"),
-            ({"bash": function}, "Invalid or reserved"),
-            ({"activate_skill": function}, "Invalid or reserved"),
             ({"mcp__tool": function}, "Invalid or reserved"),
             ({"a" * 65: function}, "Invalid or reserved"),
             ({"slow": async_function}, "AsyncBlazingAgents"),
@@ -937,24 +997,16 @@ def test_function_definitions_are_validated_locally() -> None:
         define_function(description="d", input_schema=int, execute=lambda o, c: o)
 
 
-def test_reserved_names_match_builtin_tools() -> None:
-    assert {
-        "read",
-        "write",
-        "edit",
-        "grep",
-        "glob",
-        "bash",
-        "publish_artifacts",
-        "write_todos",
-        "save_memory",
-        "get_memory",
-        "search_memories",
-        "update_memory",
-        "delete_memory",
-        "web_search",
-        "activate_skill",
-    } == functions_module._RESERVED_NAMES
+def test_builtin_tool_names_are_reserved() -> None:
+    platform = FakePlatform([])
+    function = get_order([])
+    with platform.sync_client() as client:
+        for name in get_args(BuiltinToolName):
+            with pytest.raises(ValueError, match="Invalid or reserved"):
+                client.chat(
+                    agent_id=AGENT_ID, message=MESSAGE, functions={name: function}
+                )
+    assert platform.requests == []
 
 
 def approvals(state: str | None) -> object:
