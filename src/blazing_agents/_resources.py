@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal, cast, get_args
 
 from ._models import (
     Agent,
@@ -105,26 +105,6 @@ def _spending_limit_body(
     }
 
 
-_QUOTA_FIELDS = {
-    "monthly_token_limit",
-    "monthly_request_limit",
-    "reset_day",
-}
-_PROVIDER_TYPES = {
-    "openai",
-    "anthropic",
-    "openrouter",
-    "google",
-    "vercel_ai_gateway",
-    "custom",
-}
-_MCP_CONNECTION_AUTH_TYPES = {
-    "none",
-    "bearer",
-    "oauth_authorization_code",
-    "oauth_client_credentials",
-}
-_SKILL_ARCHIVE_TYPES = {"zip", "tar", "tar.gz"}
 _SkillCopyResultList = list[SkillCopyResult]
 _ISO_OFFSET_DATETIME = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -583,7 +563,7 @@ def _provider_body(
     base_url: str | None | _Omitted,
 ) -> dict[str, object]:
     """Build the provider request body, omitting unspecified fields."""
-    if provider_type not in _PROVIDER_TYPES:
+    if provider_type not in get_args(ProviderType):
         msg = "provider_type must be a supported Provider type"
         raise ValueError(msg)
     if provider_type == "custom" and (isinstance(base_url, _Omitted) or not base_url):
@@ -751,7 +731,7 @@ def _mcp_connection_body(
     scope: str | _Omitted,
 ) -> dict[str, object]:
     """Build the mcp connection request body, omitting unspecified fields."""
-    if auth_type not in _MCP_CONNECTION_AUTH_TYPES:
+    if auth_type not in get_args(McpConnectionAuthType):
         msg = "auth_type must be a supported MCP Connection authentication type"
         raise ValueError(msg)
 
@@ -856,7 +836,7 @@ def _skill_upload_request(
     timeout: Timeout | _Omitted,
 ) -> Generator[_Request]:
     """Build a multipart Skill upload request."""
-    if archive_type not in _SKILL_ARCHIVE_TYPES:
+    if archive_type not in get_args(SkillArchiveType):
         msg = "archive_type must be zip, tar, or tar.gz"
         raise ValueError(msg)
     with _upload_part(
@@ -4674,7 +4654,10 @@ def _tenant_body(
         if quota is None:
             body["quota"] = None
         else:
-            if not isinstance(quota, dict) or set(quota) != _QUOTA_FIELDS:
+            if (
+                not isinstance(quota, dict)
+                or frozenset(quota) != QuotaUpdate.__required_keys__
+            ):
                 msg = "quota must contain exactly the documented fields"
                 raise TypeError(msg)
             body["quota"] = {
