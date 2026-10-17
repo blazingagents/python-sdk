@@ -18,8 +18,11 @@ from blazing_agents import (
     AsyncCompletionStream,
     AsyncObjectStream,
     BlazingAgents,
+    ChatConnectionDeliveriesPage,
     ChatDeliveriesListOptions,
     ChatDeliveriesPage,
+    ChatDelivery,
+    ChatDeliveryResult,
     ChatFunction,
     ChatMessageInput,
     ChatMessagesInput,
@@ -112,6 +115,21 @@ def sync_examples(client: BlazingAgents) -> None:
     assert_type(
         client.chat_deliveries.iter(limit=25),
         Iterator[TenantChatDelivery],
+    )
+    connection_id = "cc_0123456789abcdef"
+    assert_type(
+        client.chat_connections.list_deliveries(connection_id, limit=25),
+        ChatConnectionDeliveriesPage,
+    )
+    assert_type(
+        client.chat_connections.iter_deliveries(connection_id),
+        Iterator[ChatDelivery],
+    )
+    assert_type(
+        client.chat_connections.repair_delivery(
+            connection_id, "cd_0123456789abcdef", expected_attempt=0
+        ),
+        ChatDeliveryResult,
     )
     agent_request: AgentCreate = {
         "name": "Release agent",
@@ -394,6 +412,21 @@ async def async_examples(client: AsyncBlazingAgents) -> None:
     assert_type(
         client.chat_deliveries.iter(limit=25),
         AsyncIterator[TenantChatDelivery],
+    )
+    connection_id = "cc_0123456789abcdef"
+    assert_type(
+        await client.chat_connections.list_deliveries(connection_id),
+        ChatConnectionDeliveriesPage,
+    )
+    assert_type(
+        client.chat_connections.iter_deliveries(connection_id, limit=25),
+        AsyncIterator[ChatDelivery],
+    )
+    assert_type(
+        await client.chat_connections.repair_delivery(
+            connection_id, "cd_0123456789abcdef", expected_attempt=0
+        ),
+        ChatDeliveryResult,
     )
     skills = client.agent("ag_0123456789abcdef").skills
     assert_type(await skills.list(limit=25), SkillsPage)
