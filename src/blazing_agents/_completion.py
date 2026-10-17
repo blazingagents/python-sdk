@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping
 from typing import Self
-from urllib.parse import quote
 
 import httpx
 
 from ._downloads import _ByteStreamBase
 from ._errors import StreamError
 from ._responses import Completion
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import OMITTED, _Omitted, _Request, path_segment
 from ._types import Timeout
 
 
@@ -251,7 +250,7 @@ def generation_request(
 
     return _Request(
         "POST",
-        f"/v1/agents/{quote(agent_id, safe='')}/generation",
+        f"/v1/agents/{path_segment('agent_id', agent_id)}/generation",
         client_request_id=client_request_id,
         json_body=body,
         extra_headers=extra_headers,

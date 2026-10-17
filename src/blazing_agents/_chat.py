@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
-from urllib.parse import quote
 
 import httpx
 
@@ -14,7 +13,7 @@ from ._functions import (
     SyncFunctionRunner,
     function_call,
 )
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import OMITTED, _Omitted, _Request, path_segment
 from ._types import ChatTrigger, Timeout, ToolApprovalDecisionInput
 
 _SESSION_ID = re.compile(r"ss_[0-9A-Za-z]{16}\Z")
@@ -287,14 +286,14 @@ def chat_request(
     Raises:
         ValueError: regenerate-message can only resume an existing Session.
     """
-    path = f"/v1/agents/{quote(agent_id, safe='')}/sessions"
+    path = f"/v1/agents/{path_segment('agent_id', agent_id)}/sessions"
     if isinstance(session_id, _Omitted):
         resolved_session_id = None
         if trigger == "regenerate-message":
             raise ValueError("regenerate-message can only resume an existing Session.")
     else:
         resolved_session_id = session_id
-        path = f"{path}/{quote(resolved_session_id, safe='')}"
+        path = f"{path}/{path_segment('session_id', resolved_session_id)}"
     return (
         _Request(
             "POST",
@@ -316,21 +315,6 @@ def chat_request(
         ),
         resolved_session_id,
     )
-
-
-def path_segment(name: str, value: str) -> str:
-    """Percent-encode an identity and reject empty or dot segments.
-
-    Args:
-        name: Name of the entity.
-        value: Value to validate or transform.
-
-    Returns:
-        Encoded or validated string.
-    """
-    if value in {"", ".", ".."}:
-        raise ValueError(f"{name} must not be empty, '.' or '..'.")
-    return quote(value, safe="")
 
 
 def continue_request(
@@ -374,8 +358,9 @@ def continue_request(
     return _Request(
         "POST",
         (
-            f"/v1/agents/{quote(agent_id, safe='')}"
-            f"/sessions/{quote(session_id, safe='')}/tool-approvals/continue"
+            f"/v1/agents/{path_segment('agent_id', agent_id)}"
+            f"/sessions/{path_segment('session_id', session_id)}"
+            "/tool-approvals/continue"
         ),
         json_body=body,
         client_request_id=client_request_id,

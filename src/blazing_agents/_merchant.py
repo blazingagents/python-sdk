@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator, Mapping
 
-from ._chat import path_segment
 from ._models import (
     MerchantBindingResponse,
     MerchantBindingsPage,
@@ -13,7 +12,14 @@ from ._models import (
     MerchantUsageEventsPage,
     MerchantUsageSummaryResponse,
 )
-from ._transport import OMITTED, AsyncTransport, SyncTransport, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    AsyncTransport,
+    SyncTransport,
+    _Omitted,
+    _Request,
+    path_segment,
+)
 from ._types import (
     MerchantConnectionStatus,
     MerchantEnvironment,
