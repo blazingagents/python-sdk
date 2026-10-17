@@ -20,7 +20,11 @@ from ._errors import (
     BlazingAgentsError,
     StreamError,
 )
-from ._models import CredentialSafeResponseModel, McpConnectionAuthorization
+from ._models import (
+    CredentialSafeResponseModel,
+    McpConnectionAuthorization,
+    ResponseMeta,
+)
 from ._responses import Completion
 from ._types import Timeout
 
@@ -33,8 +37,8 @@ _StreamT = TypeVar("_StreamT")
 _MIN_SUBSTRING_SECRET_LENGTH = 8
 
 
-class _RequestIdModel(Protocol):
-    _request_id: str | None
+class _ResponseMetaModel(Protocol):
+    _response_meta: ResponseMeta | None
 
 
 class _Omitted:
@@ -370,7 +374,7 @@ def _model(
     model: type[_ModelT],
     sensitive_values: tuple[str, ...],
 ) -> _ModelT:
-    """Validate a response model and attach the server request ID."""
+    """Validate a response model and attach the response metadata."""
     if issubclass(model, CredentialSafeResponseModel):
         try:
             decoded: object = json.loads(response.content)
@@ -402,7 +406,9 @@ def _model(
     if validation_error is not None:
         raise validation_error from None
     assert value is not None
-    cast(_RequestIdModel, value)._request_id = response.headers.get("x-request-id")
+    cast(_ResponseMetaModel, value)._response_meta = ResponseMeta._from_response(
+        response, _redact_headers(response.headers, sensitive_values)
+    )
     return value
 
 

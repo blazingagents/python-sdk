@@ -79,6 +79,7 @@ from ._models import (
     ProviderModels,
     Providers,
     Quota,
+    ResponseMeta,
     Session,
     SessionActivity,
     SessionForkedFrom,
@@ -143,6 +144,7 @@ from ._models import (
     UsageTotals,
     Workspace,
     WorkspacesPage,
+    response_meta,
 )
 from ._object import AsyncObjectStream, ObjectStream
 from ._responses import Completion
@@ -378,6 +380,7 @@ __all__ = [
     "PromptsListOptions",
     "PromptUpdate",
     "Quota",
+    "ResponseMeta",
     "ResponseObservation",
     "QuotaUpdate",
     "Session",
@@ -477,6 +480,7 @@ __all__ = [
     "WorkspaceUpdate",
     "__version__",
     "define_function",
+    "response_meta",
     "MerchantBindingResponse",
     "MerchantBindingsPage",
     "MerchantConnection",

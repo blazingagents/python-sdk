@@ -9,7 +9,7 @@ import time
 from collections import deque
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import FrozenInstanceError, dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import distribution
 from importlib.resources import files
@@ -114,6 +114,7 @@ from blazing_agents import (
     UsageOverview,
     UsageOverviewQuery,
     __version__,
+    response_meta,
 )
 
 TENANT = {
@@ -552,8 +553,20 @@ def test_public_surface_and_sync_tenant_tracer(monkeypatch: pytest.MonkeyPatch) 
     assert tenant.quota is not None
     assert tenant.quota.monthly_token_limit == 1_000
     assert tenant.model_extra == {"futureField": {"opaque_key": True}}
-    assert tenant._request_id == "req_sync"
-    assert "_request_id" not in tenant.model_dump()
+    meta = response_meta(tenant)
+    assert meta.status == 200
+    assert meta.request_id == "req_sync"
+    assert meta.headers["X-Request-Id"] == "req_sync"
+    assert dict(meta.headers)["x-request-id"] == "req_sync"
+    assert len(meta.headers) == len(dict(meta.headers))
+    assert "req_sync" in repr(meta)
+    assert "req_sync" not in tenant.model_dump_json()
+    with pytest.raises(TypeError):
+        meta.headers["x-request-id"] = "forged"  # type: ignore[index]
+    with pytest.raises(FrozenInstanceError):
+        meta.status = 500  # type: ignore[misc]
+    with pytest.raises(ValueError, match="not returned by a Blazing Agents client"):
+        response_meta(type(tenant).model_validate(TENANT))
     assert issubclass(APIStatusError, BlazingAgentsError)
     assert issubclass(APIConnectionError, BlazingAgentsError)
     assert issubclass(APITimeoutError, APIConnectionError)
@@ -725,12 +738,12 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert isinstance(created, TaskCreateResponse)
     assert isinstance(created.task, Task)
     assert created.run_id == TASK_RUN["id"]
-    assert created._request_id == "req_task_create"
+    assert response_meta(created).request_id == "req_task_create"
     assert created.model_extra == {"futureResponseField": True}
     assert created.task.model_extra == {"futureTaskField": {"opaque_key": True}}
     assert isinstance(page, TasksPage)
     assert isinstance(page.data[0], TaskListItem)
-    assert page._request_id == "req_tasks_page"
+    assert response_meta(page).request_id == "req_tasks_page"
     assert isinstance(page.data[0].schedule, TaskCronSchedule)
     assert fetched.id == TASK["id"]
     assert unpinned.schedule is None
@@ -746,7 +759,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert run.status == "succeeded"
     assert run.turn_id == TASK_RUN["turnId"]
     assert run.model_extra == {"futureRunField": {"opaque_key": True}}
-    assert run._request_id == "req_task_run"
+    assert response_meta(run).request_id == "req_task_run"
     assert isinstance(messages, TaskRunMessagesPage)
     assert messages.latest_cursor == "tail"
     assert messages.status == "blocked"
@@ -1642,7 +1655,7 @@ def test_async_clients_match_tenant_and_usage_behavior(
                     "ag_0123456789abcdef",
                     session_id="ss_0123456789abcdef",
                 )
-            assert tenant._request_id == "req_async_get"
+            assert response_meta(tenant).request_id == "req_async_get"
             assert tenant.model_extra == {"futureAsyncField": {"OpaqueKey": True}}
             assert updated.name == "Async update"
             assert usage.totals.output_tokens == 5
@@ -2164,7 +2177,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
     assert created.metadata == {"OpaqueKey": {"nested_key": True}}
     assert created.model_extra == {"futureField": "retained"}
     assert created.status == "future-status"
-    assert created._request_id == "req_agent"
+    assert response_meta(created).request_id == "req_agent"
     assert listed.data[0].workspace_id == "ws_0123456789abcdef"
     assert listed.next_cursor == "next-agent"
     assert fetched.id == "ag_0123456789abcdef"
@@ -2235,7 +2248,7 @@ def test_sync_agent_mcp_attachment_settings() -> None:
     assert listed.mcp_attachments[0].forward_user_id is False
     assert updated.forwarded_metadata_keys == ["locale"]
     assert updated.model_extra == {"futureSetting": "retained"}
-    assert updated._request_id == "req_attachment"
+    assert response_meta(updated).request_id == "req_attachment"
     assert state.requests[0].target.endswith("/mcp-attachments")
     assert state.requests[1].target.endswith("/mcp-attachments/mcp_0123456789abcdef")
     assert json.loads(state.requests[1].body) == {
@@ -2524,7 +2537,7 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
             pending = client.workspaces.delete(workspace_id="ws_0123456789abcdef")
             completed = client.workspaces.delete(workspace_id="ws_0123456789abcdef")
 
-    assert created._request_id == "req_workspace"
+    assert response_meta(created).request_id == "req_workspace"
     assert created.model_extra == {"futureCreateField": {"opaque": True}}
     assert page.next_cursor == "next"
     assert fetched.name == "Build files"
@@ -2698,7 +2711,10 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
         json.dumps(PROVIDER)[:-1] + ',"api\\u004bey":"server-secret"}'
     ).encode()
     with loopback(
-        Response(body=future, headers={"x-request-id": "req_provider"}),
+        Response(
+            body=future,
+            headers={"x-request-id": "req_provider", "x-echo-secret": secret},
+        ),
         Response(
             body={
                 "providers": [
@@ -2761,7 +2777,8 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
     assert isinstance(created, Provider)
     assert created.provider_type == "future-provider"
     assert created.model_extra == {"futureField": {"OpaqueKey": True}}
-    assert created._request_id == "req_provider"
+    assert response_meta(created).request_id == "req_provider"
+    assert response_meta(created).headers["x-echo-secret"] == "[REDACTED]"
     assert secret not in created.model_dump_json()
     assert listed.providers[0].model_extra == {"futureField": {"OpaqueKey": True}}
     assert not hasattr(listed.providers[0], "base_url")
@@ -3683,7 +3700,7 @@ def test_sync_prompts_manage_lifecycle_attribution_and_opaque_metadata() -> None
     assert created.agent_id == "ag_0123456789abcdef"
     assert updated.agent_id is None
     assert created.variables == ["name"]
-    assert created._request_id == "req_prompt"
+    assert response_meta(created).request_id == "req_prompt"
     assert created.model_extra == {"futureField": {"opaque_key": True}}
     assert listed.data[0].user_id == ""
     assert listed.next_cursor == "next-prompt"
@@ -3811,7 +3828,7 @@ def test_sync_memories_manage_lifecycle_query_and_lazy_pages() -> None:
     assert created.memory.user_id == ""
     assert created.memory.model_extra == {"futureField": {"opaque_key": True}}
     assert created.model_extra == {"futureEnvelopeField": True}
-    assert created._request_id == "req_memory"
+    assert response_meta(created).request_id == "req_memory"
     assert page.next_cursor == "next"
     assert fetched.memory.text == "Prefers dark mode"
     assert updated.memory.text == "Prefers light mode"
@@ -4128,9 +4145,9 @@ def test_sync_skills_manage_files_pagination_and_partial_copies() -> None:
     assert isinstance(created, SkillDetail)
     assert isinstance(page, SkillsPage)
     assert isinstance(page.data[0], Skill)
-    assert created._request_id == "req_skill_create"
+    assert response_meta(created).request_id == "req_skill_create"
     assert created.model_extra == {"futureField": {"opaque_key": True}}
-    assert page._request_id == "req_skill_page"
+    assert response_meta(page).request_id == "req_skill_page"
     assert fetched.files[1].size_bytes == 4
     assert content == b"\x00\xff\x80\x01"
     assert replaced.id == SKILL["id"]
@@ -4141,8 +4158,8 @@ def test_sync_skills_manage_files_pagination_and_partial_copies() -> None:
     assert isinstance(copied[1], SkillCopyFailed)
     assert copied[1].agent_id == failed_destination
     assert copied[1].error.details == {"existingId": "skill_1111111111111111"}
-    assert copied[0]._request_id == "req_skill_copy"
-    assert copied[1]._request_id == "req_skill_copy"
+    assert response_meta(copied[0]).request_id == "req_skill_copy"
+    assert response_meta(copied[1]).request_id == "req_skill_copy"
 
     assert json.loads(state.requests[0].body) == {
         "path": "SKILL.md",
@@ -4740,7 +4757,7 @@ def test_sync_sessions_list_returns_a_correlated_forward_compatible_page() -> No
         "?userId=end%2Fuser&cursor=cursor+value&limit=25"
     )
     assert page.next_cursor == "next-session"
-    assert page._request_id == "req_sessions_list"
+    assert response_meta(page).request_id == "req_sessions_list"
     assert page.model_extra == {"futurePageField": True}
     assert page.data[0].metadata == {"OpaqueKey": {"nested_key": True}}
     assert page.data[0].model_extra == {"futureSessionField": {"opaque": True}}
@@ -4769,7 +4786,7 @@ def test_sync_tool_approvals_preserve_pending_and_continuation_state() -> None:
         "/v1/agents/ag_0123456789abcdef/sessions/ss_0123456789abcdef/tool-approvals"
     )
     assert isinstance(approvals, ToolApprovals)
-    assert approvals._request_id == "req_approval_list"
+    assert response_meta(approvals).request_id == "req_approval_list"
     assert approvals.model_extra == {"futureResponseField": {"opaque": True}}
     assert approvals.continuation == ToolApprovalContinuation.model_validate(
         {
@@ -4833,7 +4850,7 @@ def test_async_sessions_list_and_iter_match_sync_paging() -> None:
                 )
                 assert page.data == []
                 assert page.next_cursor is None
-                assert page._request_id == "req_sessions_empty"
+                assert response_meta(page).request_id == "req_sessions_empty"
 
                 sessions = client.sessions.iter(agent_id=AGENT["id"], limit=1)
                 assert len(state.requests) == 1
@@ -4878,7 +4895,7 @@ def test_sync_sessions_list_latest_serializes_by_agent() -> None:
         "/v1/sessions/latest?limit=1",
     ]
     assert page.next_cursor == "next-latest"
-    assert page._request_id == "req_sessions_latest"
+    assert response_meta(page).request_id == "req_sessions_latest"
     assert page.model_extra == {"futurePageField": True}
     assert page.data[0].id == SESSION["id"]
     assert page.data[0].agent_id == AGENT["id"]
@@ -4911,7 +4928,7 @@ def test_async_sessions_list_latest_matches_sync_serialization() -> None:
                 )
                 assert page.data == []
                 assert page.next_cursor is None
-                assert page._request_id == "req_sessions_latest_empty"
+                assert response_meta(page).request_id == "req_sessions_latest_empty"
 
                 latest = await client.sessions.list_latest()
                 assert [item.agent_id for item in latest.data] == [AGENT["id"]]
@@ -4960,7 +4977,7 @@ def test_sync_session_messages_preserve_stored_history_and_order() -> None:
     ]
     assert page.next_cursor == "older"
     assert page.latest_cursor == "tail"
-    assert page._request_id == "req_messages"
+    assert response_meta(page).request_id == "req_messages"
     assert page.model_extra == {"futurePageField": "retained"}
     assert page.data[1].model_extra == {"futureMessageField": True}
     assert page.data[1].parts[0].model_extra == {"OpaqueKey": {"nested_key": True}}
