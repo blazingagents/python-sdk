@@ -403,6 +403,7 @@ class Response:
     body_factory: Callable[[Request], Any] | None = None
     status: int = 200
     headers: dict[str, str] = field(default_factory=_empty_headers)
+    repeated_headers: tuple[tuple[str, str], ...] = ()
     delay: float = 0
     raw_body: bytes | None = None
     chunks: tuple[bytes, ...] | None = None
@@ -479,7 +480,7 @@ def loopback(*responses: Response) -> Generator[tuple[str, ServerState]]:
             else:
                 self.send_header("transfer-encoding", "chunked")
             self.send_header("connection", "close")
-            for name, value in response.headers.items():
+            for name, value in (*response.headers.items(), *response.repeated_headers):
                 self.send_header(name, value)
             self.end_headers()
             try:
@@ -522,6 +523,24 @@ def loopback(*responses: Response) -> Generator[tuple[str, ServerState]]:
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_response_meta_reflects_status_request_id_and_repeated_headers() -> None:
+    with loopback(
+        Response(
+            body=TENANT,
+            status=201,
+            repeated_headers=(("set-cookie", "a=1"), ("set-cookie", "b=2")),
+        ),
+    ) as (base_url, _state):
+        with BlazingAgents(api_key="ba_explicit", base_url=base_url) as client:
+            created = client.tenant.get()
+
+    meta = response_meta(created)
+    assert meta.status == 201
+    assert meta.request_id is None
+    assert meta.headers["Set-Cookie"] == "a=1, b=2"
+    assert len(meta.headers) == len(dict(meta.headers))
 
 
 def test_public_surface_and_sync_tenant_tracer(monkeypatch: pytest.MonkeyPatch) -> None:

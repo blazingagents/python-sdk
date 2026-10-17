@@ -319,7 +319,7 @@ class _ReadOnlyHeaders(Mapping[str, str]):
         return iter(self._headers)
 
     def __len__(self) -> int:
-        return len(self._headers)
+        return len(self._headers.keys())
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({dict(self._headers)!r})"
