@@ -8,6 +8,7 @@ from copy import copy
 from dataclasses import dataclass
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, overload
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -84,6 +85,25 @@ class ResponseObservation:
     duration_ms: float
     request_id: str | None
     client_request_id: str | None
+
+
+def path_segment(name: str, value: str) -> str:
+    """Percent-encode one URL path segment.
+
+    Args:
+        name: Parameter name used in the error message.
+        value: Identifier to place in the path.
+
+    Returns:
+        The percent-encoded segment.
+
+    Raises:
+        ValueError: The identifier is empty, ``.`` or ``..``, which would change
+            the request path.
+    """
+    if value in {"", ".", ".."}:
+        raise ValueError(f"{name} must not be empty, '.' or '..'.")
+    return quote(value, safe="")
 
 
 @dataclass(frozen=True)

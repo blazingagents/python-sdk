@@ -8,9 +8,7 @@ from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from typing import Literal, cast
-from urllib.parse import quote
 
-from ._chat import path_segment
 from ._models import (
     Agent,
     AgentsPage,
@@ -73,6 +71,7 @@ from ._transport import (
     SyncTransport,
     _Omitted,
     _Request,
+    path_segment,
 )
 from ._types import (
     AgentTool,
@@ -241,14 +240,14 @@ def _validate_agent_update_configuration(
 
 def _agent_path(agent_id: str) -> str:
     """Build the encoded agent endpoint path."""
-    return f"/v1/agents/{quote(agent_id, safe='')}"
+    return f"/v1/agents/{path_segment('agent_id', agent_id)}"
 
 
 def _sessions_path(agent_id: str, session_id: str | None = None) -> str:
     """Build the encoded sessions endpoint path."""
-    path = f"/v1/agents/{quote(agent_id, safe='')}/sessions"
+    path = f"/v1/agents/{path_segment('agent_id', agent_id)}/sessions"
     if session_id is not None:
-        return f"{path}/{quote(session_id, safe='')}"
+        return f"{path}/{path_segment('session_id', session_id)}"
     return path
 
 
@@ -320,7 +319,7 @@ def _task_path(task_id: str | None = None) -> str:
     path = "/v1/tasks"
     if task_id is None:
         return path
-    return f"{path}/{quote(task_id, safe='')}"
+    return f"{path}/{path_segment('task_id', task_id)}"
 
 
 def _task_run_path(task_id: str, run_id: str | None = None) -> str:
@@ -328,7 +327,7 @@ def _task_run_path(task_id: str, run_id: str | None = None) -> str:
     path = f"{_task_path(task_id)}/runs"
     if run_id is None:
         return path
-    return f"{path}/{quote(run_id, safe='')}"
+    return f"{path}/{path_segment('run_id', run_id)}"
 
 
 def _validate_offset_datetime(value: str) -> None:
@@ -503,7 +502,7 @@ def _cursor_limit_query(
 
 def _workspace_path(workspace_id: str) -> str:
     """Build the encoded workspace endpoint path."""
-    return f"/v1/workspaces/{quote(workspace_id, safe='')}"
+    return f"/v1/workspaces/{path_segment('workspace_id', workspace_id)}"
 
 
 def _workspace_body(
@@ -624,17 +623,17 @@ def _provider_update_body(
 
 def _provider_path(provider_id: str) -> str:
     """Build the encoded provider endpoint path."""
-    return f"/v1/providers/{quote(provider_id, safe='')}"
+    return f"/v1/providers/{path_segment('provider_id', provider_id)}"
 
 
 def _mcp_connection_path(mcp_connection_id: str) -> str:
     """Build the encoded mcp connection endpoint path."""
-    return f"/v1/mcp-connections/{quote(mcp_connection_id, safe='')}"
+    return f"/v1/mcp-connections/{path_segment('mcp_connection_id', mcp_connection_id)}"
 
 
 def _prompt_path(prompt_id: str) -> str:
     """Build the encoded prompt endpoint path."""
-    return f"/v1/prompts/{quote(prompt_id, safe='')}"
+    return f"/v1/prompts/{path_segment('prompt_id', prompt_id)}"
 
 
 def _memory_path(agent_id: str, memory_id: str | None = None) -> str:
@@ -642,7 +641,7 @@ def _memory_path(agent_id: str, memory_id: str | None = None) -> str:
     path = f"{_agent_path(agent_id)}/memories"
     if memory_id is None:
         return path
-    return f"{path}/{quote(memory_id, safe='')}"
+    return f"{path}/{path_segment('memory_id', memory_id)}"
 
 
 def _skill_path(agent_id: str, skill_id: str | None = None) -> str:
@@ -650,12 +649,12 @@ def _skill_path(agent_id: str, skill_id: str | None = None) -> str:
     path = f"{_agent_path(agent_id)}/skills"
     if skill_id is None:
         return path
-    return f"{path}/{quote(skill_id, safe='')}"
+    return f"{path}/{path_segment('skill_id', skill_id)}"
 
 
 def _artifact_path(artifact_id: str) -> str:
     """Build the encoded artifact endpoint path."""
-    return f"/v1/artifacts/{quote(artifact_id, safe='')}"
+    return f"/v1/artifacts/{path_segment('artifact_id', artifact_id)}"
 
 
 def _artifacts_query(
@@ -1127,7 +1126,7 @@ class UserAgentsResource:
                 "PATCH",
                 (
                     f"{_agent_path(agent_id)}/mcp-attachments/"
-                    f"{quote(mcp_connection_id, safe='')}"
+                    f"{path_segment('mcp_connection_id', mcp_connection_id)}"
                 ),
                 json_body=_mcp_attachment_body(
                     forward_user_id,
@@ -1691,7 +1690,7 @@ class AsyncUserAgentsResource:
                 "PATCH",
                 (
                     f"{_agent_path(agent_id)}/mcp-attachments/"
-                    f"{quote(mcp_connection_id, safe='')}"
+                    f"{path_segment('mcp_connection_id', mcp_connection_id)}"
                 ),
                 json_body=_mcp_attachment_body(
                     forward_user_id,
@@ -5116,7 +5115,7 @@ class UserUsageResource:
         return self._transport.request(
             _Request(
                 "GET",
-                f"/v1/agents/{quote(agent_id, safe='')}/usage",
+                f"/v1/agents/{path_segment('agent_id', agent_id)}/usage",
                 query=query,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -5318,7 +5317,7 @@ class AsyncUserUsageResource:
         return await self._transport.request(
             _Request(
                 "GET",
-                f"/v1/agents/{quote(agent_id, safe='')}/usage",
+                f"/v1/agents/{path_segment('agent_id', agent_id)}/usage",
                 query=query,
                 extra_headers=extra_headers,
                 timeout=timeout,

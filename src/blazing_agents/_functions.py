@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast, get_args
-from urllib.parse import quote
 
 import httpx
 from pydantic import (
@@ -26,7 +25,7 @@ from pydantic import (
 )
 
 from ._errors import APIStatusError, BlazingAgentsError, StreamError
-from ._transport import AsyncTransport, SyncTransport, _Request
+from ._transport import AsyncTransport, SyncTransport, _Request, path_segment
 from ._types import BuiltinToolName
 
 if TYPE_CHECKING:
@@ -344,9 +343,9 @@ class _CallScope:
         return _Request(
             "POST",
             (
-                f"/v1/agents/{quote(self.agent_id, safe='')}"
-                f"/sessions/{quote(self.session_id, safe='')}"
-                f"/function-calls/{quote(call_id, safe='')}/{action}"
+                f"/v1/agents/{path_segment('agent_id', self.agent_id)}"
+                f"/sessions/{path_segment('session_id', self.session_id)}"
+                f"/function-calls/{path_segment('call_id', call_id)}/{action}"
             ),
             json_body=body,
             extra_headers=self.extra_headers,

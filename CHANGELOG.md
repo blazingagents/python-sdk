@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fixed: every method that puts an identifier in the URL path now raises
+  `ValueError` for an empty, `.` or `..` identifier. Before, such a value
+  changed the path, so `providers.delete(".")` sent `DELETE /v1/providers`.
 - `response_meta(model)` returns a frozen `ResponseMeta` with the HTTP
   `status`, server `request_id`, and read-only `headers` of the response a
   client method decoded into `model`. It raises `ValueError` for models the

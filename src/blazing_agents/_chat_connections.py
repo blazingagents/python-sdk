@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Literal, overload
-from urllib.parse import quote
 
 from ._models import ChatConnection, ChatConnections
-from ._transport import OMITTED, AsyncTransport, SyncTransport, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    AsyncTransport,
+    SyncTransport,
+    _Omitted,
+    _Request,
+    path_segment,
+)
 from ._types import (
     SlackChatConfigurationInput,
     SlackChatCredentialsInput,
@@ -25,7 +31,9 @@ def _wire(values: Mapping[str, object]) -> dict[str, object]:
 
 def _path(chat_connection_id: str) -> str:
     """Build the encoded Chat Connection endpoint path."""
-    return f"/v1/chat-connections/{quote(chat_connection_id, safe='')}"
+    return (
+        f"/v1/chat-connections/{path_segment('chat_connection_id', chat_connection_id)}"
+    )
 
 
 class ChatConnectionsResource:
