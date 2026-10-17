@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.23.0
+
+- `for_user(...).usage.get_for_agent()` reads one Agent's usage for the scoped
+  user. The API already allowed it.
+- Deprecated: `for_user(...).agents.get_spending_limit()` and
+  `for_user(...).agents.update_spending_limit()`. The API always refuses them
+  for user-scoped callers with `forbidden` (403), so they never worked there.
+  They now emit a `DeprecationWarning` and are removed from user-scoped clients
+  in a later release. Call them on the tenant client:
+
+  ```python
+  # Before
+  client.for_user(user_id).agents.get_spending_limit(agent_id)
+
+  # After
+  client.agents.get_spending_limit(agent_id)
+  ```
+
 ## 0.22.0
 
 - Add `AGENT_TOOLS` and `AGENT_TOOL_GROUPS`, the built-in tool catalog. Each
