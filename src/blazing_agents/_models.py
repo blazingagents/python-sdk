@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Annotated, ClassVar, Literal, TypeAlias, cast
 from urllib.parse import parse_qsl, urlsplit
@@ -338,7 +338,7 @@ class ResponseMeta:
 
     status: int
     request_id: str | None
-    headers: Mapping[str, str]
+    headers: Mapping[str, str] = field(hash=False)
 
     @classmethod
     def _from_response(

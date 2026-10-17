@@ -541,6 +541,8 @@ def test_response_meta_reflects_status_request_id_and_repeated_headers() -> None
     assert meta.request_id is None
     assert meta.headers["Set-Cookie"] == "a=1, b=2"
     assert len(meta.headers) == len(dict(meta.headers))
+    assert {meta, response_meta(created)} == {meta}
+    assert hash(meta) == hash(response_meta(created))
 
 
 def test_public_surface_and_sync_tenant_tracer(monkeypatch: pytest.MonkeyPatch) -> None:
