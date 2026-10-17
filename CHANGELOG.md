@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.25.0
 
 - Fixed: every method that puts an identifier in the URL path now raises
   `ValueError` for an empty, `.` or `..` identifier. Before, such a value
