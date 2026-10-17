@@ -21,6 +21,9 @@
 
   response_meta(agent).request_id
   ```
+- A malformed Task `schedule` or tenant `quota` now raises pydantic's
+  `ValidationError`, a `ValueError` subclass, for every kind of mistake. Some
+  shape errors raised `TypeError` before. Catch `ValueError` for both.
 
 ## 0.24.0
 

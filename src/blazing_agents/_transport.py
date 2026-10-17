@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ValidationError
+from pydantic.alias_generators import to_camel
 
 from ._downloads import AsyncByteStream, ByteStream
 from ._errors import (
@@ -53,6 +54,11 @@ OMITTED = _Omitted()
 def drop_omitted(*fields: tuple[str, _T | _Omitted]) -> dict[str, _T]:
     """Map each wire name to its value, leaving out the fields still OMITTED."""
     return {name: value for name, value in fields if not isinstance(value, _Omitted)}
+
+
+def camel_case_keys(values: Mapping[str, object]) -> dict[str, object]:
+    """Rename snake_case input keys to their camelCase wire names."""
+    return {to_camel(key): value for key, value in values.items()}
 
 
 class _ResponseStatus:

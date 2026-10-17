@@ -7,7 +7,10 @@ from contextlib import contextmanager
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Literal, cast, get_args
+from typing import Annotated, Literal, get_args
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic.alias_generators import to_camel
 
 from ._models import (
     Agent,
@@ -71,6 +74,7 @@ from ._transport import (
     SyncTransport,
     _Omitted,
     _Request,
+    camel_case_keys,
     drop_omitted,
     path_segment,
 )
@@ -98,11 +102,7 @@ def _spending_limit_body(
     return {
         "spendingLimit": None
         if spending_limit is None
-        else {
-            "amountUsd": spending_limit["amount_usd"],
-            "resetStartDate": spending_limit["reset_start_date"],
-            "resetInterval": spending_limit["reset_interval"],
-        }
+        else camel_case_keys(spending_limit)
     }
 
 
@@ -165,18 +165,7 @@ def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
     body: dict[str, object] = {"default": policy["default"]}
     if "overrides" in policy:
         body["overrides"] = [
-            {
-                "tool": (
-                    {"type": "builtin", "name": rule["tool"]["name"]}
-                    if rule["tool"]["type"] == "builtin"
-                    else {
-                        "type": "mcp",
-                        "connectionId": rule["tool"]["connection_id"],
-                        "name": rule["tool"]["name"],
-                    }
-                ),
-                "decision": rule["decision"],
-            }
+            {"tool": camel_case_keys(rule["tool"]), "decision": rule["decision"]}
             for rule in policy["overrides"]
         ]
     return body
@@ -297,8 +286,8 @@ def _task_run_path(task_id: str, run_id: str | None = None) -> str:
     return f"{path}/{path_segment('run_id', run_id)}"
 
 
-def _validate_offset_datetime(value: str) -> None:
-    """Validate an ISO datetime with a timezone offset."""
+def _validate_offset_datetime(value: str) -> str:
+    """Return an ISO datetime with a timezone offset, or raise ValueError."""
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -310,70 +299,66 @@ def _validate_offset_datetime(value: str) -> None:
     ):
         msg = "once schedule at must be an ISO datetime with an offset"
         raise ValueError(msg)
+    return value
+
+
+class _WireInput(BaseModel):
+    """Caller input validated by its snake_case names, sent with camelCase names."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        extra="forbid",
+        strict=True,
+        validate_by_name=True,
+        validate_by_alias=False,
+    )
+
+
+class _TaskOnceConfigInput(_WireInput):
+    at: Annotated[str, AfterValidator(_validate_offset_datetime)]
+
+
+class _TaskIntervalConfigInput(_WireInput):
+    every_ms: int = Field(ge=60_000)
+
+
+class _TaskCronConfigInput(_WireInput):
+    expression: Annotated[str, AfterValidator(_validate_cron)]
+    timezone: Annotated[str, AfterValidator(_validate_timezone)] | None = None
+    stagger_ms: int | None = Field(default=None, ge=0)
+
+
+class _TaskOnceScheduleInput(_WireInput):
+    kind: Literal["once"]
+    config: _TaskOnceConfigInput
+
+
+class _TaskIntervalScheduleInput(_WireInput):
+    kind: Literal["interval"]
+    config: _TaskIntervalConfigInput
+
+
+class _TaskCronScheduleInput(_WireInput):
+    kind: Literal["cron"]
+    config: _TaskCronConfigInput
+
+
+_TASK_SCHEDULE: TypeAdapter[
+    _TaskOnceScheduleInput | _TaskIntervalScheduleInput | _TaskCronScheduleInput
+] = TypeAdapter(
+    Annotated[
+        _TaskOnceScheduleInput | _TaskIntervalScheduleInput | _TaskCronScheduleInput,
+        Field(discriminator="kind"),
+    ],
+    config=ConfigDict(title="schedule"),
+)
 
 
 def _task_schedule(schedule: TaskScheduleInput) -> dict[str, object]:
-    """Validate and serialize a one-time, interval, or cron Task schedule."""
-    if not isinstance(schedule, dict) or set(schedule) != {"kind", "config"}:
-        msg = "schedule must contain exactly kind and config"
-        raise TypeError(msg)
-    kind = schedule["kind"]
-    config = cast(dict[str, object], schedule["config"])
-    if not isinstance(config, dict):
-        msg = "schedule config must be a dictionary"
-        raise TypeError(msg)
-    if kind == "once":
-        if set(config) != {"at"} or not isinstance(config["at"], str):
-            msg = "once schedule config must contain exactly string at"
-            raise TypeError(msg)
-        _validate_offset_datetime(config["at"])
-        return {"kind": kind, "config": {"at": config["at"]}}
-    if kind == "interval":
-        every_ms = config.get("every_ms")
-        if (
-            set(config) != {"every_ms"}
-            or not isinstance(every_ms, int)
-            or isinstance(every_ms, bool)
-            or every_ms < 60_000
-        ):
-            msg = "interval schedule config requires every_ms of at least 60000"
-            raise ValueError(msg)
-        return {"kind": kind, "config": {"everyMs": every_ms}}
-    if kind == "cron":
-        if "expression" not in config or not set(config) <= {
-            "expression",
-            "timezone",
-            "stagger_ms",
-        }:
-            msg = "cron schedule config has invalid fields"
-            raise TypeError(msg)
-        expression = config["expression"]
-        timezone = config.get("timezone")
-        stagger_ms = config.get("stagger_ms")
-        if not isinstance(expression, str):
-            msg = "cron schedule expression must be a string"
-            raise TypeError(msg)
-        _validate_cron(expression)
-        if timezone is not None and not isinstance(timezone, str):
-            msg = "cron schedule timezone must be a string"
-            raise TypeError(msg)
-        if timezone is not None:
-            timezone = _validate_timezone(timezone)
-        if stagger_ms is not None and (
-            not isinstance(stagger_ms, int)
-            or isinstance(stagger_ms, bool)
-            or stagger_ms < 0
-        ):
-            msg = "cron schedule stagger_ms must be a non-negative integer"
-            raise ValueError(msg)
-        wire_config: dict[str, object] = {"expression": expression}
-        if timezone is not None:
-            wire_config["timezone"] = timezone
-        if stagger_ms is not None:
-            wire_config["staggerMs"] = stagger_ms
-        return {"kind": kind, "config": wire_config}
-    msg = "schedule kind must be once, interval, or cron"
-    raise ValueError(msg)
+    """Validate a one-time, interval, or cron Task schedule into its wire shape."""
+    return _TASK_SCHEDULE.validate_python(schedule).model_dump(
+        by_alias=True, exclude_none=True
+    )
 
 
 def _task_body(
@@ -474,15 +459,9 @@ def _workspace_body(
         ("metadata", metadata),
         (
             "networkPolicy",
-            (
-                {
-                    "allowedHosts": network_policy["allowed_hosts"],
-                    "mode": "allowlist",
-                }
-                if not isinstance(network_policy, _Omitted)
-                and network_policy["mode"] == "allowlist"
-                else network_policy
-            ),
+            network_policy
+            if isinstance(network_policy, _Omitted)
+            else camel_case_keys(network_policy),
         ),
     )
 
@@ -4570,6 +4549,12 @@ class AsyncWorkspacesResource:
         return "pending" if status == 202 else "completed"
 
 
+class _QuotaInput(_WireInput):
+    monthly_token_limit: int | None
+    monthly_request_limit: int | None
+    reset_day: int
+
+
 def _tenant_body(
     name: str | _Omitted,
     quota: QuotaUpdate | None | _Omitted,
@@ -4580,20 +4565,11 @@ def _tenant_body(
         ("name", name), ("monetizationEnabled", monetization_enabled)
     )
     if not isinstance(quota, _Omitted):
-        if quota is None:
-            body["quota"] = None
-        else:
-            if (
-                not isinstance(quota, dict)
-                or frozenset(quota) != QuotaUpdate.__required_keys__
-            ):
-                msg = "quota must contain exactly the documented fields"
-                raise TypeError(msg)
-            body["quota"] = {
-                "monthlyTokenLimit": quota["monthly_token_limit"],
-                "monthlyRequestLimit": quota["monthly_request_limit"],
-                "resetDay": quota["reset_day"],
-            }
+        body["quota"] = (
+            None
+            if quota is None
+            else _QuotaInput.model_validate(quota).model_dump(by_alias=True)
+        )
     if not body:
         msg = "At least one tenant field must be provided."
         raise ValueError(msg)

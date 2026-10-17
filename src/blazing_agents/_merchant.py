@@ -18,6 +18,7 @@ from ._transport import (
     SyncTransport,
     _Omitted,
     _Request,
+    camel_case_keys,
     drop_omitted,
     path_segment,
 )
@@ -37,11 +38,7 @@ _EVENTS_PATH = "/v1/merchant-usage-events"
 
 def _guard_body(guard: MerchantGuardInput) -> dict[str, object]:
     """Convert a guard input to its wire shape."""
-    return {
-        "enabled": guard["enabled"],
-        "productIds": guard["product_ids"],
-        "meterId": guard["meter_id"],
-    }
+    return camel_case_keys(guard)
 
 
 class MerchantConnectionResource:
