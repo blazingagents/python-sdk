@@ -6,7 +6,6 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Annotated, ClassVar, Literal, TypeAlias, cast
-from urllib.parse import parse_qsl, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
@@ -299,7 +298,6 @@ def _validate_timezone(timezone: str) -> str:
     return timezone
 
 
-_MCP_OAUTH_SETUP_TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 ForwardedMetadataKeys: TypeAlias = Annotated[
     list[MetadataKey],
     Field(max_length=32),
@@ -599,30 +597,6 @@ class McpConnection(CredentialSafeResponseModel):
 
 class McpConnections(CredentialSafeResponseModel):
     mcp_connections: list[McpConnection] = Field(alias="mcpConnections")
-
-
-class McpConnectionAuthorization(CredentialSafeResponseModel):
-    authorization_url: AnyUrl = Field(alias="authorizationUrl")
-
-    @field_validator("authorization_url")
-    @classmethod
-    def _validate_authorization_url(cls, value: AnyUrl) -> AnyUrl:
-        """Reject authorization URLs containing credential material."""
-        parsed = urlsplit(str(value))
-        query = parse_qsl(parsed.query, keep_blank_values=True)
-        if (
-            parsed.scheme not in {"http", "https"}
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.path != "/app/mcp-connections"
-            or parsed.fragment
-            or len(query) != 1
-            or query[0][0] != "mcpOAuthSetup"
-            or _MCP_OAUTH_SETUP_TOKEN.fullmatch(query[0][1]) is None
-        ):
-            msg = "authorizationUrl must be the Blazing MCP OAuth setup URL"
-            raise ValueError(msg)
-        return value
 
 
 class McpConnectionTestError(CredentialSafeResponseModel):

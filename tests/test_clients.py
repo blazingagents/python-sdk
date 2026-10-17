@@ -2832,8 +2832,7 @@ def test_sync_mcp_connection_creation_and_reconnection_auth_shapes(
     assert json.loads(state.requests[3].body) == json.loads(state.requests[1].body)
 
 
-def test_sync_mcp_connections_cover_lifecycle_tests_and_oauth_initiation() -> None:
-    setup = "A" * 43
+def test_sync_mcp_connections_cover_lifecycle_and_tests() -> None:
     future = {**MCP_CONNECTION, "futureField": "retained"}
     succeeded = {
         "ok": True,
@@ -2852,14 +2851,6 @@ def test_sync_mcp_connections_cover_lifecycle_tests_and_oauth_initiation() -> No
         },
     }
     with loopback(
-        Response(
-            body={
-                "authorizationUrl": (
-                    f"https://app.example.com/app/mcp-connections?mcpOAuthSetup={setup}"
-                ),
-                "futureField": True,
-            }
-        ),
         Response(body={"mcpConnections": [future]}),
         Response(body=future),
         Response(body=future),
@@ -2868,7 +2859,6 @@ def test_sync_mcp_connections_cover_lifecycle_tests_and_oauth_initiation() -> No
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
         with BlazingAgents(api_key="jwt_test", base_url=base_url) as client:
-            initiation = client.mcp_connections.connect(MCP_CONNECTION["id"])
             listed = client.mcp_connections.list()
             fetched = client.mcp_connections.get("mcp/with space")
             updated = client.mcp_connections.update(
@@ -2879,8 +2869,6 @@ def test_sync_mcp_connections_cover_lifecycle_tests_and_oauth_initiation() -> No
             failed_test = client.mcp_connections.test(MCP_CONNECTION["id"])
             client.mcp_connections.delete(MCP_CONNECTION["id"])
 
-    assert str(initiation.authorization_url).endswith(f"mcpOAuthSetup={setup}")
-    assert initiation.model_extra == {"futureField": True}
     assert listed.mcp_connections[0].model_extra == {"futureField": "retained"}
     assert fetched.status == "future-status"
     assert updated.name == "Tools"
@@ -2893,13 +2881,11 @@ def test_sync_mcp_connections_cover_lifecycle_tests_and_oauth_initiation() -> No
     assert failed_test.error is not None
     assert failed_test.error.code == "FUTURE_MCP_ERROR"
     assert failed_test.error.model_extra == {"future": True}
-    assert state.requests[0].target.endswith("/connect")
-    assert state.requests[2].target == "/v1/mcp-connections/mcp%2Fwith%20space"
-    assert json.loads(state.requests[3].body) == {"name": "Renamed"}
+    assert state.requests[1].target == "/v1/mcp-connections/mcp%2Fwith%20space"
+    assert json.loads(state.requests[2].body) == {"name": "Renamed"}
 
 
 def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
-    setup = "A" * 43
     responses = (
         Response(body=MCP_CONNECTION),
         Response(body={"mcpConnections": [MCP_CONNECTION]}),
@@ -2916,13 +2902,6 @@ def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
         ),
         Response(
             body={"status": "connected", "connection": MCP_CONNECTION},
-        ),
-        Response(
-            body={
-                "authorizationUrl": (
-                    f"https://app.example.com/app/mcp-connections?mcpOAuthSetup={setup}"
-                )
-            }
         ),
         Response(status=204, raw_body=b""),
         Response(body={**MCP_CONNECTION, "createdAt": "wrong"}),
@@ -2952,7 +2931,6 @@ def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
                     url="https://mcp.example.com/",
                     auth_type="none",
                 )
-                await client.mcp_connections.connect(MCP_CONNECTION["id"])
                 await client.mcp_connections.delete(MCP_CONNECTION["id"])
                 with pytest.raises(ValueError, match="At least one"):
                     await client.mcp_connections.update(MCP_CONNECTION["id"])
@@ -2963,7 +2941,7 @@ def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
 
         asyncio.run(exercise())
 
-    assert len(state.requests) == 10
+    assert len(state.requests) == 9
     client = BlazingAgents(api_key="ba_test", base_url="http://127.0.0.1:1")
     with pytest.raises(ValueError, match="auth_type"):
         client.mcp_connections.create(
@@ -3060,51 +3038,6 @@ def test_mcp_authorization_code_without_client_credentials_preserves_wire_shape(
             "authType": "oauth_authorization_code",
         },
     ] * 2
-
-
-def test_mcp_authorization_code_initiation_rejects_malformed_urls_in_both_clients() -> (
-    None
-):
-    setup = "A" * 43
-    invalid_urls = (
-        f"https://auth.example.com/authorize?mcpOAuthSetup={setup}",
-        f"https://app.example.com/app/mcp-connections?wrong={setup}",
-        f"https://app.example.com/app/mcp-connections?mcpOAuthSetup={'A' * 42}",
-        f"https://app.example.com/app/mcp-connections?mcpOAuthSetup={setup}&extra=1",
-        f"https://app.example.com/app/mcp-connections?mcpOAuthSetup={setup}&clientSecret=secret-canary",
-        f"https://user:secret@app.example.com/app/mcp-connections?mcpOAuthSetup={setup}",
-        f"https://app.example.com/app/mcp-connections?mcpOAuthSetup={setup}#secret",
-    )
-    responses = tuple(
-        Response(body={"authorizationUrl": url})
-        for url in (*invalid_urls, *invalid_urls)
-    )
-    with loopback(*responses) as (base_url, _state):
-        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            for url in invalid_urls:
-                with pytest.raises(ValidationError) as error:
-                    client.mcp_connections.connect(MCP_CONNECTION["id"])
-                if "secret-canary" in url:
-                    assert "secret-canary" not in repr(error.value)
-                    assert "secret-canary" not in repr(error.value.errors())
-                    assert error.value.__cause__ is None
-                    assert error.value.__context__ is None
-
-        async def exercise() -> None:
-            async with AsyncBlazingAgents(
-                api_key="ba_test",
-                base_url=base_url,
-            ) as client:
-                for url in invalid_urls:
-                    with pytest.raises(ValidationError) as error:
-                        await client.mcp_connections.connect(MCP_CONNECTION["id"])
-                    if "secret-canary" in url:
-                        assert "secret-canary" not in repr(error.value)
-                        assert "secret-canary" not in repr(error.value.errors())
-                        assert error.value.__cause__ is None
-                        assert error.value.__context__ is None
-
-        asyncio.run(exercise())
 
 
 def test_async_mcp_test_results_preserve_logical_errors_and_future_fields() -> None:
