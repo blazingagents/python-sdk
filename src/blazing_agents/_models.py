@@ -443,12 +443,6 @@ class SpendingLimitStopDetails(ResponseModel):
     next_reset_at: AwareDatetime | None = Field(alias="nextResetAt")
 
 
-class SpendingLimitStopData(SpendingLimitStopDetails):
-    model_config = ConfigDict(extra="forbid")
-
-    code: Literal["model_spending_limit_exceeded"]
-
-
 class _TransientEvent(ResponseModel):
     """Base for stream events whose `transient` field must be the boolean true."""
 
@@ -463,27 +457,32 @@ class _TransientEvent(ResponseModel):
         return value
 
 
-class SpendingLimitStopEvent(_TransientEvent):
-    type: Literal["data-model-spending-limit"]
-    data: SpendingLimitStopData
-    transient: Literal[True]
+class TurnStreamError(ResponseModel):
+    """The `error` of the HTTP error body the same failure would have returned.
 
-
-class TurnInterruptedData(ResponseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    code: Literal["turn_interrupted"]
-
-
-class TurnInterruptedEvent(_TransientEvent):
-    """Transient event that precedes the `error` chunk of a cut Turn stream.
-
-    `turn_interrupted` is the code of this event only, never an HTTP error code.
-    The Turn may have saved its work before the cut, so read the Session's messages.
+    `code` is an API error code or `turn_interrupted`, which only a stream
+    sends. It stays open to codes added later, as an HTTP error code does.
     """
 
-    type: Literal["data-turn-interrupted"]
-    data: TurnInterruptedData
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    details: dict[str, object] | None = Field(default=None, min_length=1)
+
+
+class TurnStreamErrorEvent(_TransientEvent):
+    """Transient event that precedes the `error` chunk of a failed Turn stream.
+
+    A spending stop carries its numbers in `details`; parse them with
+    `SpendingLimitStopDetails.model_validate(details, strict=False)`, which
+    reads the ISO reset time from the decoded JSON. After `turn_interrupted`
+    the Turn may have saved its work before the cut, so read the Session's
+    messages.
+    """
+
+    type: Literal["data-ba-error"]
+    data: TurnStreamError
     transient: Literal[True]
 
 

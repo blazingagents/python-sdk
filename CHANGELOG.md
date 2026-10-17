@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.27.0
+
+### Changed
+
+- A Turn stream that fails after it starts now names its error in one
+  transient `data-ba-error` event before the `error` chunk. Its `data` has the
+  shape of an HTTP error body's `error`: `code`, `message` and optional
+  `details`. `code` is an API error code or `turn_interrupted`, which only a
+  stream sends. `TurnStreamErrorEvent` and `TurnStreamError` model it.
+
+### Removed
+
+- `SpendingLimitStopEvent`, `SpendingLimitStopData`, `TurnInterruptedEvent` and
+  `TurnInterruptedData`, with the `data-model-spending-limit` and
+  `data-turn-interrupted` events they modeled. A spending stop now arrives as
+  `data-ba-error` with code `model_spending_limit_exceeded`, and its numbers
+  move to `details`:
+
+  ```python
+  # Before
+  event = SpendingLimitStopEvent.model_validate_json(payload)
+  reason = event.data.reason
+
+  # After
+  event = TurnStreamErrorEvent.model_validate_json(payload)
+  if event.data.code == "model_spending_limit_exceeded":
+      details = event.data.details
+      reason = SpendingLimitStopDetails.model_validate(details, strict=False).reason
+  ```
+
 ## 0.26.0
 
 ### Removed

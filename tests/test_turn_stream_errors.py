@@ -12,51 +12,63 @@ from blazing_agents import (
     APIStatusError,
     AsyncBlazingAgents,
     BlazingAgents,
-    TurnInterruptedEvent,
+    TurnStreamErrorEvent,
 )
 
 AGENT_ID = "ag_0123456789abcdef"
 MESSAGE: Any = {"role": "user", "parts": [{"type": "text", "text": "Hello"}]}
-EVENT: dict[str, Any] = {
-    "type": "data-turn-interrupted",
-    "data": {"code": "turn_interrupted"},
-    "transient": True,
-}
 ERROR_TEXT = (
     "The turn was interrupted before it finished. Read the session's messages "
     "to see what was saved. The session may stay busy for up to a minute."
 )
+EVENT: dict[str, Any] = {
+    "type": "data-ba-error",
+    "data": {"code": "turn_interrupted", "message": ERROR_TEXT},
+    "transient": True,
+}
 
 
 def test_typed_interruption_event_decode() -> None:
-    event = TurnInterruptedEvent.model_validate_json(json.dumps(EVENT))
-    assert event.type == "data-turn-interrupted"
+    event = TurnStreamErrorEvent.model_validate_json(json.dumps(EVENT))
+    assert event.type == "data-ba-error"
     assert event.transient is True
     assert event.data.code == "turn_interrupted"
+    assert event.data.message == ERROR_TEXT
+    assert event.data.details is None
+
+
+def test_stream_error_code_stays_open_to_later_codes() -> None:
+    event = TurnStreamErrorEvent.model_validate(
+        {**EVENT, "data": {"code": "future_code", "message": "Later."}}
+    )
+    assert event.data.code == "future_code"
 
 
 @pytest.mark.parametrize("transient", [1, 1.0, False, "true"])
-def test_interruption_event_transient_requires_true_boolean(
+def test_stream_error_event_transient_requires_true_boolean(
     transient: object,
 ) -> None:
     with pytest.raises(ValidationError):
-        TurnInterruptedEvent.model_validate({**EVENT, "transient": transient})
+        TurnStreamErrorEvent.model_validate({**EVENT, "transient": transient})
 
 
 @pytest.mark.parametrize(
     "patch",
     [
-        {"type": "data-model-spending-limit"},
+        {"type": "data-turn-interrupted"},
         {"transient": False},
-        {"data": {"code": "internal"}},
-        {"data": {"code": "turn_interrupted", "extra": True}},
-        {"data": {}},
+        {"data": {"code": "", "message": ERROR_TEXT}},
+        {"data": {"code": 409, "message": ERROR_TEXT}},
+        {"data": {"code": "turn_interrupted"}},
+        {"data": {"code": "turn_interrupted", "message": ""}},
+        {"data": {"code": "turn_interrupted", "message": "x", "details": {}}},
+        {"data": {"code": "turn_interrupted", "message": "x", "extra": True}},
         {"extra": True},
     ],
 )
-def test_invalid_interruption_events_are_rejected(patch: dict[str, Any]) -> None:
+def test_invalid_stream_error_events_are_rejected(patch: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
-        TurnInterruptedEvent.model_validate_json(json.dumps({**EVENT, **patch}))
+        TurnStreamErrorEvent.model_validate_json(json.dumps({**EVENT, **patch}))
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
