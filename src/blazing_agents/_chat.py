@@ -33,7 +33,7 @@ class ChatStream(ByteStream):
         session_id: str | None,
         functions: (Callable[[str], SyncFunctionRunner] | None) = None,
     ) -> None:
-        """Initialize ChatStream.
+        """Wrap a raw chat response for the Session it started or resumed.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -90,7 +90,7 @@ class AsyncChatStream(AsyncByteStream):
         session_id: str | None,
         functions: (Callable[[str], AsyncFunctionRunner] | None) = None,
     ) -> None:
-        """Initialize AsyncChatStream.
+        """Wrap an async raw chat response for its Session.
 
         Args:
             response: HTTPX response supplying the body and response metadata.

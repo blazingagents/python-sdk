@@ -125,7 +125,7 @@ def _api_key(explicit: str | None) -> str:
 
 class AgentClient:
     def __init__(self, transport: SyncTransport, agent_id: str) -> None:
-        """Initialize AgentClient.
+        """Scope Agent-level operations to one Agent.
 
         Args:
             transport: Transport used for requests.
@@ -136,7 +136,7 @@ class AgentClient:
 
 class AsyncAgentClient:
     def __init__(self, transport: AsyncTransport, agent_id: str) -> None:
-        """Initialize AsyncAgentClient.
+        """Scope async Agent-level operations to one Agent.
 
         Args:
             transport: Transport used for requests.
@@ -904,7 +904,7 @@ class UserClient(_SyncClient):
     """
 
     def __init__(self, transport: SyncTransport) -> None:
-        """Initialize UserClient.
+        """Scope every request to the end user the transport names.
 
         Args:
             transport: Transport scoped to the end user.
@@ -935,7 +935,7 @@ class BlazingAgents(_SyncClient):
         http_client: httpx.Client | None = None,
         on_response: Callable[[ResponseObservation], None] | None = None,
     ) -> None:
-        """Initialize BlazingAgents.
+        """Create a synchronous Blazing Agents API client.
 
         Args:
             api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
@@ -1784,7 +1784,7 @@ class AsyncUserClient(_AsyncClient):
     """
 
     def __init__(self, transport: AsyncTransport) -> None:
-        """Initialize AsyncUserClient.
+        """Scope every async request to the end user the transport names.
 
         Args:
             transport: Transport scoped to the end user.
@@ -1815,7 +1815,7 @@ class AsyncBlazingAgents(_AsyncClient):
         http_client: httpx.AsyncClient | None = None,
         on_response: Callable[[ResponseObservation], None] | None = None,
     ) -> None:
-        """Initialize AsyncBlazingAgents.
+        """Create an async Blazing Agents API client.
 
         Args:
             api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.

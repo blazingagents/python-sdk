@@ -14,7 +14,7 @@ from ._types import Timeout
 
 class _CompletionStreamBase(_ByteStreamBase):
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize CompletionStreamBase.
+        """Wrap a streaming completion response.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -44,7 +44,7 @@ class CompletionStream(_CompletionStreamBase):
     """A single-consumer stream of decoded completion text deltas."""
 
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize CompletionStream.
+        """Wrap a streaming completion response for iteration.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -119,7 +119,7 @@ class AsyncCompletionStream(_CompletionStreamBase):
     """An asynchronous single-consumer stream of completion text deltas."""
 
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize AsyncCompletionStream.
+        """Wrap a streaming completion response for async iteration.
 
         Args:
             response: HTTPX response supplying the body and response metadata.

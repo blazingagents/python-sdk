@@ -144,7 +144,7 @@ class _TransportConfig:
         on_response: Callable[[ResponseObservation], None] | None,
         client_request_id: str | None,
     ) -> None:
-        """Initialize TransportConfig.
+        """Hold the authentication, header, and timeout settings for requests.
 
         Args:
             api_key: Resolved API key used for authentication.
@@ -618,7 +618,7 @@ class SyncTransport:
         config: _TransportConfig,
         http_client: httpx.Client | None,
     ) -> None:
-        """Initialize SyncTransport.
+        """Send requests through a new or caller-supplied HTTPX client.
 
         Args:
             config: Authentication, headers, and timeout configuration.
@@ -898,7 +898,7 @@ class AsyncTransport:
         config: _TransportConfig,
         http_client: httpx.AsyncClient | None,
     ) -> None:
-        """Initialize AsyncTransport.
+        """Send async requests through a new or caller-supplied HTTPX client.
 
         Args:
             config: Authentication, headers, and timeout configuration.

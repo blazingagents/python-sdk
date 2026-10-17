@@ -812,7 +812,7 @@ class UserAgentsResource:
         Omitted fields retain server defaults or existing values.
 
         Args:
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1057,7 +1057,7 @@ class UserAgentsResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1376,7 +1376,7 @@ class AsyncUserAgentsResource:
         Omitted fields retain server defaults or existing values.
 
         Args:
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1621,7 +1621,7 @@ class AsyncUserAgentsResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1926,7 +1926,7 @@ class ProvidersResource:
         """Create a Provider.
 
         Args:
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             provider_type: Provider API type.
             api_key: The vendor API key. It is stored encrypted, never returned,
                 and cannot be changed later.
@@ -2111,7 +2111,7 @@ class ProvidersResource:
         Args:
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2197,7 +2197,7 @@ class AsyncProvidersResource:
         """Create a Provider.
 
         Args:
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             provider_type: Provider API type.
             api_key: The vendor API key. It is stored encrypted, never returned,
                 and cannot be changed later.
@@ -2382,7 +2382,7 @@ class AsyncProvidersResource:
         Args:
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2508,7 +2508,7 @@ class McpConnectionsResource:
         paired.
 
         Args:
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             url: Service endpoint URL.
             auth_type: Connection authentication type.
             bearer_token: Bearer token for bearer authentication.
@@ -2629,7 +2629,7 @@ class McpConnectionsResource:
 
         Args:
             mcp_connection_id: MCP Connection identifier.
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2847,7 +2847,7 @@ class AsyncMcpConnectionsResource:
         paired.
 
         Args:
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             url: Service endpoint URL.
             auth_type: Connection authentication type.
             bearer_token: Bearer token for bearer authentication.
@@ -2968,7 +2968,7 @@ class AsyncMcpConnectionsResource:
 
         Args:
             mcp_connection_id: MCP Connection identifier.
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -3636,7 +3636,7 @@ class PromptsResource:
         """Create a Prompt.
 
         Args:
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             agent_id: Agent identifier.
             user_id: Caller-defined user identifier.
@@ -3760,7 +3760,7 @@ class PromptsResource:
         Args:
             prompt_id: Stored Prompt identifier.
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             metadata: Caller-defined JSON metadata.
             extra_headers: Headers for this request. Authorization uses the client
@@ -3850,7 +3850,7 @@ class AsyncPromptsResource:
         """Create a Prompt.
 
         Args:
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             agent_id: Agent identifier.
             user_id: Caller-defined user identifier.
@@ -3974,7 +3974,7 @@ class AsyncPromptsResource:
         Args:
             prompt_id: Stored Prompt identifier.
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             metadata: Caller-defined JSON metadata.
             extra_headers: Headers for this request. Authorization uses the client
@@ -4065,7 +4065,7 @@ class WorkspacesResource:
 
         Args:
             tier: Immutable Workspace tier; defaults to Core.
-            name: Name of the entity.
+            name: Workspace display name, up to 80 characters.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
@@ -4221,7 +4221,7 @@ class WorkspacesResource:
 
         Args:
             workspace_id: Workspace identifier.
-            name: Name of the entity.
+            name: New Workspace display name, or None to clear it.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
             extra_headers: Headers for this request. Authorization uses the client
@@ -4315,7 +4315,7 @@ class AsyncWorkspacesResource:
 
         Args:
             tier: Immutable Workspace tier; defaults to Core.
-            name: Name of the entity.
+            name: Workspace display name, up to 80 characters.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
@@ -4472,7 +4472,7 @@ class AsyncWorkspacesResource:
 
         Args:
             workspace_id: Workspace identifier.
-            name: Name of the entity.
+            name: New Workspace display name, or None to clear it.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
             extra_headers: Headers for this request. Authorization uses the client
@@ -4693,7 +4693,7 @@ class TenantResource:
         """Update the provided Tenant settings fields.
 
         Args:
-            name: Name of the entity.
+            name: Tenant display name, 1 to 80 characters.
             quota: Tenant usage limit updates.
             monetization_enabled: Bill usage to your end users through your
                 merchant account. Turning it off drops usage events the merchant
@@ -4810,7 +4810,7 @@ class AsyncTenantResource:
         """Update the provided Tenant settings fields.
 
         Args:
-            name: Name of the entity.
+            name: Tenant display name, 1 to 80 characters.
             quota: Tenant usage limit updates.
             monetization_enabled: Bill usage to your end users through your
                 merchant account. Turning it off drops usage events the merchant
@@ -5449,7 +5449,7 @@ class TasksResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -5626,7 +5626,7 @@ class TasksResource:
 
         Args:
             task_id: Task identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text. Omission retains the current value.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -5957,7 +5957,7 @@ class AsyncTasksResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -6135,7 +6135,7 @@ class AsyncTasksResource:
 
         Args:
             task_id: Task identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text. Omission retains the current value.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.

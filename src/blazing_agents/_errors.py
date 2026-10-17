@@ -27,7 +27,7 @@ class APIStatusError(BlazingAgentsError):
         request_id: str | None,
         response_body: str,
     ) -> None:
-        """Initialize APIStatusError.
+        """Describe a non-successful API response.
 
         Args:
             message: Error message for the caller.
@@ -67,7 +67,7 @@ class StreamError(BlazingAgentsError):
         *,
         response: httpx.Response,
     ) -> None:
-        """Initialize StreamError.
+        """Describe a failure after the streaming response headers arrived.
 
         Args:
             message: Error message for the caller.
@@ -89,7 +89,7 @@ class ObjectTruncationError(StreamError):
         response: httpx.Response,
         json_error: json.JSONDecodeError,
     ) -> None:
-        """Initialize ObjectTruncationError.
+        """Report an object response that ended mid-JSON.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -108,7 +108,7 @@ class ObjectJSONDecodeError(StreamError):
         response: httpx.Response,
         json_error: json.JSONDecodeError,
     ) -> None:
-        """Initialize ObjectJSONDecodeError.
+        """Report an object response whose text is not valid JSON.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -127,7 +127,7 @@ class ObjectValidationError(StreamError):
         response: httpx.Response,
         validation_error: ValidationError,
     ) -> None:
-        """Initialize ObjectValidationError.
+        """Report a decoded object that fails the requested output type.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
