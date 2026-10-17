@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger("blazing_agents")
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
 _StreamT = TypeVar("_StreamT")
+_T = TypeVar("_T")
 _MIN_SUBSTRING_SECRET_LENGTH = 8
 
 
@@ -47,6 +48,11 @@ class _Omitted:
 
 
 OMITTED = _Omitted()
+
+
+def drop_omitted(*fields: tuple[str, _T | _Omitted]) -> dict[str, _T]:
+    """Map each wire name to its value, leaving out the fields still OMITTED."""
+    return {name: value for name, value in fields if not isinstance(value, _Omitted)}
 
 
 class _ResponseStatus:

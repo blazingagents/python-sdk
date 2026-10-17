@@ -71,6 +71,7 @@ from ._transport import (
     SyncTransport,
     _Omitted,
     _Request,
+    drop_omitted,
     path_segment,
 )
 from ._types import (
@@ -135,8 +136,7 @@ def _agent_body(
         workspace_tier, _Omitted
     ):
         raise ValueError("workspace_id and workspace_tier are mutually exclusive")
-    body: dict[str, object] = {}
-    for wire_name, value in (
+    body: dict[str, object] = drop_omitted(
         ("name", name),
         ("model", model),
         ("providerId", provider_id),
@@ -151,15 +151,12 @@ def _agent_body(
         ("userId", user_id),
         ("metadata", metadata),
         ("mcpConnectionIds", mcp_connection_ids),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
-    for wire_name, policy in (
+    )
+    for wire_name, policy in drop_omitted(
         ("approvalInChat", approval_in_chat),
         ("approvalInTasks", approval_in_tasks),
-    ):
-        if not isinstance(policy, _Omitted):
-            body[wire_name] = _approval_policy_body(policy)
+    ).items():
+        body[wire_name] = _approval_policy_body(policy)
     return body
 
 
@@ -250,11 +247,7 @@ def _inputs_query(
     query: dict[str, str | int] = {}
     if not isinstance(include_completed, _Omitted):
         query["includeCompleted"] = str(include_completed).lower()
-    if not isinstance(cursor, _Omitted):
-        query["cursor"] = cursor
-    if not isinstance(limit, _Omitted):
-        query["limit"] = limit
-    return query
+    return query | drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 def _sessions_query(
@@ -264,14 +257,11 @@ def _sessions_query(
     by_agent: bool | None = None,
 ) -> dict[str, str | int]:
     """Build the sessions query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (
+    query: dict[str, str | int] = drop_omitted(
         ("userId", user_id),
         ("cursor", cursor),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     if by_agent is not None:
         query["byAgent"] = str(by_agent).lower()
     return query
@@ -283,14 +273,11 @@ def _session_messages_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the session messages query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (
+    query: dict[str, str | int] = drop_omitted(
         ("cursor", cursor),
         ("after", after),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     return query
 
 
@@ -403,7 +390,7 @@ def _task_body(
 ) -> dict[str, object]:
     """Build the task request body, omitting unspecified fields."""
     body: dict[str, object] = _task_run_body(idempotency_key)
-    for wire_name, value in (
+    body |= drop_omitted(
         ("agentId", agent_id),
         ("name", name),
         ("prompt", prompt),
@@ -411,9 +398,7 @@ def _task_body(
         ("submit", submit),
         ("userId", user_id),
         ("metadata", metadata),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     if not isinstance(schedule, _Omitted):
         body["schedule"] = None if schedule is None else _task_schedule(schedule)
     return body
@@ -426,16 +411,12 @@ def _tasks_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the tasks query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("agentId", agent_id),
-            ("userId", user_id),
-            ("cursor", cursor),
-            ("limit", limit),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("agentId", agent_id),
+        ("userId", user_id),
+        ("cursor", cursor),
+        ("limit", limit),
+    )
 
 
 def _task_run_body(
@@ -458,14 +439,10 @@ def _agents_query(
     workspace_id: str | _Omitted,
 ) -> dict[str, str]:
     """Build the agents query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("userId", user_id),
-            ("workspaceId", workspace_id),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("userId", user_id),
+        ("workspaceId", workspace_id),
+    )
 
 
 def _cursor_limit_query(
@@ -473,11 +450,7 @@ def _cursor_limit_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the cursor limit query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (("cursor", cursor), ("limit", limit))
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 def _workspace_path(workspace_id: str) -> str:
@@ -494,28 +467,24 @@ def _workspace_body(
     tier: WorkspaceTier | _Omitted = OMITTED,
 ) -> dict[str, object]:
     """Build the workspace request body, omitting unspecified fields."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("name", name),
-            ("tier", tier),
-            ("userId", user_id),
-            ("metadata", metadata),
+    return drop_omitted(
+        ("name", name),
+        ("tier", tier),
+        ("userId", user_id),
+        ("metadata", metadata),
+        (
+            "networkPolicy",
             (
-                "networkPolicy",
-                (
-                    {
-                        "allowedHosts": network_policy["allowed_hosts"],
-                        "mode": "allowlist",
-                    }
-                    if not isinstance(network_policy, _Omitted)
-                    and network_policy["mode"] == "allowlist"
-                    else network_policy
-                ),
+                {
+                    "allowedHosts": network_policy["allowed_hosts"],
+                    "mode": "allowlist",
+                }
+                if not isinstance(network_policy, _Omitted)
+                and network_policy["mode"] == "allowlist"
+                else network_policy
             ),
-        )
-        if not isinstance(value, _Omitted)
-    }
+        ),
+    )
 
 
 def _workspaces_query(
@@ -524,15 +493,11 @@ def _workspaces_query(
     user_id: str | _Omitted,
 ) -> dict[str, str | int]:
     """Build the workspaces query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("cursor", cursor),
-            ("limit", limit),
-            ("userId", user_id),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("cursor", cursor),
+        ("limit", limit),
+        ("userId", user_id),
+    )
 
 
 def _mcp_attachment_body(
@@ -540,14 +505,10 @@ def _mcp_attachment_body(
     forwarded_metadata_keys: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
     """Build the mcp attachment request body, omitting unspecified fields."""
-    body: dict[str, object] = {
-        wire_name: value
-        for wire_name, value in (
-            ("forwardUserId", forward_user_id),
-            ("forwardedMetadataKeys", forwarded_metadata_keys),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    body: dict[str, object] = drop_omitted(
+        ("forwardUserId", forward_user_id),
+        ("forwardedMetadataKeys", forwarded_metadata_keys),
+    )
     if not body:
         msg = "At least one MCP Attachment field must be provided."
         raise ValueError(msg)
@@ -580,13 +541,11 @@ def _provider_body(
         "providerType": provider_type,
         "apiKey": api_key,
     }
-    for wire_name, value in (
+    body |= drop_omitted(
         ("name", name),
         ("baseUrl", base_url),
         ("model", model),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     return body
 
 
@@ -643,15 +602,11 @@ def _artifacts_query(
     cursor: str | _Omitted,
 ) -> dict[str, str]:
     """Build the artifacts query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("agentId", agent_id),
-            ("sessionId", session_id),
-            ("cursor", cursor),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("agentId", agent_id),
+        ("sessionId", session_id),
+        ("cursor", cursor),
+    )
 
 
 def _skills_query(
@@ -659,11 +614,7 @@ def _skills_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the skills query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (("cursor", cursor), ("limit", limit))
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 def _memory_body(
@@ -673,9 +624,7 @@ def _memory_body(
 ) -> dict[str, object]:
     """Build the memory request body, omitting unspecified fields."""
     body: dict[str, object] = {"text": text}
-    if not isinstance(user_id, _Omitted):
-        body["userId"] = user_id
-    return body
+    return body | drop_omitted(("userId", user_id))
 
 
 def _memories_query(
@@ -686,16 +635,12 @@ def _memories_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the memories query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("userId", user_id),
-            ("search", search),
-            ("cursor", cursor),
-            ("limit", limit),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("userId", user_id),
+        ("search", search),
+        ("cursor", cursor),
+        ("limit", limit),
+    )
 
 
 def _prompt_body(
@@ -707,17 +652,13 @@ def _prompt_body(
     metadata: dict[str, object] | _Omitted,
 ) -> dict[str, object]:
     """Build the prompt request body, omitting unspecified fields."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("name", name),
-            ("template", template),
-            ("agentId", agent_id),
-            ("userId", user_id),
-            ("metadata", metadata),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("name", name),
+        ("template", template),
+        ("agentId", agent_id),
+        ("userId", user_id),
+        ("metadata", metadata),
+    )
 
 
 def _mcp_connection_body(
@@ -766,15 +707,13 @@ def _mcp_connection_body(
         raise ValueError(msg)
 
     body: dict[str, object] = {"authType": auth_type, "url": url}
-    for wire_name, value in (
+    body |= drop_omitted(
         ("name", name),
         ("bearerToken", bearer_token),
         ("clientId", client_id),
         ("clientSecret", client_secret),
         ("scope", scope),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     return body
 
 
@@ -3792,11 +3731,7 @@ class PromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query={
-                    key: value
-                    for key, value in (("userId", user_id), ("agentId", agent_id))
-                    if not isinstance(value, _Omitted)
-                }
+                query=drop_omitted(("userId", user_id), ("agentId", agent_id))
                 | _cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -4010,11 +3945,7 @@ class AsyncPromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query={
-                    key: value
-                    for key, value in (("userId", user_id), ("agentId", agent_id))
-                    if not isinstance(value, _Omitted)
-                }
+                query=drop_omitted(("userId", user_id), ("agentId", agent_id))
                 | _cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -4645,11 +4576,9 @@ def _tenant_body(
     monetization_enabled: bool | _Omitted,
 ) -> dict[str, object]:
     """Build the tenant request body, omitting unspecified fields."""
-    body: dict[str, object] = {}
-    if not isinstance(name, _Omitted):
-        body["name"] = name
-    if not isinstance(monetization_enabled, _Omitted):
-        body["monetizationEnabled"] = monetization_enabled
+    body: dict[str, object] = drop_omitted(
+        ("name", name), ("monetizationEnabled", monetization_enabled)
+    )
     if not isinstance(quota, _Omitted):
         if quota is None:
             body["quota"] = None
@@ -4682,8 +4611,7 @@ def _usage_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the usage query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (
+    query: dict[str, str | int] = drop_omitted(
         ("from", from_),
         ("to", to),
         ("agentId", agent_id),
@@ -4691,9 +4619,7 @@ def _usage_query(
         ("userId", user_id),
         ("groupBy", group_by),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     return query
 
 
@@ -4704,10 +4630,9 @@ def _usage_overview_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the usage overview query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (("from", from_), ("to", to), ("limit", limit)):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    query: dict[str, str | int] = drop_omitted(
+        ("from", from_), ("to", to), ("limit", limit)
+    )
     return query
 
 
@@ -5037,9 +4962,7 @@ class UserUsageResource:
             APITimeoutError: The HTTP request times out.
         """
         body: dict[str, object] = {"sessionIds": list(session_ids)}
-        for wire_name, value in (("from", from_), ("to", to)):
-            if not isinstance(value, _Omitted):
-                body[wire_name] = value
+        body |= drop_omitted(("from", from_), ("to", to))
         return self._transport.request(
             _Request(
                 "POST",
@@ -5239,9 +5162,7 @@ class AsyncUserUsageResource:
             APITimeoutError: The HTTP request times out.
         """
         body: dict[str, object] = {"sessionIds": list(session_ids)}
-        for wire_name, value in (("from", from_), ("to", to)):
-            if not isinstance(value, _Omitted):
-                body[wire_name] = value
+        body |= drop_omitted(("from", from_), ("to", to))
         return await self._transport.request(
             _Request(
                 "POST",
