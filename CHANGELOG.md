@@ -5,6 +5,16 @@
 - Fixed: every method that puts an identifier in the URL path now raises
   `ValueError` for an empty, `.` or `..` identifier. Before, such a value
   changed the path, so `providers.delete(".")` sent `DELETE /v1/providers`.
+- `client.chat_connections.list_deliveries()` and lazy `iter_deliveries()`
+  list one Chat Connection's deliveries in every status, newest first
+  (`GET /v1/chat-connections/{id}/deliveries`), with `cursor` and `limit`.
+- `client.chat_connections.repair_delivery(chat_connection_id, delivery_id,
+  expected_attempt=...)` sends a stuck reply or approval card again
+  (`POST /v1/chat-connections/{id}/deliveries/{deliveryId}/repair`). It always
+  sends `previousSenderStopped` and `acceptDuplicateRisk` as `true`, so calling
+  it confirms the previous sender stopped and accepts that the message may
+  appear twice. Check the result's `status`.
+- New public types: `ChatConnectionDeliveriesPage` and `ChatDeliveryResult`.
 - `response_meta(model)` returns a frozen `ResponseMeta` with the HTTP
   `status`, server `request_id`, and read-only `headers` of the response a
   client method decoded into `model`. It raises `ValueError` for models the

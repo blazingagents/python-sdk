@@ -1391,6 +1391,23 @@ class ChatDeliveriesPage(ResponseModel):
     next_cursor: str | None = Field(alias="nextCursor")
 
 
+class ChatConnectionDeliveriesPage(ResponseModel):
+    data: list[ChatDelivery]
+    next_cursor: str | None = Field(alias="nextCursor")
+
+
+class ChatDeliveryResult(ResponseModel):
+    id: Annotated[str, StringConstraints(pattern=r"^cd_[0-9A-Za-z]{16}$")]
+    session_id: str = Field(alias="sessionId")
+    thread_id: str = Field(alias="threadId")
+    connection_id: Annotated[
+        str, StringConstraints(pattern=r"^cc_[0-9A-Za-z]{16}$")
+    ] = Field(alias="connectionId")
+    kind: Literal["reply", "card"]
+    status: Literal["confirmed", "failed", "ambiguous"]
+    attempt: int = Field(ge=0)
+
+
 MerchantConnectionId: TypeAlias = Annotated[
     str,
     StringConstraints(pattern=r"^mch_[0-9A-Za-z]{16}$"),
