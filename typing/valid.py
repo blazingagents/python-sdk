@@ -50,8 +50,6 @@ from blazing_agents import (
     SkillsPage,
     SpendingLimitInput,
     SpendingLimitResponse,
-    SpendingLimitStopData,
-    SpendingLimitStopEvent,
     SpendingLimitUpdate,
     TaskCreateResponse,
     TaskRunMessagesPage,
@@ -62,8 +60,8 @@ from blazing_agents import (
     TenantChatDelivery,
     ToolApprovalDecisionInput,
     ToolExecutionReference,
-    TurnInterruptedData,
-    TurnInterruptedEvent,
+    TurnStreamError,
+    TurnStreamErrorEvent,
     define_function,
 )
 
@@ -685,20 +683,13 @@ def spending_limits(client: BlazingAgents) -> None:
     )
 
 
-def spending_limit_stop_event(payload: str) -> None:
-    event = SpendingLimitStopEvent.model_validate_json(payload)
-    assert_type(event.type, Literal["data-model-spending-limit"])
+def turn_stream_error_event(payload: str) -> None:
+    event = TurnStreamErrorEvent.model_validate_json(payload)
+    assert_type(event.type, Literal["data-ba-error"])
     assert_type(event.transient, Literal[True])
-    assert_type(event.data, SpendingLimitStopData)
-    assert_type(event.data.code, Literal["model_spending_limit_exceeded"])
-
-
-def turn_interrupted_event(payload: str) -> None:
-    event = TurnInterruptedEvent.model_validate_json(payload)
-    assert_type(event.type, Literal["data-turn-interrupted"])
-    assert_type(event.transient, Literal[True])
-    assert_type(event.data, TurnInterruptedData)
-    assert_type(event.data.code, Literal["turn_interrupted"])
+    assert_type(event.data, TurnStreamError)
+    assert_type(event.data.code, str)
+    assert_type(event.data.details, dict[str, object] | None)
 
 
 async def async_spending_limits(client: AsyncBlazingAgents) -> None:

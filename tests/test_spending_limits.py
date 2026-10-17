@@ -15,7 +15,7 @@ from blazing_agents import (
     BlazingAgents,
     SpendingLimit,
     SpendingLimitStopDetails,
-    SpendingLimitStopEvent,
+    TurnStreamErrorEvent,
 )
 
 AGENT_ID = "ag_0123456789abcdef"
@@ -242,83 +242,25 @@ def test_spending_limit_update_requires_explicit_value(asynchronous: bool) -> No
                 client.tenant.update_spending_limit()  # type: ignore[call-arg]
 
 
-def test_typed_stop_event_decode() -> None:
-    event = SpendingLimitStopEvent.model_validate_json(
+def test_stream_spending_stop_carries_its_numbers_in_details() -> None:
+    event = TurnStreamErrorEvent.model_validate_json(
         json.dumps(
             {
-                "type": "data-model-spending-limit",
-                "data": {"code": "model_spending_limit_exceeded", **STOP_DETAILS},
+                "type": "data-ba-error",
+                "data": {
+                    "code": "model_spending_limit_exceeded",
+                    "details": STOP_DETAILS,
+                    "message": "Spending limit reached.",
+                },
                 "transient": True,
             }
         )
     )
-    assert event.type == "data-model-spending-limit"
-    assert event.transient is True
     assert event.data.code == "model_spending_limit_exceeded"
-    assert event.data.scope == "both"
-    assert event.data.reason == "reserved"
-    assert event.data.next_reset_at is not None
-
-
-@pytest.mark.parametrize("transient", [True, 1, 1.0, False])
-@pytest.mark.parametrize("json_input", [False, True])
-def test_stop_event_transient_requires_true_boolean(
-    transient: object, json_input: bool
-) -> None:
-    payload = {
-        "type": "data-model-spending-limit",
-        "data": {
-            "code": "model_spending_limit_exceeded",
-            **STOP_DETAILS,
-            "nextResetAt": None,
-        },
-        "transient": transient,
-    }
-
-    if transient is True:
-        event = (
-            SpendingLimitStopEvent.model_validate_json(json.dumps(payload))
-            if json_input
-            else SpendingLimitStopEvent.model_validate(payload)
-        )
-        assert event.transient is True
-    else:
-        with pytest.raises(ValidationError):
-            if json_input:
-                SpendingLimitStopEvent.model_validate_json(json.dumps(payload))
-            else:
-                SpendingLimitStopEvent.model_validate(payload)
-
-
-@pytest.mark.parametrize(
-    "patch",
-    [
-        {"type": "data-other"},
-        {"transient": False},
-        {"data": {"code": "other", **STOP_DETAILS}},
-        {"data": {"code": "model_spending_limit_exceeded"}},
-        {"extra": True},
-        {
-            "data": {
-                "code": "model_spending_limit_exceeded",
-                **STOP_DETAILS,
-                "extra": True,
-            }
-        },
-    ],
-)
-def test_invalid_stop_events_are_rejected(patch: dict[str, Any]) -> None:
-    with pytest.raises(ValidationError):
-        SpendingLimitStopEvent.model_validate_json(
-            json.dumps(
-                {
-                    "type": "data-model-spending-limit",
-                    "data": {"code": "model_spending_limit_exceeded", **STOP_DETAILS},
-                    "transient": True,
-                    **patch,
-                }
-            )
-        )
+    details = SpendingLimitStopDetails.model_validate(event.data.details, strict=False)
+    assert details.scope == "both"
+    assert details.reason == "reserved"
+    assert details.next_reset_at is not None
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -327,8 +269,12 @@ def test_chat_preserves_spending_stop_event_bytes(asynchronous: bool) -> None:
         "data: "
         + json.dumps(
             {
-                "type": "data-model-spending-limit",
-                "data": {"code": "model_spending_limit_exceeded", **STOP_DETAILS},
+                "type": "data-ba-error",
+                "data": {
+                    "code": "model_spending_limit_exceeded",
+                    "details": STOP_DETAILS,
+                    "message": "Spending limit reached.",
+                },
                 "transient": True,
             }
         )
