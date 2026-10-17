@@ -66,6 +66,9 @@ uv run python scripts/run_typechecks.py
 uv run python scripts/run_tests.py
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the changelog convention and
+the release process.
+
 ## License
 
 [MIT](LICENSE)
