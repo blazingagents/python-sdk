@@ -7,7 +7,7 @@ from typing import Any, get_args
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
-from test_clients import AGENT, TURN_ID, Response, loopback
+from support import AGENT, TURN_ID, Response, loopback
 
 from blazing_agents import (
     Agent,

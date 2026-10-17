@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from test_clients import Response, ServerState, loopback
+from support import Response, ServerState, loopback
 
 from blazing_agents import AsyncBlazingAgents, BlazingAgents
 
