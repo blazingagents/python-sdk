@@ -7,11 +7,11 @@ from contextlib import suppress
 from copy import copy
 from dataclasses import dataclass
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast, overload
+from typing import Any, Protocol, TypeVar, cast, overload
 from urllib.parse import quote
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
 from ._downloads import AsyncByteStream, ByteStream
@@ -24,14 +24,10 @@ from ._errors import (
 )
 from ._models import (
     CredentialSafeResponseModel,
-    McpConnectionAuthorization,
     ResponseMeta,
 )
 from ._responses import Completion
 from ._types import Timeout
-
-if TYPE_CHECKING:
-    from pydantic_core import InitErrorDetails
 
 _LOGGER = logging.getLogger("blazing_agents")
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
@@ -420,24 +416,7 @@ def _model(
         ):
             msg = "The server returned credential material in a response."
             raise BlazingAgentsError(msg)
-    value: _ModelT | None = None
-    validation_error: ValidationError | None = None
-    try:
-        value = model.model_validate_json(response.content)
-    except ValidationError as error:
-        if model is McpConnectionAuthorization:
-            errors = error.errors()
-            for item in errors:
-                item["input"] = "[REDACTED]"
-            validation_error = ValidationError.from_exception_data(
-                error.title,
-                cast("list[InitErrorDetails]", errors),
-            )
-        else:
-            raise
-    if validation_error is not None:
-        raise validation_error from None
-    assert value is not None
+    value = model.model_validate_json(response.content)
     cast(_ResponseMetaModel, value)._attach_response_meta(
         ResponseMeta._from_response(
             response, _redact_headers(response.headers, sensitive_values)

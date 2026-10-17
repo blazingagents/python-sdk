@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.26.0
+
+### Removed
+
+- `client.mcp_connections.connect()`, with its `McpConnectionAuthorization`
+  response model. The API serves `POST /v1/mcp-connections/{id}/connect` only
+  to a dashboard session and refuses an API key, so the method always failed.
+  Finish OAuth sign-in for an `oauth_authorization_code` connection from the
+  dashboard. To replace a connection's URL or credentials from code, call
+  `reconnect()`:
+
+  ```python
+  # Before (always refused)
+  client.mcp_connections.connect(mcp_connection_id)
+
+  # After
+  client.mcp_connections.reconnect(
+      mcp_connection_id,
+      auth_type="bearer",
+      url="https://mcp.example.com/mcp",
+      bearer_token=bearer_token,
+  )
+  ```
+
 ## 0.25.0
 
 - Fixed: every method that puts an identifier in the URL path now raises

@@ -22,7 +22,6 @@ from ._models import (
     McpAttachment,
     McpAttachments,
     McpConnection,
-    McpConnectionAuthorization,
     McpConnectionReconnectResult,
     McpConnections,
     McpConnectionTestResult,
@@ -2455,39 +2454,6 @@ class McpConnectionsResource:
         """
         self._transport = transport
 
-    def connect(
-        self,
-        mcp_connection_id: str,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> McpConnectionAuthorization:
-        """Start authorization for an MCP Connection.
-
-        Args:
-            mcp_connection_id: MCP Connection identifier.
-            extra_headers: Headers for this request. Authorization uses the client
-                API key.
-            timeout: Request timeout override. OMITTED inherits the client timeout.
-
-        Returns:
-            Authorization response for connecting the MCP service.
-
-        Raises:
-            APIStatusError: The API returns a non-success status.
-            APIConnectionError: The HTTP request fails before a complete response.
-            APITimeoutError: The HTTP request times out.
-        """
-        return self._transport.request(
-            _Request(
-                "POST",
-                f"{_mcp_connection_path(mcp_connection_id)}/connect",
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            McpConnectionAuthorization,
-        )
-
     def create(
         self,
         *,
@@ -2793,39 +2759,6 @@ class AsyncMcpConnectionsResource:
             transport: Transport used for requests.
         """
         self._transport = transport
-
-    async def connect(
-        self,
-        mcp_connection_id: str,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> McpConnectionAuthorization:
-        """Start authorization for an MCP Connection.
-
-        Args:
-            mcp_connection_id: MCP Connection identifier.
-            extra_headers: Headers for this request. Authorization uses the client
-                API key.
-            timeout: Request timeout override. OMITTED inherits the client timeout.
-
-        Returns:
-            Authorization response for connecting the MCP service.
-
-        Raises:
-            APIStatusError: The API returns a non-success status.
-            APIConnectionError: The HTTP request fails before a complete response.
-            APITimeoutError: The HTTP request times out.
-        """
-        return await self._transport.request(
-            _Request(
-                "POST",
-                f"{_mcp_connection_path(mcp_connection_id)}/connect",
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            McpConnectionAuthorization,
-        )
 
     async def create(
         self,

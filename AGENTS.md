@@ -4,14 +4,14 @@ README.md is the repository's brief for Tenants: what it is, features, installat
 
 Database integration tests run through the shared platform pool: `npm --prefix ../ba-platform run test:integration:sdk:python`. Independent integration commands can run concurrently; a focused command fails clearly when the pool is full. See [pool configuration and concurrency rules](../ba-platform/docs/test-pool.md). Ordinary unit and protocol-fixture tests need no Supabase.
 
-`spec/openapi.json` is a copy of the platform API contract, used only by tests and left out of the wheel and sdist. `tests/test_contract_scope.py` sends a request from every public `for_user()` client method, sync and async, and fails unless together they send every operation the contract marks `"x-scope": "end-user"` and no other. When the platform contract changes, refresh the copy and run the tests:
+`spec/openapi.json` is a copy of the platform API contract, used only by tests and left out of the wheel and sdist. `tests/test_contract_scope.py` sends a request from every public method of the user clients (`for_user()`) and the tenant clients (`BlazingAgents`), sync and async. It fails unless the user clients send every operation the contract marks `"x-scope": "end-user"` and no other, and the tenant clients send every operation that accepts an API key and no other. User-client requests must carry `X-BA-User-Id`; tenant-client requests must not. When the platform contract changes, refresh the copy and run the tests:
 
 ```sh
 cp ../ba-platform/servers/api/openapi.json spec/openapi.json
 uv run python scripts/run_tests.py
 ```
 
-When the test fails, change the user clients to match the contract, not the test. A new public user-client method needs an entry in the test's `CALLS`.
+When the test fails, change the clients to match the contract, not the test. A new public user-client method needs an entry in the test's `CALLS`, which the tenant clients reuse; a new tenant-only method needs one in `TENANT_CALLS`.
 
 Releases follow `CONTRIBUTING.md`: pushing a `vX.Y.Z` tag publishes to PyPI, and the upload cannot be undone. Never push a `v*` tag without following it.
 
