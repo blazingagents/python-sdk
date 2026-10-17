@@ -30,6 +30,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/blazing_agents"]
 
+[tool.hatch.build.targets.sdist]
+include = ["/src"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
