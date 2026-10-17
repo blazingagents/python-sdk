@@ -880,9 +880,9 @@ def _skill_upload_request(
 
 
 def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
-    """Attach the response request ID to each Skill copy result."""
+    """Attach the response metadata to each Skill copy result."""
     for result in response.root:
-        result._request_id = response._request_id
+        result._response_meta = response._response_meta
     return response.root
 
 

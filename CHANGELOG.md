@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- `response_meta(model)` returns a frozen `ResponseMeta` with the HTTP
+  `status`, server `request_id`, and read-only `headers` of the response a
+  client method decoded into `model`. It raises `ValueError` for models the
+  client did not return.
+- Removed: the private `_request_id` attribute on response models. Use
+  `response_meta()`:
+
+  ```python
+  # Before
+  agent._request_id
+
+  # After
+  from blazing_agents import response_meta
+
+  response_meta(agent).request_id
+  ```
+
 ## 0.24.0
 
 - Removed: `for_user(...).agents.get_spending_limit()` and

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Annotated, ClassVar, Literal, TypeAlias, cast
 from urllib.parse import parse_qsl, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import httpx
 from pydantic import (
     AfterValidator,
     AnyUrl,
@@ -303,10 +306,82 @@ ForwardedMetadataKeys: TypeAlias = Annotated[
 ]
 
 
+class _ReadOnlyHeaders(Mapping[str, str]):
+    """Case-insensitive, read-only view of response headers."""
+
+    def __init__(self, headers: httpx.Headers) -> None:
+        self._headers = httpx.Headers(headers)
+
+    def __getitem__(self, name: str) -> str:
+        return self._headers[name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._headers)
+
+    def __len__(self) -> int:
+        return len(self._headers.keys())
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({dict(self._headers)!r})"
+
+
+@dataclass(frozen=True)
+class ResponseMeta:
+    """HTTP metadata of the response a client method decoded into a model.
+
+    Attributes:
+        status: HTTP status code.
+        request_id: Server request ID from X-Request-Id, if present.
+        headers: Read-only, case-insensitive response headers. Header values
+            that contain a credential the call sent are redacted.
+    """
+
+    status: int
+    request_id: str | None
+    headers: Mapping[str, str] = field(hash=False)
+
+    @classmethod
+    def _from_response(
+        cls,
+        response: httpx.Response,
+        headers: httpx.Headers,
+    ) -> ResponseMeta:
+        return cls(
+            status=response.status_code,
+            request_id=headers.get("x-request-id"),
+            headers=_ReadOnlyHeaders(headers),
+        )
+
+
+def response_meta(model: BaseModel) -> ResponseMeta:
+    """Return the HTTP metadata of the response a client method returned.
+
+    Args:
+        model: A response model returned by a client method, such as an
+            Agent, a page, or a Skill copy result.
+
+    Returns:
+        The response's status, server request ID, and headers.
+
+    Raises:
+        ValueError: The model was not returned by a client method. Models you
+            construct and events read from a stream carry no response; use the
+            stream's own ``request_id`` instead.
+    """
+    meta: ResponseMeta | None = getattr(model, "_response_meta", None)
+    if meta is None:
+        msg = (
+            f"{type(model).__name__} was not returned by a Blazing Agents "
+            "client method, so it has no response metadata."
+        )
+        raise ValueError(msg)
+    return meta
+
+
 class ResponseModel(BaseModel):
     model_config = ConfigDict(extra="allow", strict=True)
 
-    _request_id: str | None = PrivateAttr(default=None)
+    _response_meta: ResponseMeta | None = PrivateAttr(default=None)
 
 
 class CredentialSafeResponseModel(ResponseModel):
@@ -879,7 +954,7 @@ SkillCopyResult: TypeAlias = SkillCopyCreated | SkillCopyFailed
 
 
 class SkillCopyResults(RootModel[list[SkillCopyResult]]):
-    _request_id: str | None = PrivateAttr(default=None)
+    _response_meta: ResponseMeta | None = PrivateAttr(default=None)
 
 
 class Artifact(ResponseModel):
