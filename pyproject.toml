@@ -48,8 +48,28 @@ line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["B", "E", "F", "I", "SIM", "UP"]
+select = ["B", "E", "F", "I", "SIM", "SLF001", "TID251", "UP"]
 ignore = ["B008", "SIM117"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "PLR2004"]
+"!tests/**" = ["SLF001", "TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"blazing_agents._agent_tools".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._chat".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._chat_connections".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._chat_deliveries".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._client".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._completion".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._downloads".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._errors".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._functions".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._merchant".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._models".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._object".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._resources".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._responses".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._transport".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._types".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."
+"blazing_agents._version".msg = "Tests must use the public API. Either rewrite this test against the public client, or, if the test really needs this value, the SDK is missing a public way to get it: add one to the public API (with docs) and use that."

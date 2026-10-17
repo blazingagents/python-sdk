@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import tomllib
 import zipfile
 from email.parser import BytesParser
 from email.policy import default
@@ -145,8 +146,22 @@ def inspect_coverage(report: Path) -> None:
     )
 
 
+def inspect_test_import_ban(project: Path) -> None:
+    pyproject = tomllib.loads((project / "pyproject.toml").read_text())
+    banned = pyproject["tool"]["ruff"]["lint"]["flake8-tidy-imports"]["banned-api"]
+    private = {
+        f"blazing_agents.{path.stem}"
+        for path in (project / "src" / "blazing_agents").iterdir()
+        if path.name.startswith("_") and not path.name.startswith("__")
+    }
+    if unbanned := sorted(private - banned.keys()):
+        msg = f"Private modules missing from ruff banned-api for tests: {unbanned}"
+        raise RuntimeError(msg)
+
+
 def main() -> None:
     project = Path(__file__).resolve().parents[1]
+    inspect_test_import_ban(project)
     with tempfile.TemporaryDirectory(prefix="blazing-agents-python-sdk-") as raw:
         temporary = Path(raw)
         distribution = temporary / "dist"
