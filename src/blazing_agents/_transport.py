@@ -41,7 +41,7 @@ _MIN_SUBSTRING_SECRET_LENGTH = 8
 
 
 class _ResponseMetaModel(Protocol):
-    _response_meta: ResponseMeta | None
+    def _attach_response_meta(self, meta: ResponseMeta) -> None: ...
 
 
 class _Omitted:
@@ -438,8 +438,10 @@ def _model(
     if validation_error is not None:
         raise validation_error from None
     assert value is not None
-    cast(_ResponseMetaModel, value)._response_meta = ResponseMeta._from_response(
-        response, _redact_headers(response.headers, sensitive_values)
+    cast(_ResponseMetaModel, value)._attach_response_meta(
+        ResponseMeta._from_response(
+            response, _redact_headers(response.headers, sensitive_values)
+        )
     )
     return value
 

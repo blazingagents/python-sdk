@@ -384,6 +384,10 @@ class ResponseModel(BaseModel):
 
     _response_meta: ResponseMeta | None = PrivateAttr(default=None)
 
+    def _attach_response_meta(self, meta: ResponseMeta) -> None:
+        """Record the response this model was decoded from."""
+        self._response_meta = meta
+
 
 class CredentialSafeResponseModel(ResponseModel):
     _credential_fields: ClassVar[frozenset[str]] = frozenset(
@@ -955,7 +959,10 @@ SkillCopyResult: TypeAlias = SkillCopyCreated | SkillCopyFailed
 
 
 class SkillCopyResults(RootModel[list[SkillCopyResult]]):
-    _response_meta: ResponseMeta | None = PrivateAttr(default=None)
+    def _attach_response_meta(self, meta: ResponseMeta) -> None:
+        """Record the response on each copy result, which callers receive."""
+        for result in self.root:
+            result._attach_response_meta(meta)
 
 
 class Artifact(ResponseModel):

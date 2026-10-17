@@ -776,13 +776,6 @@ def _skill_upload_request(
         )
 
 
-def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
-    """Attach the response metadata to each Skill copy result."""
-    for result in response.root:
-        result._response_meta = response._response_meta
-    return response.root
-
-
 class UserAgentsResource:
     def __init__(self, transport: SyncTransport) -> None:
         """Bind Agent operations to the transport.
@@ -7917,7 +7910,7 @@ class AgentSkillsResource:
             ),
             SkillCopyResults,
         )
-        return _skill_copy_values(response)
+        return response.root
 
 
 class AsyncAgentSkillsResource:
@@ -8292,4 +8285,4 @@ class AsyncAgentSkillsResource:
             ),
             SkillCopyResults,
         )
-        return _skill_copy_values(response)
+        return response.root
