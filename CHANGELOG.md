@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.24.0
+
+- Removed: `for_user(...).agents.get_spending_limit()` and
+  `for_user(...).agents.update_spending_limit()`, deprecated in 0.23.0. The API
+  always refused them for user-scoped callers. Call them on the tenant client:
+
+  ```python
+  # Before
+  client.for_user(user_id).agents.get_spending_limit(agent_id)
+
+  # After
+  client.agents.get_spending_limit(agent_id)
+  ```
+
 ## 0.23.0
 
 - `for_user(...).usage.get_for_agent()` reads one Agent's usage for the scoped

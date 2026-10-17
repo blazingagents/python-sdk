@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import mimetypes
 import re
-import warnings
 from collections.abc import AsyncIterator, Generator, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
@@ -887,45 +886,7 @@ def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
     return response.root
 
 
-class AgentsResource:
-    def get_spending_limit(
-        self,
-        agent_id: str,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> SpendingLimitResponse:
-        """Fetch the Agent model spending limit using tenant authority."""
-        return self._transport.request(
-            _Request(
-                "GET",
-                _agent_path(agent_id) + "/spending-limit",
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            SpendingLimitResponse,
-        )
-
-    def update_spending_limit(
-        self,
-        agent_id: str,
-        *,
-        spending_limit: SpendingLimitInput | None,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> SpendingLimitResponse:
-        """Set or disable the Agent model spending limit using tenant authority."""
-        return self._transport.request(
-            _Request(
-                "PUT",
-                _agent_path(agent_id) + "/spending-limit",
-                json_body=_spending_limit_body(spending_limit),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            SpendingLimitResponse,
-        )
-
+class UserAgentsResource:
     def __init__(self, transport: SyncTransport) -> None:
         """Bind Agent operations to the transport.
 
@@ -1449,8 +1410,8 @@ class AgentsResource:
         )
 
 
-class AsyncAgentsResource:
-    async def get_spending_limit(
+class AgentsResource(UserAgentsResource):
+    def get_spending_limit(
         self,
         agent_id: str,
         *,
@@ -1458,7 +1419,7 @@ class AsyncAgentsResource:
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SpendingLimitResponse:
         """Fetch the Agent model spending limit using tenant authority."""
-        return await self._transport.request(
+        return self._transport.request(
             _Request(
                 "GET",
                 _agent_path(agent_id) + "/spending-limit",
@@ -1468,7 +1429,7 @@ class AsyncAgentsResource:
             SpendingLimitResponse,
         )
 
-    async def update_spending_limit(
+    def update_spending_limit(
         self,
         agent_id: str,
         *,
@@ -1477,7 +1438,7 @@ class AsyncAgentsResource:
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SpendingLimitResponse:
         """Set or disable the Agent model spending limit using tenant authority."""
-        return await self._transport.request(
+        return self._transport.request(
             _Request(
                 "PUT",
                 _agent_path(agent_id) + "/spending-limit",
@@ -1488,6 +1449,8 @@ class AsyncAgentsResource:
             SpendingLimitResponse,
         )
 
+
+class AsyncUserAgentsResource:
     def __init__(self, transport: AsyncTransport) -> None:
         """Bind Agent operations to the transport.
 
@@ -2008,6 +1971,46 @@ class AsyncAgentsResource:
                 timeout=timeout,
             ),
             Agent,
+        )
+
+
+class AsyncAgentsResource(AsyncUserAgentsResource):
+    async def get_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Fetch the Agent model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "GET",
+                _agent_path(agent_id) + "/spending-limit",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
+        )
+
+    async def update_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        spending_limit: SpendingLimitInput | None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Set or disable the Agent model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "PUT",
+                _agent_path(agent_id) + "/spending-limit",
+                json_body=_spending_limit_body(spending_limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            SpendingLimitResponse,
         )
 
 
@@ -4957,89 +4960,6 @@ class AsyncTenantResource:
                 timeout=timeout,
             ),
             TenantSettings,
-        )
-
-
-_USER_SPENDING_LIMIT_DEPRECATION = (
-    "The API always refuses Agent spending limits for user-scoped callers with "
-    "forbidden (403). Call this on the tenant client instead; it is removed from "
-    "user-scoped clients in a later release."
-)
-
-
-class UserAgentsResource(AgentsResource):
-    """Agent operations on a user-scoped client."""
-
-    def get_spending_limit(
-        self,
-        agent_id: str,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> SpendingLimitResponse:
-        """Deprecated on user-scoped clients: the API always refuses it there."""
-        warnings.warn(
-            _USER_SPENDING_LIMIT_DEPRECATION, DeprecationWarning, stacklevel=2
-        )
-        return super().get_spending_limit(
-            agent_id, extra_headers=extra_headers, timeout=timeout
-        )
-
-    def update_spending_limit(
-        self,
-        agent_id: str,
-        *,
-        spending_limit: SpendingLimitInput | None,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> SpendingLimitResponse:
-        """Deprecated on user-scoped clients: the API always refuses it there."""
-        warnings.warn(
-            _USER_SPENDING_LIMIT_DEPRECATION, DeprecationWarning, stacklevel=2
-        )
-        return super().update_spending_limit(
-            agent_id,
-            spending_limit=spending_limit,
-            extra_headers=extra_headers,
-            timeout=timeout,
-        )
-
-
-class AsyncUserAgentsResource(AsyncAgentsResource):
-    """Agent operations on an asynchronous user-scoped client."""
-
-    async def get_spending_limit(
-        self,
-        agent_id: str,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> SpendingLimitResponse:
-        """Deprecated on user-scoped clients: the API always refuses it there."""
-        warnings.warn(
-            _USER_SPENDING_LIMIT_DEPRECATION, DeprecationWarning, stacklevel=2
-        )
-        return await super().get_spending_limit(
-            agent_id, extra_headers=extra_headers, timeout=timeout
-        )
-
-    async def update_spending_limit(
-        self,
-        agent_id: str,
-        *,
-        spending_limit: SpendingLimitInput | None,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> SpendingLimitResponse:
-        """Deprecated on user-scoped clients: the API always refuses it there."""
-        warnings.warn(
-            _USER_SPENDING_LIMIT_DEPRECATION, DeprecationWarning, stacklevel=2
-        )
-        return await super().update_spending_limit(
-            agent_id,
-            spending_limit=spending_limit,
-            extra_headers=extra_headers,
-            timeout=timeout,
         )
 
 
