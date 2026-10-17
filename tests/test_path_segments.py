@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from test_clients import loopback
+from support import loopback
 
 import blazing_agents as ba
 
