@@ -31,7 +31,7 @@ class _ResponseMetadata:
 
 class _ByteStreamBase(_ResponseMetadata):
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize ByteStreamBase.
+        """Wrap an open streaming response and record its metadata.
 
         Args:
             response: HTTPX response supplying the body and response metadata.

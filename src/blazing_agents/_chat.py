@@ -13,7 +13,7 @@ from ._functions import (
     SyncFunctionRunner,
     function_call,
 )
-from ._transport import OMITTED, _Omitted, _Request, path_segment
+from ._transport import OMITTED, _Omitted, _Request, drop_omitted, path_segment
 from ._types import ChatTrigger, Timeout, ToolApprovalDecisionInput
 
 _SESSION_ID = re.compile(r"ss_[0-9A-Za-z]{16}\Z")
@@ -33,7 +33,7 @@ class ChatStream(ByteStream):
         session_id: str | None,
         functions: (Callable[[str], SyncFunctionRunner] | None) = None,
     ) -> None:
-        """Initialize ChatStream.
+        """Wrap a raw chat response for the Session it started or resumed.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -90,7 +90,7 @@ class AsyncChatStream(AsyncByteStream):
         session_id: str | None,
         functions: (Callable[[str], AsyncFunctionRunner] | None) = None,
     ) -> None:
-        """Initialize AsyncChatStream.
+        """Wrap an async raw chat response for its Session.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -231,15 +231,13 @@ def _chat_body(
         body["promptId"] = prompt_id
         if not isinstance(variables, _Omitted):
             body["variables"] = variables
-    for wire_name, value in (
+    body |= drop_omitted(
         ("trigger", trigger),
         ("messageId", message_id),
         ("userId", user_id),
         ("metadata", metadata),
         ("functions", functions),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     return body
 
 

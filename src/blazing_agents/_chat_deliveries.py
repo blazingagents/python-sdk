@@ -3,7 +3,14 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 
 from ._models import ChatDeliveriesPage, TenantChatDelivery
-from ._transport import OMITTED, AsyncTransport, SyncTransport, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    AsyncTransport,
+    SyncTransport,
+    _Omitted,
+    _Request,
+    drop_omitted,
+)
 from ._types import ChatDeliveryListStatus, Timeout
 
 
@@ -18,13 +25,11 @@ def _chat_deliveries_query(
     if not isinstance(status, _Omitted) and status:
         # One comma-separated parameter carries the multi-value filter.
         query["status"] = ",".join(status)
-    for wire_name, value in (
+    query |= drop_omitted(
         ("since", since),
         ("cursor", cursor),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     return query
 
 

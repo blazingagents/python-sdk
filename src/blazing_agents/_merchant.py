@@ -18,6 +18,8 @@ from ._transport import (
     SyncTransport,
     _Omitted,
     _Request,
+    camel_case_keys,
+    drop_omitted,
     path_segment,
 )
 from ._types import (
@@ -36,29 +38,7 @@ _EVENTS_PATH = "/v1/merchant-usage-events"
 
 def _guard_body(guard: MerchantGuardInput) -> dict[str, object]:
     """Convert a guard input to its wire shape."""
-    return {
-        "enabled": guard["enabled"],
-        "productIds": guard["product_ids"],
-        "meterId": guard["meter_id"],
-    }
-
-
-def _query(*fields: tuple[str, str | int | _Omitted]) -> dict[str, str | int]:
-    """Build a query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in fields
-        if not isinstance(value, _Omitted)
-    }
-
-
-def _present(*fields: tuple[str, object]) -> dict[str, object]:
-    """Keep the fields whose value is not OMITTED."""
-    return {
-        wire_name: value
-        for wire_name, value in fields
-        if not isinstance(value, _Omitted)
-    }
+    return camel_case_keys(guard)
 
 
 class MerchantConnectionResource:
@@ -132,7 +112,7 @@ class MerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body = _present(
+        json_body: dict[str, object] = drop_omitted(
             ("provider", provider),
             ("environment", environment),
             ("credential", credential),
@@ -179,7 +159,9 @@ class MerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body = _present(("credential", credential), ("status", status))
+        json_body: dict[str, object] = drop_omitted(
+            ("credential", credential), ("status", status)
+        )
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
         return self._transport.request(
@@ -262,7 +244,9 @@ class MerchantBindingsResource:
             _Request(
                 "GET",
                 _BINDINGS_PATH,
-                query=_query(("userId", user_id), ("cursor", cursor), ("limit", limit)),
+                query=drop_omitted(
+                    ("userId", user_id), ("cursor", cursor), ("limit", limit)
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -416,7 +400,9 @@ class MerchantUsageEventsResource:
             _Request(
                 "GET",
                 _EVENTS_PATH,
-                query=_query(("status", status), ("cursor", cursor), ("limit", limit)),
+                query=drop_omitted(
+                    ("status", status), ("cursor", cursor), ("limit", limit)
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -521,7 +507,7 @@ class MerchantUsageEventsResource:
             _Request(
                 "GET",
                 f"{_EVENTS_PATH}/summary",
-                query=_query(("days", days)),
+                query=drop_omitted(("days", days)),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -699,7 +685,7 @@ class AsyncMerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body = _present(
+        json_body: dict[str, object] = drop_omitted(
             ("provider", provider),
             ("environment", environment),
             ("credential", credential),
@@ -746,7 +732,9 @@ class AsyncMerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body = _present(("credential", credential), ("status", status))
+        json_body: dict[str, object] = drop_omitted(
+            ("credential", credential), ("status", status)
+        )
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
         return await self._transport.request(
@@ -829,7 +817,9 @@ class AsyncMerchantBindingsResource:
             _Request(
                 "GET",
                 _BINDINGS_PATH,
-                query=_query(("userId", user_id), ("cursor", cursor), ("limit", limit)),
+                query=drop_omitted(
+                    ("userId", user_id), ("cursor", cursor), ("limit", limit)
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -984,7 +974,9 @@ class AsyncMerchantUsageEventsResource:
             _Request(
                 "GET",
                 _EVENTS_PATH,
-                query=_query(("status", status), ("cursor", cursor), ("limit", limit)),
+                query=drop_omitted(
+                    ("status", status), ("cursor", cursor), ("limit", limit)
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -1090,7 +1082,7 @@ class AsyncMerchantUsageEventsResource:
             _Request(
                 "GET",
                 f"{_EVENTS_PATH}/summary",
-                query=_query(("days", days)),
+                query=drop_omitted(("days", days)),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

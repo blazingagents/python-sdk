@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 import pytest
-from test_clients import TASK, Response, loopback
+from support import TASK, Response, loopback
 
 from blazing_agents import (
     AsyncBlazingAgents,

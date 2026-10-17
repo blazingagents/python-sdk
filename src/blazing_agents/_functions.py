@@ -195,7 +195,6 @@ class SseFrames:
     """Splits an SSE byte stream into complete events, preserving their bytes."""
 
     def __init__(self) -> None:
-        """Initialize SseFrames."""
         self._buffer = b""
 
     def feed(self, chunk: bytes) -> list[bytes]:
@@ -380,7 +379,7 @@ class SyncFunctionRunner(_Runner):
         scope: _CallScope,
         functions: Mapping[str, ChatFunction],
     ) -> None:
-        """Initialize SyncFunctionRunner.
+        """Answer the Session's Function Calls with the given functions.
 
         Args:
             transport: Transport used for requests.
@@ -521,7 +520,7 @@ class AsyncFunctionRunner(_Runner):
         scope: _CallScope,
         functions: Mapping[str, ChatFunction],
     ) -> None:
-        """Initialize AsyncFunctionRunner.
+        """Answer the Session's Function Calls with the given functions.
 
         Args:
             transport: Transport used for requests.

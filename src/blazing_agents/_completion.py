@@ -8,13 +8,13 @@ import httpx
 from ._downloads import _ByteStreamBase
 from ._errors import StreamError
 from ._responses import Completion
-from ._transport import OMITTED, _Omitted, _Request, path_segment
+from ._transport import OMITTED, _Omitted, _Request, drop_omitted, path_segment
 from ._types import Timeout
 
 
 class _CompletionStreamBase(_ByteStreamBase):
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize CompletionStreamBase.
+        """Wrap a streaming completion response.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -44,7 +44,7 @@ class CompletionStream(_CompletionStreamBase):
     """A single-consumer stream of decoded completion text deltas."""
 
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize CompletionStream.
+        """Wrap a streaming completion response for iteration.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -119,7 +119,7 @@ class AsyncCompletionStream(_CompletionStreamBase):
     """An asynchronous single-consumer stream of completion text deltas."""
 
     def __init__(self, response: httpx.Response) -> None:
-        """Initialize AsyncCompletionStream.
+        """Wrap a streaming completion response for async iteration.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -241,12 +241,10 @@ def generation_request(
         body["promptId"] = prompt_id
         if not isinstance(variables, _Omitted):
             body["variables"] = variables
-    for wire_name, value in (
+    body |= drop_omitted(
         ("userId", user_id),
         ("metadata", metadata),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
 
     return _Request(
         "POST",

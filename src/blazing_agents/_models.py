@@ -252,8 +252,8 @@ def _cron_values(
     return values
 
 
-def _validate_cron(expression: str) -> None:
-    """Validate a five-field cron expression."""
+def _validate_cron(expression: str) -> str:
+    """Return a five-field numeric cron expression, or raise ValueError."""
     fields = expression.split()
     invalid = (
         not expression.strip()
@@ -282,6 +282,7 @@ def _validate_cron(expression: str) -> None:
     if invalid:
         msg = "cron schedule expression must be a valid five-field numeric cron"
         raise ValueError(msg)
+    return expression
 
 
 def _validate_timezone(timezone: str) -> str:
@@ -382,6 +383,10 @@ class ResponseModel(BaseModel):
     model_config = ConfigDict(extra="allow", strict=True)
 
     _response_meta: ResponseMeta | None = PrivateAttr(default=None)
+
+    def _attach_response_meta(self, meta: ResponseMeta) -> None:
+        """Record the response this model was decoded from."""
+        self._response_meta = meta
 
 
 class CredentialSafeResponseModel(ResponseModel):
@@ -954,7 +959,10 @@ SkillCopyResult: TypeAlias = SkillCopyCreated | SkillCopyFailed
 
 
 class SkillCopyResults(RootModel[list[SkillCopyResult]]):
-    _response_meta: ResponseMeta | None = PrivateAttr(default=None)
+    def _attach_response_meta(self, meta: ResponseMeta) -> None:
+        """Record the response on each copy result, which callers receive."""
+        for result in self.root:
+            result._attach_response_meta(meta)
 
 
 class Artifact(ResponseModel):
@@ -1139,8 +1147,7 @@ class TaskCronConfig(ResponseModel):
     @classmethod
     def _validate_expression(cls, value: str) -> str:
         """Validate the cron expression."""
-        _validate_cron(value)
-        return value
+        return _validate_cron(value)
 
     @field_validator("timezone")
     @classmethod

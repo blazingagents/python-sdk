@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
-from test_clients import Response, loopback
+from support import Response, loopback
 
 from blazing_agents import (
     APIStatusError,

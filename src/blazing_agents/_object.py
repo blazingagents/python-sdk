@@ -108,7 +108,7 @@ class _ObjectStreamBase(_ByteStreamBase, Generic[_T]):
         response: httpx.Response,
         adapter: TypeAdapter[_T] | None,
     ) -> None:
-        """Initialize ObjectStreamBase.
+        """Wrap a streaming object response and its output adapter.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -157,7 +157,7 @@ class ObjectStream(_ObjectStreamBase[_T]):
         response: httpx.Response,
         adapter: TypeAdapter[_T] | None,
     ) -> None:
-        """Initialize ObjectStream.
+        """Wrap a streaming object response for iteration.
 
         Args:
             response: HTTPX response supplying the body and response metadata.
@@ -240,7 +240,7 @@ class AsyncObjectStream(_ObjectStreamBase[_T]):
         response: httpx.Response,
         adapter: TypeAdapter[_T] | None,
     ) -> None:
-        """Initialize AsyncObjectStream.
+        """Wrap a streaming object response for async iteration.
 
         Args:
             response: HTTPX response supplying the body and response metadata.

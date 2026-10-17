@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ValidationError
+from pydantic.alias_generators import to_camel
 
 from ._downloads import AsyncByteStream, ByteStream
 from ._errors import (
@@ -35,11 +36,12 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger("blazing_agents")
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
 _StreamT = TypeVar("_StreamT")
+_T = TypeVar("_T")
 _MIN_SUBSTRING_SECRET_LENGTH = 8
 
 
 class _ResponseMetaModel(Protocol):
-    _response_meta: ResponseMeta | None
+    def _attach_response_meta(self, meta: ResponseMeta) -> None: ...
 
 
 class _Omitted:
@@ -47,6 +49,16 @@ class _Omitted:
 
 
 OMITTED = _Omitted()
+
+
+def drop_omitted(*fields: tuple[str, _T | _Omitted]) -> dict[str, _T]:
+    """Map each wire name to its value, leaving out the fields still OMITTED."""
+    return {name: value for name, value in fields if not isinstance(value, _Omitted)}
+
+
+def camel_case_keys(values: Mapping[str, object]) -> dict[str, object]:
+    """Rename snake_case input keys to their camelCase wire names."""
+    return {to_camel(key): value for key, value in values.items()}
 
 
 class _ResponseStatus:
@@ -132,7 +144,7 @@ class _TransportConfig:
         on_response: Callable[[ResponseObservation], None] | None,
         client_request_id: str | None,
     ) -> None:
-        """Initialize TransportConfig.
+        """Hold the authentication, header, and timeout settings for requests.
 
         Args:
             api_key: Resolved API key used for authentication.
@@ -426,8 +438,10 @@ def _model(
     if validation_error is not None:
         raise validation_error from None
     assert value is not None
-    cast(_ResponseMetaModel, value)._response_meta = ResponseMeta._from_response(
-        response, _redact_headers(response.headers, sensitive_values)
+    cast(_ResponseMetaModel, value)._attach_response_meta(
+        ResponseMeta._from_response(
+            response, _redact_headers(response.headers, sensitive_values)
+        )
     )
     return value
 
@@ -604,7 +618,7 @@ class SyncTransport:
         config: _TransportConfig,
         http_client: httpx.Client | None,
     ) -> None:
-        """Initialize SyncTransport.
+        """Send requests through a new or caller-supplied HTTPX client.
 
         Args:
             config: Authentication, headers, and timeout configuration.
@@ -884,7 +898,7 @@ class AsyncTransport:
         config: _TransportConfig,
         http_client: httpx.AsyncClient | None,
     ) -> None:
-        """Initialize AsyncTransport.
+        """Send async requests through a new or caller-supplied HTTPX client.
 
         Args:
             config: Authentication, headers, and timeout configuration.

@@ -7,7 +7,10 @@ from contextlib import contextmanager
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Literal, cast
+from typing import Annotated, Literal, get_args
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic.alias_generators import to_camel
 
 from ._models import (
     Agent,
@@ -71,6 +74,8 @@ from ._transport import (
     SyncTransport,
     _Omitted,
     _Request,
+    camel_case_keys,
+    drop_omitted,
     path_segment,
 )
 from ._types import (
@@ -97,34 +102,10 @@ def _spending_limit_body(
     return {
         "spendingLimit": None
         if spending_limit is None
-        else {
-            "amountUsd": spending_limit["amount_usd"],
-            "resetStartDate": spending_limit["reset_start_date"],
-            "resetInterval": spending_limit["reset_interval"],
-        }
+        else camel_case_keys(spending_limit)
     }
 
 
-_QUOTA_FIELDS = {
-    "monthly_token_limit",
-    "monthly_request_limit",
-    "reset_day",
-}
-_PROVIDER_TYPES = {
-    "openai",
-    "anthropic",
-    "openrouter",
-    "google",
-    "vercel_ai_gateway",
-    "custom",
-}
-_MCP_CONNECTION_AUTH_TYPES = {
-    "none",
-    "bearer",
-    "oauth_authorization_code",
-    "oauth_client_credentials",
-}
-_SKILL_ARCHIVE_TYPES = {"zip", "tar", "tar.gz"}
 _SkillCopyResultList = list[SkillCopyResult]
 _ISO_OFFSET_DATETIME = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -155,8 +136,7 @@ def _agent_body(
         workspace_tier, _Omitted
     ):
         raise ValueError("workspace_id and workspace_tier are mutually exclusive")
-    body: dict[str, object] = {}
-    for wire_name, value in (
+    body: dict[str, object] = drop_omitted(
         ("name", name),
         ("model", model),
         ("providerId", provider_id),
@@ -171,15 +151,12 @@ def _agent_body(
         ("userId", user_id),
         ("metadata", metadata),
         ("mcpConnectionIds", mcp_connection_ids),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
-    for wire_name, policy in (
+    )
+    for wire_name, policy in drop_omitted(
         ("approvalInChat", approval_in_chat),
         ("approvalInTasks", approval_in_tasks),
-    ):
-        if not isinstance(policy, _Omitted):
-            body[wire_name] = _approval_policy_body(policy)
+    ).items():
+        body[wire_name] = _approval_policy_body(policy)
     return body
 
 
@@ -188,18 +165,7 @@ def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
     body: dict[str, object] = {"default": policy["default"]}
     if "overrides" in policy:
         body["overrides"] = [
-            {
-                "tool": (
-                    {"type": "builtin", "name": rule["tool"]["name"]}
-                    if rule["tool"]["type"] == "builtin"
-                    else {
-                        "type": "mcp",
-                        "connectionId": rule["tool"]["connection_id"],
-                        "name": rule["tool"]["name"],
-                    }
-                ),
-                "decision": rule["decision"],
-            }
+            {"tool": camel_case_keys(rule["tool"]), "decision": rule["decision"]}
             for rule in policy["overrides"]
         ]
     return body
@@ -270,11 +236,7 @@ def _inputs_query(
     query: dict[str, str | int] = {}
     if not isinstance(include_completed, _Omitted):
         query["includeCompleted"] = str(include_completed).lower()
-    if not isinstance(cursor, _Omitted):
-        query["cursor"] = cursor
-    if not isinstance(limit, _Omitted):
-        query["limit"] = limit
-    return query
+    return query | drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 def _sessions_query(
@@ -284,14 +246,11 @@ def _sessions_query(
     by_agent: bool | None = None,
 ) -> dict[str, str | int]:
     """Build the sessions query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (
+    query: dict[str, str | int] = drop_omitted(
         ("userId", user_id),
         ("cursor", cursor),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     if by_agent is not None:
         query["byAgent"] = str(by_agent).lower()
     return query
@@ -303,14 +262,11 @@ def _session_messages_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the session messages query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (
+    query: dict[str, str | int] = drop_omitted(
         ("cursor", cursor),
         ("after", after),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     return query
 
 
@@ -330,8 +286,8 @@ def _task_run_path(task_id: str, run_id: str | None = None) -> str:
     return f"{path}/{path_segment('run_id', run_id)}"
 
 
-def _validate_offset_datetime(value: str) -> None:
-    """Validate an ISO datetime with a timezone offset."""
+def _validate_offset_datetime(value: str) -> str:
+    """Return an ISO datetime with a timezone offset, or raise ValueError."""
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -343,70 +299,66 @@ def _validate_offset_datetime(value: str) -> None:
     ):
         msg = "once schedule at must be an ISO datetime with an offset"
         raise ValueError(msg)
+    return value
+
+
+class _WireInput(BaseModel):
+    """Caller input validated by its snake_case names, sent with camelCase names."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        extra="forbid",
+        strict=True,
+        validate_by_name=True,
+        validate_by_alias=False,
+    )
+
+
+class _TaskOnceConfigInput(_WireInput):
+    at: Annotated[str, AfterValidator(_validate_offset_datetime)]
+
+
+class _TaskIntervalConfigInput(_WireInput):
+    every_ms: int = Field(ge=60_000)
+
+
+class _TaskCronConfigInput(_WireInput):
+    expression: Annotated[str, AfterValidator(_validate_cron)]
+    timezone: Annotated[str, AfterValidator(_validate_timezone)] | None = None
+    stagger_ms: int | None = Field(default=None, ge=0)
+
+
+class _TaskOnceScheduleInput(_WireInput):
+    kind: Literal["once"]
+    config: _TaskOnceConfigInput
+
+
+class _TaskIntervalScheduleInput(_WireInput):
+    kind: Literal["interval"]
+    config: _TaskIntervalConfigInput
+
+
+class _TaskCronScheduleInput(_WireInput):
+    kind: Literal["cron"]
+    config: _TaskCronConfigInput
+
+
+_TASK_SCHEDULE: TypeAdapter[
+    _TaskOnceScheduleInput | _TaskIntervalScheduleInput | _TaskCronScheduleInput
+] = TypeAdapter(
+    Annotated[
+        _TaskOnceScheduleInput | _TaskIntervalScheduleInput | _TaskCronScheduleInput,
+        Field(discriminator="kind"),
+    ],
+    config=ConfigDict(title="schedule"),
+)
 
 
 def _task_schedule(schedule: TaskScheduleInput) -> dict[str, object]:
-    """Validate and serialize a one-time, interval, or cron Task schedule."""
-    if not isinstance(schedule, dict) or set(schedule) != {"kind", "config"}:
-        msg = "schedule must contain exactly kind and config"
-        raise TypeError(msg)
-    kind = schedule["kind"]
-    config = cast(dict[str, object], schedule["config"])
-    if not isinstance(config, dict):
-        msg = "schedule config must be a dictionary"
-        raise TypeError(msg)
-    if kind == "once":
-        if set(config) != {"at"} or not isinstance(config["at"], str):
-            msg = "once schedule config must contain exactly string at"
-            raise TypeError(msg)
-        _validate_offset_datetime(config["at"])
-        return {"kind": kind, "config": {"at": config["at"]}}
-    if kind == "interval":
-        every_ms = config.get("every_ms")
-        if (
-            set(config) != {"every_ms"}
-            or not isinstance(every_ms, int)
-            or isinstance(every_ms, bool)
-            or every_ms < 60_000
-        ):
-            msg = "interval schedule config requires every_ms of at least 60000"
-            raise ValueError(msg)
-        return {"kind": kind, "config": {"everyMs": every_ms}}
-    if kind == "cron":
-        if "expression" not in config or not set(config) <= {
-            "expression",
-            "timezone",
-            "stagger_ms",
-        }:
-            msg = "cron schedule config has invalid fields"
-            raise TypeError(msg)
-        expression = config["expression"]
-        timezone = config.get("timezone")
-        stagger_ms = config.get("stagger_ms")
-        if not isinstance(expression, str):
-            msg = "cron schedule expression must be a string"
-            raise TypeError(msg)
-        _validate_cron(expression)
-        if timezone is not None and not isinstance(timezone, str):
-            msg = "cron schedule timezone must be a string"
-            raise TypeError(msg)
-        if timezone is not None:
-            timezone = _validate_timezone(timezone)
-        if stagger_ms is not None and (
-            not isinstance(stagger_ms, int)
-            or isinstance(stagger_ms, bool)
-            or stagger_ms < 0
-        ):
-            msg = "cron schedule stagger_ms must be a non-negative integer"
-            raise ValueError(msg)
-        wire_config: dict[str, object] = {"expression": expression}
-        if timezone is not None:
-            wire_config["timezone"] = timezone
-        if stagger_ms is not None:
-            wire_config["staggerMs"] = stagger_ms
-        return {"kind": kind, "config": wire_config}
-    msg = "schedule kind must be once, interval, or cron"
-    raise ValueError(msg)
+    """Validate a one-time, interval, or cron Task schedule into its wire shape."""
+    return _TASK_SCHEDULE.validate_python(schedule).model_dump(
+        by_alias=True, exclude_none=True
+    )
 
 
 def _task_body(
@@ -423,7 +375,7 @@ def _task_body(
 ) -> dict[str, object]:
     """Build the task request body, omitting unspecified fields."""
     body: dict[str, object] = _task_run_body(idempotency_key)
-    for wire_name, value in (
+    body |= drop_omitted(
         ("agentId", agent_id),
         ("name", name),
         ("prompt", prompt),
@@ -431,9 +383,7 @@ def _task_body(
         ("submit", submit),
         ("userId", user_id),
         ("metadata", metadata),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     if not isinstance(schedule, _Omitted):
         body["schedule"] = None if schedule is None else _task_schedule(schedule)
     return body
@@ -446,16 +396,12 @@ def _tasks_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the tasks query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("agentId", agent_id),
-            ("userId", user_id),
-            ("cursor", cursor),
-            ("limit", limit),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("agentId", agent_id),
+        ("userId", user_id),
+        ("cursor", cursor),
+        ("limit", limit),
+    )
 
 
 def _task_run_body(
@@ -478,14 +424,10 @@ def _agents_query(
     workspace_id: str | _Omitted,
 ) -> dict[str, str]:
     """Build the agents query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("userId", user_id),
-            ("workspaceId", workspace_id),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("userId", user_id),
+        ("workspaceId", workspace_id),
+    )
 
 
 def _cursor_limit_query(
@@ -493,11 +435,7 @@ def _cursor_limit_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the cursor limit query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (("cursor", cursor), ("limit", limit))
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 def _workspace_path(workspace_id: str) -> str:
@@ -514,28 +452,18 @@ def _workspace_body(
     tier: WorkspaceTier | _Omitted = OMITTED,
 ) -> dict[str, object]:
     """Build the workspace request body, omitting unspecified fields."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("name", name),
-            ("tier", tier),
-            ("userId", user_id),
-            ("metadata", metadata),
-            (
-                "networkPolicy",
-                (
-                    {
-                        "allowedHosts": network_policy["allowed_hosts"],
-                        "mode": "allowlist",
-                    }
-                    if not isinstance(network_policy, _Omitted)
-                    and network_policy["mode"] == "allowlist"
-                    else network_policy
-                ),
-            ),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("name", name),
+        ("tier", tier),
+        ("userId", user_id),
+        ("metadata", metadata),
+        (
+            "networkPolicy",
+            network_policy
+            if isinstance(network_policy, _Omitted)
+            else camel_case_keys(network_policy),
+        ),
+    )
 
 
 def _workspaces_query(
@@ -544,15 +472,11 @@ def _workspaces_query(
     user_id: str | _Omitted,
 ) -> dict[str, str | int]:
     """Build the workspaces query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("cursor", cursor),
-            ("limit", limit),
-            ("userId", user_id),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("cursor", cursor),
+        ("limit", limit),
+        ("userId", user_id),
+    )
 
 
 def _mcp_attachment_body(
@@ -560,14 +484,10 @@ def _mcp_attachment_body(
     forwarded_metadata_keys: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
     """Build the mcp attachment request body, omitting unspecified fields."""
-    body: dict[str, object] = {
-        wire_name: value
-        for wire_name, value in (
-            ("forwardUserId", forward_user_id),
-            ("forwardedMetadataKeys", forwarded_metadata_keys),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    body: dict[str, object] = drop_omitted(
+        ("forwardUserId", forward_user_id),
+        ("forwardedMetadataKeys", forwarded_metadata_keys),
+    )
     if not body:
         msg = "At least one MCP Attachment field must be provided."
         raise ValueError(msg)
@@ -583,7 +503,7 @@ def _provider_body(
     base_url: str | None | _Omitted,
 ) -> dict[str, object]:
     """Build the provider request body, omitting unspecified fields."""
-    if provider_type not in _PROVIDER_TYPES:
+    if provider_type not in get_args(ProviderType):
         msg = "provider_type must be a supported Provider type"
         raise ValueError(msg)
     if provider_type == "custom" and (isinstance(base_url, _Omitted) or not base_url):
@@ -600,13 +520,11 @@ def _provider_body(
         "providerType": provider_type,
         "apiKey": api_key,
     }
-    for wire_name, value in (
+    body |= drop_omitted(
         ("name", name),
         ("baseUrl", base_url),
         ("model", model),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     return body
 
 
@@ -663,15 +581,11 @@ def _artifacts_query(
     cursor: str | _Omitted,
 ) -> dict[str, str]:
     """Build the artifacts query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("agentId", agent_id),
-            ("sessionId", session_id),
-            ("cursor", cursor),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("agentId", agent_id),
+        ("sessionId", session_id),
+        ("cursor", cursor),
+    )
 
 
 def _skills_query(
@@ -679,11 +593,7 @@ def _skills_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the skills query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (("cursor", cursor), ("limit", limit))
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 def _memory_body(
@@ -693,9 +603,7 @@ def _memory_body(
 ) -> dict[str, object]:
     """Build the memory request body, omitting unspecified fields."""
     body: dict[str, object] = {"text": text}
-    if not isinstance(user_id, _Omitted):
-        body["userId"] = user_id
-    return body
+    return body | drop_omitted(("userId", user_id))
 
 
 def _memories_query(
@@ -706,16 +614,12 @@ def _memories_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the memories query, omitting unspecified filters."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("userId", user_id),
-            ("search", search),
-            ("cursor", cursor),
-            ("limit", limit),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("userId", user_id),
+        ("search", search),
+        ("cursor", cursor),
+        ("limit", limit),
+    )
 
 
 def _prompt_body(
@@ -727,17 +631,13 @@ def _prompt_body(
     metadata: dict[str, object] | _Omitted,
 ) -> dict[str, object]:
     """Build the prompt request body, omitting unspecified fields."""
-    return {
-        wire_name: value
-        for wire_name, value in (
-            ("name", name),
-            ("template", template),
-            ("agentId", agent_id),
-            ("userId", user_id),
-            ("metadata", metadata),
-        )
-        if not isinstance(value, _Omitted)
-    }
+    return drop_omitted(
+        ("name", name),
+        ("template", template),
+        ("agentId", agent_id),
+        ("userId", user_id),
+        ("metadata", metadata),
+    )
 
 
 def _mcp_connection_body(
@@ -751,7 +651,7 @@ def _mcp_connection_body(
     scope: str | _Omitted,
 ) -> dict[str, object]:
     """Build the mcp connection request body, omitting unspecified fields."""
-    if auth_type not in _MCP_CONNECTION_AUTH_TYPES:
+    if auth_type not in get_args(McpConnectionAuthType):
         msg = "auth_type must be a supported MCP Connection authentication type"
         raise ValueError(msg)
 
@@ -786,15 +686,13 @@ def _mcp_connection_body(
         raise ValueError(msg)
 
     body: dict[str, object] = {"authType": auth_type, "url": url}
-    for wire_name, value in (
+    body |= drop_omitted(
         ("name", name),
         ("bearerToken", bearer_token),
         ("clientId", client_id),
         ("clientSecret", client_secret),
         ("scope", scope),
-    ):
-        if not isinstance(value, _Omitted):
-            body[wire_name] = value
+    )
     return body
 
 
@@ -856,7 +754,7 @@ def _skill_upload_request(
     timeout: Timeout | _Omitted,
 ) -> Generator[_Request]:
     """Build a multipart Skill upload request."""
-    if archive_type not in _SKILL_ARCHIVE_TYPES:
+    if archive_type not in get_args(SkillArchiveType):
         msg = "archive_type must be zip, tar, or tar.gz"
         raise ValueError(msg)
     with _upload_part(
@@ -876,13 +774,6 @@ def _skill_upload_request(
             extra_headers=extra_headers,
             timeout=timeout,
         )
-
-
-def _skill_copy_values(response: SkillCopyResults) -> _SkillCopyResultList:
-    """Attach the response metadata to each Skill copy result."""
-    for result in response.root:
-        result._response_meta = response._response_meta
-    return response.root
 
 
 class UserAgentsResource:
@@ -921,7 +812,7 @@ class UserAgentsResource:
         Omitted fields retain server defaults or existing values.
 
         Args:
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1166,7 +1057,7 @@ class UserAgentsResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1485,7 +1376,7 @@ class AsyncUserAgentsResource:
         Omitted fields retain server defaults or existing values.
 
         Args:
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -1730,7 +1621,7 @@ class AsyncUserAgentsResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Agent display name, 1 to 80 characters.
             model: Provider model identifier.
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
@@ -2035,7 +1926,7 @@ class ProvidersResource:
         """Create a Provider.
 
         Args:
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             provider_type: Provider API type.
             api_key: The vendor API key. It is stored encrypted, never returned,
                 and cannot be changed later.
@@ -2220,7 +2111,7 @@ class ProvidersResource:
         Args:
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2306,7 +2197,7 @@ class AsyncProvidersResource:
         """Create a Provider.
 
         Args:
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             provider_type: Provider API type.
             api_key: The vendor API key. It is stored encrypted, never returned,
                 and cannot be changed later.
@@ -2491,7 +2382,7 @@ class AsyncProvidersResource:
         Args:
             provider_id: Provider identifier. Supply with model when configuring an
                 Agent.
-            name: Name of the entity.
+            name: Provider display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2617,7 +2508,7 @@ class McpConnectionsResource:
         paired.
 
         Args:
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             url: Service endpoint URL.
             auth_type: Connection authentication type.
             bearer_token: Bearer token for bearer authentication.
@@ -2738,7 +2629,7 @@ class McpConnectionsResource:
 
         Args:
             mcp_connection_id: MCP Connection identifier.
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -2956,7 +2847,7 @@ class AsyncMcpConnectionsResource:
         paired.
 
         Args:
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             url: Service endpoint URL.
             auth_type: Connection authentication type.
             bearer_token: Bearer token for bearer authentication.
@@ -3077,7 +2968,7 @@ class AsyncMcpConnectionsResource:
 
         Args:
             mcp_connection_id: MCP Connection identifier.
-            name: Name of the entity.
+            name: MCP Connection display name, unique within the tenant.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -3745,7 +3636,7 @@ class PromptsResource:
         """Create a Prompt.
 
         Args:
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             agent_id: Agent identifier.
             user_id: Caller-defined user identifier.
@@ -3812,11 +3703,7 @@ class PromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query={
-                    key: value
-                    for key, value in (("userId", user_id), ("agentId", agent_id))
-                    if not isinstance(value, _Omitted)
-                }
+                query=drop_omitted(("userId", user_id), ("agentId", agent_id))
                 | _cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -3873,7 +3760,7 @@ class PromptsResource:
         Args:
             prompt_id: Stored Prompt identifier.
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             metadata: Caller-defined JSON metadata.
             extra_headers: Headers for this request. Authorization uses the client
@@ -3963,7 +3850,7 @@ class AsyncPromptsResource:
         """Create a Prompt.
 
         Args:
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             agent_id: Agent identifier.
             user_id: Caller-defined user identifier.
@@ -4030,11 +3917,7 @@ class AsyncPromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query={
-                    key: value
-                    for key, value in (("userId", user_id), ("agentId", agent_id))
-                    if not isinstance(value, _Omitted)
-                }
+                query=drop_omitted(("userId", user_id), ("agentId", agent_id))
                 | _cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -4091,7 +3974,7 @@ class AsyncPromptsResource:
         Args:
             prompt_id: Stored Prompt identifier.
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Prompt display name, 1 to 80 characters.
             template: Prompt template text.
             metadata: Caller-defined JSON metadata.
             extra_headers: Headers for this request. Authorization uses the client
@@ -4182,7 +4065,7 @@ class WorkspacesResource:
 
         Args:
             tier: Immutable Workspace tier; defaults to Core.
-            name: Name of the entity.
+            name: Workspace display name, up to 80 characters.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
@@ -4338,7 +4221,7 @@ class WorkspacesResource:
 
         Args:
             workspace_id: Workspace identifier.
-            name: Name of the entity.
+            name: New Workspace display name, or None to clear it.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
             extra_headers: Headers for this request. Authorization uses the client
@@ -4432,7 +4315,7 @@ class AsyncWorkspacesResource:
 
         Args:
             tier: Immutable Workspace tier; defaults to Core.
-            name: Name of the entity.
+            name: Workspace display name, up to 80 characters.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
@@ -4589,7 +4472,7 @@ class AsyncWorkspacesResource:
 
         Args:
             workspace_id: Workspace identifier.
-            name: Name of the entity.
+            name: New Workspace display name, or None to clear it.
             metadata: Caller-defined JSON metadata.
             network_policy: Workspace network access policy.
             extra_headers: Headers for this request. Authorization uses the client
@@ -4659,29 +4542,27 @@ class AsyncWorkspacesResource:
         return "pending" if status == 202 else "completed"
 
 
+class _QuotaInput(_WireInput):
+    monthly_token_limit: int | None
+    monthly_request_limit: int | None
+    reset_day: int
+
+
 def _tenant_body(
     name: str | _Omitted,
     quota: QuotaUpdate | None | _Omitted,
     monetization_enabled: bool | _Omitted,
 ) -> dict[str, object]:
     """Build the tenant request body, omitting unspecified fields."""
-    body: dict[str, object] = {}
-    if not isinstance(name, _Omitted):
-        body["name"] = name
-    if not isinstance(monetization_enabled, _Omitted):
-        body["monetizationEnabled"] = monetization_enabled
+    body: dict[str, object] = drop_omitted(
+        ("name", name), ("monetizationEnabled", monetization_enabled)
+    )
     if not isinstance(quota, _Omitted):
-        if quota is None:
-            body["quota"] = None
-        else:
-            if not isinstance(quota, dict) or set(quota) != _QUOTA_FIELDS:
-                msg = "quota must contain exactly the documented fields"
-                raise TypeError(msg)
-            body["quota"] = {
-                "monthlyTokenLimit": quota["monthly_token_limit"],
-                "monthlyRequestLimit": quota["monthly_request_limit"],
-                "resetDay": quota["reset_day"],
-            }
+        body["quota"] = (
+            None
+            if quota is None
+            else _QuotaInput.model_validate(quota).model_dump(by_alias=True)
+        )
     if not body:
         msg = "At least one tenant field must be provided."
         raise ValueError(msg)
@@ -4699,8 +4580,7 @@ def _usage_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the usage query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (
+    query: dict[str, str | int] = drop_omitted(
         ("from", from_),
         ("to", to),
         ("agentId", agent_id),
@@ -4708,9 +4588,7 @@ def _usage_query(
         ("userId", user_id),
         ("groupBy", group_by),
         ("limit", limit),
-    ):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    )
     return query
 
 
@@ -4721,10 +4599,9 @@ def _usage_overview_query(
     limit: int | _Omitted,
 ) -> dict[str, str | int]:
     """Build the usage overview query, omitting unspecified filters."""
-    query: dict[str, str | int] = {}
-    for wire_name, value in (("from", from_), ("to", to), ("limit", limit)):
-        if not isinstance(value, _Omitted):
-            query[wire_name] = value
+    query: dict[str, str | int] = drop_omitted(
+        ("from", from_), ("to", to), ("limit", limit)
+    )
     return query
 
 
@@ -4816,7 +4693,7 @@ class TenantResource:
         """Update the provided Tenant settings fields.
 
         Args:
-            name: Name of the entity.
+            name: Tenant display name, 1 to 80 characters.
             quota: Tenant usage limit updates.
             monetization_enabled: Bill usage to your end users through your
                 merchant account. Turning it off drops usage events the merchant
@@ -4933,7 +4810,7 @@ class AsyncTenantResource:
         """Update the provided Tenant settings fields.
 
         Args:
-            name: Name of the entity.
+            name: Tenant display name, 1 to 80 characters.
             quota: Tenant usage limit updates.
             monetization_enabled: Bill usage to your end users through your
                 merchant account. Turning it off drops usage events the merchant
@@ -5054,9 +4931,7 @@ class UserUsageResource:
             APITimeoutError: The HTTP request times out.
         """
         body: dict[str, object] = {"sessionIds": list(session_ids)}
-        for wire_name, value in (("from", from_), ("to", to)):
-            if not isinstance(value, _Omitted):
-                body[wire_name] = value
+        body |= drop_omitted(("from", from_), ("to", to))
         return self._transport.request(
             _Request(
                 "POST",
@@ -5256,9 +5131,7 @@ class AsyncUserUsageResource:
             APITimeoutError: The HTTP request times out.
         """
         body: dict[str, object] = {"sessionIds": list(session_ids)}
-        for wire_name, value in (("from", from_), ("to", to)):
-            if not isinstance(value, _Omitted):
-                body[wire_name] = value
+        body |= drop_omitted(("from", from_), ("to", to))
         return await self._transport.request(
             _Request(
                 "POST",
@@ -5576,7 +5449,7 @@ class TasksResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -5753,7 +5626,7 @@ class TasksResource:
 
         Args:
             task_id: Task identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text. Omission retains the current value.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -6084,7 +5957,7 @@ class AsyncTasksResource:
 
         Args:
             agent_id: Agent identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -6262,7 +6135,7 @@ class AsyncTasksResource:
 
         Args:
             task_id: Task identifier.
-            name: Name of the entity.
+            name: Task display name, 1 to 80 characters.
             prompt: Task prompt text. Omission retains the current value.
             schedule: One-time, interval, or cron schedule. Intervals use
                 every_ms of at least 60000. Cron timezone is optional.
@@ -8037,7 +7910,7 @@ class AgentSkillsResource:
             ),
             SkillCopyResults,
         )
-        return _skill_copy_values(response)
+        return response.root
 
 
 class AsyncAgentSkillsResource:
@@ -8412,4 +8285,4 @@ class AsyncAgentSkillsResource:
             ),
             SkillCopyResults,
         )
-        return _skill_copy_values(response)
+        return response.root
