@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import warnings
 from typing import Any
 
 import pytest
@@ -180,3 +181,88 @@ def test_task_create_rejects_blank_idempotency_key() -> None:
                 prompt="Summarize",
                 idempotency_key=" ",
             )
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_user_client_reads_one_agents_usage(asynchronous: bool) -> None:
+    with loopback(Response(body={"buckets": [], "totals": TOTALS})) as (
+        base_url,
+        state,
+    ):
+
+        async def run_async() -> None:
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                usage = await client.for_user("user-1").usage.get_for_agent(
+                    "ag_0123456789abcdef", group_by="model"
+                )
+                assert usage.totals.input_tokens == 3
+
+        if asynchronous:
+            asyncio.run(run_async())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                usage = client.for_user("user-1").usage.get_for_agent(
+                    "ag_0123456789abcdef", group_by="model"
+                )
+                assert usage.totals.input_tokens == 3
+
+    request = state.requests[0]
+    assert (request.method, request.target) == (
+        "GET",
+        "/v1/agents/ag_0123456789abcdef/usage?groupBy=model",
+    )
+    assert request.headers["x-ba-user-id"] == "user-1"
+
+
+DISABLED_LIMIT: dict[str, Any] = {
+    "spendingLimit": None,
+    "period": None,
+    "nextResetAt": None,
+}
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_user_client_spending_limits_warn_deprecated(asynchronous: bool) -> None:
+    with loopback(
+        Response(body=DISABLED_LIMIT),
+        Response(body=DISABLED_LIMIT),
+        Response(body=DISABLED_LIMIT),
+    ) as (base_url, state):
+
+        async def run_async() -> None:
+            async with AsyncBlazingAgents(
+                api_key="ba_test", base_url=base_url
+            ) as client:
+                user = client.for_user("user-1")
+                with pytest.warns(DeprecationWarning, match="tenant client"):
+                    await user.agents.get_spending_limit("ag_0123456789abcdef")
+                with pytest.warns(DeprecationWarning, match="tenant client"):
+                    await user.agents.update_spending_limit(
+                        "ag_0123456789abcdef", spending_limit=None
+                    )
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    await client.agents.get_spending_limit("ag_0123456789abcdef")
+
+        if asynchronous:
+            asyncio.run(run_async())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                user = client.for_user("user-1")
+                with pytest.warns(DeprecationWarning, match="tenant client"):
+                    user.agents.get_spending_limit("ag_0123456789abcdef")
+                with pytest.warns(DeprecationWarning, match="tenant client"):
+                    user.agents.update_spending_limit(
+                        "ag_0123456789abcdef", spending_limit=None
+                    )
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    client.agents.get_spending_limit("ag_0123456789abcdef")
+
+    assert [(r.method, r.target) for r in state.requests] == [
+        ("GET", "/v1/agents/ag_0123456789abcdef/spending-limit"),
+        ("PUT", "/v1/agents/ag_0123456789abcdef/spending-limit"),
+        ("GET", "/v1/agents/ag_0123456789abcdef/spending-limit"),
+    ]

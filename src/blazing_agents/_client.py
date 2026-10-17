@@ -53,6 +53,7 @@ from ._resources import (
     AsyncTasksResource,
     AsyncTenantResource,
     AsyncUsageResource,
+    AsyncUserAgentsResource,
     AsyncUserUsageResource,
     AsyncWorkspacesResource,
     McpConnectionsResource,
@@ -63,6 +64,7 @@ from ._resources import (
     TasksResource,
     TenantResource,
     UsageResource,
+    UserAgentsResource,
     UserUsageResource,
     WorkspacesResource,
 )
@@ -912,7 +914,7 @@ class UserClient(_SyncClient):
     def _bind_transport(self, transport: SyncTransport) -> None:
         """Attach the transport and resource clients."""
         self._transport = transport
-        self.agents = AgentsResource(transport)
+        self.agents = UserAgentsResource(transport)
         self.artifacts = ArtifactsResource(transport)
         self.memories = MemoriesResource(transport)
         self.prompts = PromptsResource(transport)
@@ -1792,7 +1794,7 @@ class AsyncUserClient(_AsyncClient):
     def _bind_transport(self, transport: AsyncTransport) -> None:
         """Attach the transport and resource clients."""
         self._transport = transport
-        self.agents = AsyncAgentsResource(transport)
+        self.agents = AsyncUserAgentsResource(transport)
         self.artifacts = AsyncArtifactsResource(transport)
         self.memories = AsyncMemoriesResource(transport)
         self.prompts = AsyncPromptsResource(transport)
