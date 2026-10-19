@@ -4,18 +4,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ._models import Prompt, PromptsPage
-from ._prompts import _prompt_body, _prompt_path
+from ._prompts import _prompt_path
 from ._transport import (
     OMITTED,
     _Omitted,
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import Timeout
-from ._wire import cursor_limit_query
 
 
 class PromptsResource:
@@ -62,7 +61,7 @@ class PromptsResource:
             _Request(
                 "POST",
                 "/v1/prompts",
-                json_body=_prompt_body(
+                json_body=wire_fields(
                     name=name,
                     template=template,
                     agent_id=agent_id,
@@ -108,8 +107,9 @@ class PromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query=drop_omitted(("userId", user_id), ("agentId", agent_id))
-                | cursor_limit_query(cursor, limit),
+                query=wire_fields(
+                    user_id=user_id, agent_id=agent_id, cursor=cursor, limit=limit
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -180,7 +180,7 @@ class PromptsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        body = _prompt_body(
+        body = wire_fields(
             name=name,
             template=template,
             agent_id=agent_id,

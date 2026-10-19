@@ -14,8 +14,8 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     Timeout,
@@ -25,19 +25,6 @@ from ._types import (
 def _artifact_path(artifact_id: str) -> str:
     """Build the encoded artifact endpoint path."""
     return f"/v1/artifacts/{path_segment('artifact_id', artifact_id)}"
-
-
-def _artifacts_query(
-    agent_id: str | _Omitted,
-    session_id: str | _Omitted,
-    cursor: str | _Omitted,
-) -> dict[str, str]:
-    """Build the artifacts query, omitting unspecified filters."""
-    return drop_omitted(
-        ("agentId", agent_id),
-        ("sessionId", session_id),
-        ("cursor", cursor),
-    )
 
 
 class AsyncArtifactsResource:
@@ -80,7 +67,9 @@ class AsyncArtifactsResource:
             _Request(
                 "GET",
                 "/v1/artifacts",
-                query=_artifacts_query(agent_id, session_id, cursor),
+                query=wire_fields(
+                    agent_id=agent_id, session_id=session_id, cursor=cursor
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

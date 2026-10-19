@@ -9,7 +9,7 @@ from ._transport import (
     _Omitted,
     _Request,
     decode_model,
-    drop_omitted,
+    wire_fields,
 )
 from ._types import ChatDeliveryListStatus, Timeout
 
@@ -25,11 +25,7 @@ def _chat_deliveries_query(
     if not isinstance(status, _Omitted) and status:
         # One comma-separated parameter carries the multi-value filter.
         query["status"] = ",".join(status)
-    query |= drop_omitted(
-        ("since", since),
-        ("cursor", cursor),
-        ("limit", limit),
-    )
+    query |= wire_fields(since=since, cursor=cursor, limit=limit)
     return query
 
 

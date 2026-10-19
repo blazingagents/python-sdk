@@ -14,8 +14,8 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     Timeout,
@@ -38,23 +38,7 @@ def _memory_body(
 ) -> dict[str, object]:
     """Build the memory request body, omitting unspecified fields."""
     body: dict[str, object] = {"text": text}
-    return body | drop_omitted(("userId", user_id))
-
-
-def _memories_query(
-    *,
-    user_id: str | _Omitted,
-    search: str | _Omitted,
-    cursor: str | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the memories query, omitting unspecified filters."""
-    return drop_omitted(
-        ("userId", user_id),
-        ("search", search),
-        ("cursor", cursor),
-        ("limit", limit),
-    )
+    return body | wire_fields(user_id=user_id)
 
 
 class AsyncMemoriesResource:
@@ -139,11 +123,8 @@ class AsyncMemoriesResource:
             _Request(
                 "GET",
                 _memory_path(agent_id),
-                query=_memories_query(
-                    user_id=user_id,
-                    search=search,
-                    cursor=cursor,
-                    limit=limit,
+                query=wire_fields(
+                    user_id=user_id, search=search, cursor=cursor, limit=limit
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,

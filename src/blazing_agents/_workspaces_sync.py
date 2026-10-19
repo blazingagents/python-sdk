@@ -10,6 +10,7 @@ from ._transport import (
     _Request,
     decode_model,
     decode_status,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import (
@@ -18,7 +19,7 @@ from ._types import (
     WorkspaceNetworkPolicy,
     WorkspaceTier,
 )
-from ._workspaces import _workspace_body, _workspace_path, _workspaces_query
+from ._workspaces import _workspace_body, _workspace_path
 
 
 class WorkspacesResource:
@@ -109,7 +110,7 @@ class WorkspacesResource:
             _Request(
                 "GET",
                 "/v1/workspaces",
-                query=_workspaces_query(cursor, limit, user_id),
+                query=wire_fields(cursor=cursor, limit=limit, user_id=user_id),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

@@ -11,11 +11,10 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
-    camel_case_keys,
     decode_model,
     decode_status,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     Timeout,
@@ -39,30 +38,14 @@ def _workspace_body(
     tier: WorkspaceTier | _Omitted = OMITTED,
 ) -> dict[str, object]:
     """Build the workspace request body, omitting unspecified fields."""
-    return drop_omitted(
-        ("name", name),
-        ("tier", tier),
-        ("userId", user_id),
-        ("metadata", metadata),
-        (
-            "networkPolicy",
-            network_policy
-            if isinstance(network_policy, _Omitted)
-            else camel_case_keys(network_policy),
-        ),
-    )
-
-
-def _workspaces_query(
-    cursor: str | _Omitted,
-    limit: int | _Omitted,
-    user_id: str | _Omitted,
-) -> dict[str, str | int]:
-    """Build the workspaces query, omitting unspecified filters."""
-    return drop_omitted(
-        ("cursor", cursor),
-        ("limit", limit),
-        ("userId", user_id),
+    return wire_fields(
+        name=name,
+        tier=tier,
+        user_id=user_id,
+        metadata=metadata,
+        network_policy=network_policy
+        if isinstance(network_policy, _Omitted)
+        else wire_fields(**network_policy),
     )
 
 
@@ -154,7 +137,7 @@ class AsyncWorkspacesResource:
             _Request(
                 "GET",
                 "/v1/workspaces",
-                query=_workspaces_query(cursor, limit, user_id),
+                query=wire_fields(cursor=cursor, limit=limit, user_id=user_id),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

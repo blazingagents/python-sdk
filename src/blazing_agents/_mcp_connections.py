@@ -16,8 +16,8 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     McpConnectionAuthType,
@@ -76,12 +76,12 @@ def _mcp_connection_body(
         raise ValueError(msg)
 
     body: dict[str, object] = {"authType": auth_type, "url": url}
-    body |= drop_omitted(
-        ("name", name),
-        ("bearerToken", bearer_token),
-        ("clientId", client_id),
-        ("clientSecret", client_secret),
-        ("scope", scope),
+    body |= wire_fields(
+        name=name,
+        bearer_token=bearer_token,
+        client_id=client_id,
+        client_secret=client_secret,
+        scope=scope,
     )
     return body
 

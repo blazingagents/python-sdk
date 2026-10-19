@@ -13,49 +13,13 @@ from ._transport import (
     _Omitted,
     _Request,
     decode_model,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     Timeout,
     UsageGroupBy,
 )
-
-
-def _usage_query(
-    *,
-    from_: str | _Omitted,
-    to: str | _Omitted,
-    agent_id: str | _Omitted,
-    session_id: str | _Omitted,
-    user_id: str | _Omitted,
-    group_by: UsageGroupBy | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the usage query, omitting unspecified filters."""
-    query: dict[str, str | int] = drop_omitted(
-        ("from", from_),
-        ("to", to),
-        ("agentId", agent_id),
-        ("sessionId", session_id),
-        ("userId", user_id),
-        ("groupBy", group_by),
-        ("limit", limit),
-    )
-    return query
-
-
-def _usage_overview_query(
-    *,
-    from_: str | _Omitted,
-    to: str | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the usage overview query, omitting unspecified filters."""
-    query: dict[str, str | int] = drop_omitted(
-        ("from", from_), ("to", to), ("limit", limit)
-    )
-    return query
 
 
 class AsyncUserUsageResource:
@@ -102,7 +66,7 @@ class AsyncUserUsageResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        query = _usage_query(
+        query: dict[str, str | int] = wire_fields(
             from_=from_,
             to=to,
             agent_id=agent_id,
@@ -150,7 +114,7 @@ class AsyncUserUsageResource:
             APITimeoutError: The HTTP request times out.
         """
         body: dict[str, object] = {"sessionIds": list(session_ids)}
-        body |= drop_omitted(("from", from_), ("to", to))
+        body |= wire_fields(from_=from_, to=to)
         return await self._transport.request(
             _Request(
                 "POST",
@@ -197,7 +161,7 @@ class AsyncUserUsageResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        query = _usage_query(
+        query: dict[str, str | int] = wire_fields(
             from_=from_,
             to=to,
             agent_id=OMITTED,
@@ -250,7 +214,7 @@ class AsyncUsageResource(AsyncUserUsageResource):
             _Request(
                 "GET",
                 "/v1/usage/overview",
-                query=_usage_overview_query(from_=from_, to=to, limit=limit),
+                query=wire_fields(from_=from_, to=to, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

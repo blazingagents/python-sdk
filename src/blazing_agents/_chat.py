@@ -13,7 +13,7 @@ from ._functions import (
     SseFrames,
     function_call,
 )
-from ._transport import OMITTED, _Omitted, _Request, drop_omitted, path_segment
+from ._transport import OMITTED, _Omitted, _Request, path_segment, wire_fields
 from ._types import ChatTrigger, Timeout, ToolApprovalDecisionInput
 
 _SESSION_ID = re.compile(r"ss_[0-9A-Za-z]{16}\Z")
@@ -231,12 +231,12 @@ def _chat_body(
         body["promptId"] = prompt_id
         if not isinstance(variables, _Omitted):
             body["variables"] = variables
-    body |= drop_omitted(
-        ("trigger", trigger),
-        ("messageId", message_id),
-        ("userId", user_id),
-        ("metadata", metadata),
-        ("functions", functions),
+    body |= wire_fields(
+        trigger=trigger,
+        message_id=message_id,
+        user_id=user_id,
+        metadata=metadata,
+        functions=functions,
     )
     return body
 

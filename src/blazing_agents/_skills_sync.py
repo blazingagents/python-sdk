@@ -5,12 +5,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Literal
 
 from ._models import Skill, SkillCopyResults, SkillDetail, SkillsPage
-from ._skills import (
-    _skill_path,
-    _skill_upload_request,
-    _SkillCopyResultList,
-    _skills_query,
-)
+from ._skills import _skill_path, _skill_upload_request, _SkillCopyResultList
 from ._transport import (
     OMITTED,
     _Omitted,
@@ -18,6 +13,7 @@ from ._transport import (
     decode_bytes,
     decode_model,
     decode_none,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import SkillArchiveType, Timeout, UploadFile
@@ -143,7 +139,7 @@ class AgentSkillsResource:
             _Request(
                 "GET",
                 _skill_path(self._agent_id),
-                query=_skills_query(cursor, limit),
+                query=wire_fields(cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

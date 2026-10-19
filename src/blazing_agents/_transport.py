@@ -47,14 +47,16 @@ class _Omitted:
 OMITTED = _Omitted()
 
 
-def drop_omitted(*fields: tuple[str, _T | _Omitted]) -> dict[str, _T]:
-    """Map each wire name to its value, leaving out the fields still OMITTED."""
-    return {name: value for name, value in fields if not isinstance(value, _Omitted)}
+def wire_fields(**fields: _T | _Omitted) -> dict[str, _T]:
+    """Rename snake_case fields to camelCase wire names, leaving out OMITTED ones.
 
-
-def camel_case_keys(values: Mapping[str, object]) -> dict[str, object]:
-    """Rename snake_case input keys to their camelCase wire names."""
-    return {to_camel(key): value for key, value in values.items()}
+    A trailing underscore, as in ``from_``, is dropped from the wire name.
+    """
+    return {
+        to_camel(name.rstrip("_")): value
+        for name, value in fields.items()
+        if not isinstance(value, _Omitted)
+    }
 
 
 @dataclass(frozen=True)

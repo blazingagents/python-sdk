@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from ._memories import _memories_query, _memory_body, _memory_path
+from ._memories import _memory_body, _memory_path
 from ._models import MemoriesPage, Memory, MemoryResponse
 from ._transport import (
     OMITTED,
@@ -11,6 +11,7 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import Timeout
@@ -98,11 +99,8 @@ class MemoriesResource:
             _Request(
                 "GET",
                 _memory_path(agent_id),
-                query=_memories_query(
-                    user_id=user_id,
-                    search=search,
-                    cursor=cursor,
-                    limit=limit,
+                query=wire_fields(
+                    user_id=user_id, search=search, cursor=cursor, limit=limit
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,

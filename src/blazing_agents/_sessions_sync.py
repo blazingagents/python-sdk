@@ -21,10 +21,10 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import Timeout
-from ._wire import session_messages_query
 
 
 class SessionsResource:
@@ -278,7 +278,7 @@ class SessionsResource:
             _Request(
                 "GET",
                 f"{_sessions_path(agent_id, session_id)}/messages",
-                query=session_messages_query(cursor, after, limit),
+                query=wire_fields(cursor=cursor, after=after, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

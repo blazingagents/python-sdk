@@ -20,8 +20,8 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import (
@@ -105,10 +105,8 @@ class MerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body: dict[str, object] = drop_omitted(
-            ("provider", provider),
-            ("environment", environment),
-            ("credential", credential),
+        json_body: dict[str, object] = wire_fields(
+            provider=provider, environment=environment, credential=credential
         )
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
@@ -152,9 +150,7 @@ class MerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body: dict[str, object] = drop_omitted(
-            ("credential", credential), ("status", status)
-        )
+        json_body: dict[str, object] = wire_fields(credential=credential, status=status)
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
         return self._transport.request(
@@ -237,9 +233,7 @@ class MerchantBindingsResource:
             _Request(
                 "GET",
                 _BINDINGS_PATH,
-                query=drop_omitted(
-                    ("userId", user_id), ("cursor", cursor), ("limit", limit)
-                ),
+                query=wire_fields(user_id=user_id, cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -393,9 +387,7 @@ class MerchantUsageEventsResource:
             _Request(
                 "GET",
                 _EVENTS_PATH,
-                query=drop_omitted(
-                    ("status", status), ("cursor", cursor), ("limit", limit)
-                ),
+                query=wire_fields(status=status, cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -500,7 +492,7 @@ class MerchantUsageEventsResource:
             _Request(
                 "GET",
                 f"{_EVENTS_PATH}/summary",
-                query=drop_omitted(("days", days)),
+                query=wire_fields(days=days),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

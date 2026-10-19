@@ -26,14 +26,14 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     TaskScheduleInput,
     Timeout,
 )
-from ._wire import WireInput, cursor_limit_query, session_messages_query
+from ._wire import WireInput
 
 _ISO_OFFSET_DATETIME = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -133,33 +133,18 @@ def _task_body(
 ) -> dict[str, object]:
     """Build the task request body, omitting unspecified fields."""
     body: dict[str, object] = _task_run_body(idempotency_key)
-    body |= drop_omitted(
-        ("agentId", agent_id),
-        ("name", name),
-        ("prompt", prompt),
-        ("enabled", enabled),
-        ("submit", submit),
-        ("userId", user_id),
-        ("metadata", metadata),
+    body |= wire_fields(
+        agent_id=agent_id,
+        name=name,
+        prompt=prompt,
+        enabled=enabled,
+        submit=submit,
+        user_id=user_id,
+        metadata=metadata,
     )
     if not isinstance(schedule, _Omitted):
         body["schedule"] = None if schedule is None else _task_schedule(schedule)
     return body
-
-
-def _tasks_query(
-    agent_id: str | _Omitted,
-    user_id: str | _Omitted,
-    cursor: str | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the tasks query, omitting unspecified filters."""
-    return drop_omitted(
-        ("agentId", agent_id),
-        ("userId", user_id),
-        ("cursor", cursor),
-        ("limit", limit),
-    )
 
 
 def _task_run_body(
@@ -285,7 +270,9 @@ class AsyncTasksResource:
             _Request(
                 "GET",
                 _task_path(),
-                query=_tasks_query(agent_id, user_id, cursor, limit),
+                query=wire_fields(
+                    agent_id=agent_id, user_id=user_id, cursor=cursor, limit=limit
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -531,7 +518,7 @@ class AsyncTasksResource:
             _Request(
                 "GET",
                 _task_run_path(task_id),
-                query=cursor_limit_query(cursor, limit),
+                query=wire_fields(cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -647,7 +634,7 @@ class AsyncTasksResource:
             _Request(
                 "GET",
                 f"{_task_run_path(task_id, run_id)}/messages",
-                query=session_messages_query(cursor, after, limit),
+                query=wire_fields(cursor=cursor, after=after, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

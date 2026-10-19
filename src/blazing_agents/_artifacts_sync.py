@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from ._artifacts import _artifact_path, _artifacts_query
+from ._artifacts import _artifact_path
 from ._models import Artifact, ArtifactDownloadUrl, ArtifactsPage
 from ._transport import (
     OMITTED,
@@ -11,6 +11,7 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import Timeout
@@ -56,7 +57,9 @@ class ArtifactsResource:
             _Request(
                 "GET",
                 "/v1/artifacts",
-                query=_artifacts_query(agent_id, session_id, cursor),
+                query=wire_fields(
+                    agent_id=agent_id, session_id=session_id, cursor=cursor
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

@@ -19,8 +19,8 @@ from ._transport import (
     decode_bytes,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     SkillArchiveType,
@@ -38,14 +38,6 @@ def _skill_path(agent_id: str, skill_id: str | None = None) -> str:
     if skill_id is None:
         return path
     return f"{path}/{path_segment('skill_id', skill_id)}"
-
-
-def _skills_query(
-    cursor: str | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the skills query, omitting unspecified filters."""
-    return drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 @contextmanager
@@ -201,7 +193,7 @@ class AsyncAgentSkillsResource:
             _Request(
                 "GET",
                 _skill_path(self._agent_id),
-                query=_skills_query(cursor, limit),
+                query=wire_fields(cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

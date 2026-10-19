@@ -18,7 +18,6 @@ from ._tasks import (
     _task_path,
     _task_run_body,
     _task_run_path,
-    _tasks_query,
 )
 from ._transport import (
     OMITTED,
@@ -26,10 +25,10 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import TaskScheduleInput, Timeout
-from ._wire import cursor_limit_query, session_messages_query
 
 
 class TasksResource:
@@ -140,7 +139,9 @@ class TasksResource:
             _Request(
                 "GET",
                 _task_path(),
-                query=_tasks_query(agent_id, user_id, cursor, limit),
+                query=wire_fields(
+                    agent_id=agent_id, user_id=user_id, cursor=cursor, limit=limit
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -385,7 +386,7 @@ class TasksResource:
             _Request(
                 "GET",
                 _task_run_path(task_id),
-                query=cursor_limit_query(cursor, limit),
+                query=wire_fields(cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -500,7 +501,7 @@ class TasksResource:
             _Request(
                 "GET",
                 f"{_task_run_path(task_id, run_id)}/messages",
-                query=session_messages_query(cursor, after, limit),
+                query=wire_fields(cursor=cursor, after=after, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

@@ -12,7 +12,7 @@ from ._transport import (
     _Omitted,
     _Request,
     decode_model,
-    drop_omitted,
+    wire_fields,
 )
 from ._types import (
     QuotaUpdate,
@@ -34,8 +34,8 @@ def _tenant_body(
     monetization_enabled: bool | _Omitted,
 ) -> dict[str, object]:
     """Build the tenant request body, omitting unspecified fields."""
-    body: dict[str, object] = drop_omitted(
-        ("name", name), ("monetizationEnabled", monetization_enabled)
+    body: dict[str, object] = wire_fields(
+        name=name, monetization_enabled=monetization_enabled
     )
     if not isinstance(quota, _Omitted):
         body["quota"] = (

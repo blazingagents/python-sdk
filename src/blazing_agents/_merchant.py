@@ -17,11 +17,10 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
-    camel_case_keys,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     MerchantConnectionStatus,
@@ -39,7 +38,7 @@ _EVENTS_PATH = "/v1/merchant-usage-events"
 
 def _guard_body(guard: MerchantGuardInput) -> dict[str, object]:
     """Convert a guard input to its wire shape."""
-    return camel_case_keys(guard)
+    return wire_fields(**guard)
 
 
 class AsyncMerchantConnectionResource:
@@ -113,10 +112,8 @@ class AsyncMerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body: dict[str, object] = drop_omitted(
-            ("provider", provider),
-            ("environment", environment),
-            ("credential", credential),
+        json_body: dict[str, object] = wire_fields(
+            provider=provider, environment=environment, credential=credential
         )
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
@@ -160,9 +157,7 @@ class AsyncMerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body: dict[str, object] = drop_omitted(
-            ("credential", credential), ("status", status)
-        )
+        json_body: dict[str, object] = wire_fields(credential=credential, status=status)
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
         return await self._transport.request(
@@ -245,9 +240,7 @@ class AsyncMerchantBindingsResource:
             _Request(
                 "GET",
                 _BINDINGS_PATH,
-                query=drop_omitted(
-                    ("userId", user_id), ("cursor", cursor), ("limit", limit)
-                ),
+                query=wire_fields(user_id=user_id, cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -402,9 +395,7 @@ class AsyncMerchantUsageEventsResource:
             _Request(
                 "GET",
                 _EVENTS_PATH,
-                query=drop_omitted(
-                    ("status", status), ("cursor", cursor), ("limit", limit)
-                ),
+                query=wire_fields(status=status, cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -510,7 +501,7 @@ class AsyncMerchantUsageEventsResource:
             _Request(
                 "GET",
                 f"{_EVENTS_PATH}/summary",
-                query=drop_omitted(("days", days)),
+                query=wire_fields(days=days),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

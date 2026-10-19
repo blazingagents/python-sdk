@@ -10,10 +10,8 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from ._transport import (
-    _Omitted,
-    camel_case_keys,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     SpendingLimitInput,
@@ -27,27 +25,13 @@ def spending_limit_body(
     return {
         "spendingLimit": None
         if spending_limit is None
-        else camel_case_keys(spending_limit)
+        else wire_fields(**spending_limit)
     }
 
 
 def agent_path(agent_id: str) -> str:
     """Build the encoded agent endpoint path."""
     return f"/v1/agents/{path_segment('agent_id', agent_id)}"
-
-
-def session_messages_query(
-    cursor: str | _Omitted,
-    after: str | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the session messages query, omitting unspecified filters."""
-    query: dict[str, str | int] = drop_omitted(
-        ("cursor", cursor),
-        ("after", after),
-        ("limit", limit),
-    )
-    return query
 
 
 class WireInput(BaseModel):
@@ -60,14 +44,6 @@ class WireInput(BaseModel):
         validate_by_name=True,
         validate_by_alias=False,
     )
-
-
-def cursor_limit_query(
-    cursor: str | _Omitted,
-    limit: int | _Omitted,
-) -> dict[str, str | int]:
-    """Build the cursor limit query, omitting unspecified filters."""
-    return drop_omitted(("cursor", cursor), ("limit", limit))
 
 
 @contextmanager

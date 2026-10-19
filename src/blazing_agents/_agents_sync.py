@@ -5,7 +5,6 @@ from collections.abc import Mapping, Sequence
 
 from ._agents import (
     _agent_body,
-    _agents_query,
     _mcp_attachment_body,
     _validate_agent_create_configuration,
     _validate_agent_update_configuration,
@@ -24,6 +23,7 @@ from ._transport import (
     decode_model,
     decode_none,
     path_segment,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import (
@@ -34,7 +34,7 @@ from ._types import (
     UploadFile,
     WorkspaceTier,
 )
-from ._wire import agent_path, cursor_limit_query, spending_limit_body, upload_part
+from ._wire import agent_path, spending_limit_body, upload_part
 
 
 class UserAgentsResource:
@@ -167,10 +167,12 @@ class UserAgentsResource:
             _Request(
                 "GET",
                 "/v1/agents",
-                query={
-                    **_agents_query(user_id, workspace_id),
-                    **cursor_limit_query(cursor, limit),
-                },
+                query=wire_fields(
+                    user_id=user_id,
+                    workspace_id=workspace_id,
+                    cursor=cursor,
+                    limit=limit,
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

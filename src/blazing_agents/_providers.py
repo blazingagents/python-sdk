@@ -16,8 +16,8 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     ProviderType,
@@ -51,11 +51,7 @@ def _provider_body(
         "providerType": provider_type,
         "apiKey": api_key,
     }
-    body |= drop_omitted(
-        ("name", name),
-        ("baseUrl", base_url),
-        ("model", model),
-    )
+    body |= wire_fields(name=name, base_url=base_url, model=model)
     return body
 
 

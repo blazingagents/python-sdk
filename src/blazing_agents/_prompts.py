@@ -13,36 +13,17 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     Timeout,
 )
-from ._wire import cursor_limit_query
 
 
 def _prompt_path(prompt_id: str) -> str:
     """Build the encoded prompt endpoint path."""
     return f"/v1/prompts/{path_segment('prompt_id', prompt_id)}"
-
-
-def _prompt_body(
-    *,
-    name: str | _Omitted,
-    template: str | _Omitted,
-    agent_id: str | None | _Omitted,
-    user_id: str | _Omitted,
-    metadata: dict[str, object] | _Omitted,
-) -> dict[str, object]:
-    """Build the prompt request body, omitting unspecified fields."""
-    return drop_omitted(
-        ("name", name),
-        ("template", template),
-        ("agentId", agent_id),
-        ("userId", user_id),
-        ("metadata", metadata),
-    )
 
 
 class AsyncPromptsResource:
@@ -89,7 +70,7 @@ class AsyncPromptsResource:
             _Request(
                 "POST",
                 "/v1/prompts",
-                json_body=_prompt_body(
+                json_body=wire_fields(
                     name=name,
                     template=template,
                     agent_id=agent_id,
@@ -135,8 +116,9 @@ class AsyncPromptsResource:
             _Request(
                 "GET",
                 "/v1/prompts",
-                query=drop_omitted(("userId", user_id), ("agentId", agent_id))
-                | cursor_limit_query(cursor, limit),
+                query=wire_fields(
+                    user_id=user_id, agent_id=agent_id, cursor=cursor, limit=limit
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -207,7 +189,7 @@ class AsyncPromptsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        body = _prompt_body(
+        body = wire_fields(
             name=name,
             template=template,
             agent_id=agent_id,

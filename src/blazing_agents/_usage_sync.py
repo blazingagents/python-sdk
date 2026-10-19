@@ -9,12 +9,11 @@ from ._transport import (
     _Omitted,
     _Request,
     decode_model,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import Timeout, UsageGroupBy
-from ._usage import _usage_overview_query, _usage_query
 
 
 class UserUsageResource:
@@ -61,7 +60,7 @@ class UserUsageResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        query = _usage_query(
+        query: dict[str, str | int] = wire_fields(
             from_=from_,
             to=to,
             agent_id=agent_id,
@@ -109,7 +108,7 @@ class UserUsageResource:
             APITimeoutError: The HTTP request times out.
         """
         body: dict[str, object] = {"sessionIds": list(session_ids)}
-        body |= drop_omitted(("from", from_), ("to", to))
+        body |= wire_fields(from_=from_, to=to)
         return self._transport.request(
             _Request(
                 "POST",
@@ -156,7 +155,7 @@ class UserUsageResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        query = _usage_query(
+        query: dict[str, str | int] = wire_fields(
             from_=from_,
             to=to,
             agent_id=OMITTED,
@@ -209,7 +208,7 @@ class UsageResource(UserUsageResource):
             _Request(
                 "GET",
                 "/v1/usage/overview",
-                query=_usage_overview_query(from_=from_, to=to, limit=limit),
+                query=wire_fields(from_=from_, to=to, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

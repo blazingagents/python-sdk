@@ -16,10 +16,10 @@ from ._transport import (
     OMITTED,
     _Omitted,
     _Request,
-    camel_case_keys,
     decode_model,
     decode_none,
     path_segment,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import (
@@ -29,7 +29,6 @@ from ._types import (
     TelegramChatCredentialsInput,
     Timeout,
 )
-from ._wire import cursor_limit_query
 
 
 class ChatConnectionsResource:
@@ -269,7 +268,7 @@ class ChatConnectionsResource:
         if not isinstance(name, _Omitted):
             body["name"] = name
         if not isinstance(configuration, _Omitted):
-            configuration_body = camel_case_keys(configuration)
+            configuration_body = wire_fields(**configuration)
             if not configuration_body or not set(configuration_body) <= {
                 "businessMode",
                 "channelIds",
@@ -389,16 +388,14 @@ class ChatConnectionsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        credentials_body = camel_case_keys(credentials)
+        credentials_body = wire_fields(**credentials)
         required = (
             {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
         )
         if platform not in {"slack", "telegram"} or set(credentials_body) != required:
             raise ValueError("Credentials must match the selected platform")
         configuration_body = (
-            {}
-            if isinstance(configuration, _Omitted)
-            else camel_case_keys(configuration)
+            {} if isinstance(configuration, _Omitted) else wire_fields(**configuration)
         )
         allowed_configuration = (
             {"channelIds"} if platform == "slack" else {"businessMode", "chatIds"}
@@ -509,7 +506,7 @@ class ChatConnectionsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        credentials_body = camel_case_keys(credentials)
+        credentials_body = wire_fields(**credentials)
         required = (
             {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
         )
@@ -569,7 +566,7 @@ class ChatConnectionsResource:
             _Request(
                 "GET",
                 _path(chat_connection_id) + "/deliveries",
-                query=cursor_limit_query(cursor, limit),
+                query=wire_fields(cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

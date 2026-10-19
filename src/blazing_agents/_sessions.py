@@ -20,13 +20,12 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     Timeout,
 )
-from ._wire import session_messages_query
 
 
 def _sessions_path(agent_id: str, session_id: str | None = None) -> str:
@@ -56,7 +55,7 @@ def _inputs_query(
     query: dict[str, str | int] = {}
     if not isinstance(include_completed, _Omitted):
         query["includeCompleted"] = str(include_completed).lower()
-    return query | drop_omitted(("cursor", cursor), ("limit", limit))
+    return query | wire_fields(cursor=cursor, limit=limit)
 
 
 def _sessions_query(
@@ -66,10 +65,8 @@ def _sessions_query(
     by_agent: bool | None = None,
 ) -> dict[str, str | int]:
     """Build the sessions query, omitting unspecified filters."""
-    query: dict[str, str | int] = drop_omitted(
-        ("userId", user_id),
-        ("cursor", cursor),
-        ("limit", limit),
+    query: dict[str, str | int] = wire_fields(
+        user_id=user_id, cursor=cursor, limit=limit
     )
     if by_agent is not None:
         query["byAgent"] = str(by_agent).lower()
@@ -328,7 +325,7 @@ class AsyncSessionsResource:
             _Request(
                 "GET",
                 f"{_sessions_path(agent_id, session_id)}/messages",
-                query=session_messages_query(cursor, after, limit),
+                query=wire_fields(cursor=cursor, after=after, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

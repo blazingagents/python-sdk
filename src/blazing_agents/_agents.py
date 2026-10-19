@@ -14,11 +14,10 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
-    camel_case_keys,
     decode_model,
     decode_none,
-    drop_omitted,
     path_segment,
+    wire_fields,
 )
 from ._types import (
     AgentTool,
@@ -28,7 +27,7 @@ from ._types import (
     UploadFile,
     WorkspaceTier,
 )
-from ._wire import agent_path, cursor_limit_query, spending_limit_body, upload_part
+from ._wire import agent_path, spending_limit_body, upload_part
 
 
 def _agent_body(
@@ -55,25 +54,24 @@ def _agent_body(
         workspace_tier, _Omitted
     ):
         raise ValueError("workspace_id and workspace_tier are mutually exclusive")
-    body: dict[str, object] = drop_omitted(
-        ("name", name),
-        ("model", model),
-        ("providerId", provider_id),
-        ("thinkingLevel", thinking_level),
-        ("workspaceId", workspace_id),
-        ("workspaceTier", workspace_tier),
-        ("autoCompaction", auto_compaction),
-        ("compactionReserveTokens", compaction_reserve_tokens),
-        ("memoryInjectionEnabled", memory_injection_enabled),
-        ("tools", tools),
-        ("instructions", instructions),
-        ("userId", user_id),
-        ("metadata", metadata),
-        ("mcpConnectionIds", mcp_connection_ids),
+    body: dict[str, object] = wire_fields(
+        name=name,
+        model=model,
+        provider_id=provider_id,
+        thinking_level=thinking_level,
+        workspace_id=workspace_id,
+        workspace_tier=workspace_tier,
+        auto_compaction=auto_compaction,
+        compaction_reserve_tokens=compaction_reserve_tokens,
+        memory_injection_enabled=memory_injection_enabled,
+        tools=tools,
+        instructions=instructions,
+        user_id=user_id,
+        metadata=metadata,
+        mcp_connection_ids=mcp_connection_ids,
     )
-    for wire_name, policy in drop_omitted(
-        ("approvalInChat", approval_in_chat),
-        ("approvalInTasks", approval_in_tasks),
+    for wire_name, policy in wire_fields(
+        approval_in_chat=approval_in_chat, approval_in_tasks=approval_in_tasks
     ).items():
         body[wire_name] = _approval_policy_body(policy)
     return body
@@ -84,7 +82,7 @@ def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
     body: dict[str, object] = {"default": policy["default"]}
     if "overrides" in policy:
         body["overrides"] = [
-            {"tool": camel_case_keys(rule["tool"]), "decision": rule["decision"]}
+            {"tool": wire_fields(**rule["tool"]), "decision": rule["decision"]}
             for rule in policy["overrides"]
         ]
     return body
@@ -123,25 +121,13 @@ def _validate_agent_update_configuration(
         raise ValueError(msg)
 
 
-def _agents_query(
-    user_id: str | _Omitted,
-    workspace_id: str | _Omitted,
-) -> dict[str, str]:
-    """Build the agents query, omitting unspecified filters."""
-    return drop_omitted(
-        ("userId", user_id),
-        ("workspaceId", workspace_id),
-    )
-
-
 def _mcp_attachment_body(
     forward_user_id: bool | _Omitted,
     forwarded_metadata_keys: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
     """Build the mcp attachment request body, omitting unspecified fields."""
-    body: dict[str, object] = drop_omitted(
-        ("forwardUserId", forward_user_id),
-        ("forwardedMetadataKeys", forwarded_metadata_keys),
+    body: dict[str, object] = wire_fields(
+        forward_user_id=forward_user_id, forwarded_metadata_keys=forwarded_metadata_keys
     )
     if not body:
         msg = "At least one MCP Attachment field must be provided."
@@ -279,10 +265,12 @@ class AsyncUserAgentsResource:
             _Request(
                 "GET",
                 "/v1/agents",
-                query={
-                    **_agents_query(user_id, workspace_id),
-                    **cursor_limit_query(cursor, limit),
-                },
+                query=wire_fields(
+                    user_id=user_id,
+                    workspace_id=workspace_id,
+                    cursor=cursor,
+                    limit=limit,
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
