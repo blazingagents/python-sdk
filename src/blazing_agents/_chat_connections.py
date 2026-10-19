@@ -10,7 +10,6 @@ from ._models import (
     ChatDelivery,
     ChatDeliveryResult,
 )
-from ._resources import _cursor_limit_query
 from ._transport import (
     OMITTED,
     AsyncTransport,
@@ -27,6 +26,7 @@ from ._types import (
     TelegramChatCredentialsInput,
     Timeout,
 )
+from ._wire import cursor_limit_query
 
 
 def _path(chat_connection_id: str) -> str:
@@ -573,7 +573,7 @@ class ChatConnectionsResource:
             _Request(
                 "GET",
                 _path(chat_connection_id) + "/deliveries",
-                query=_cursor_limit_query(cursor, limit),
+                query=cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -1209,7 +1209,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "GET",
                 _path(chat_connection_id) + "/deliveries",
-                query=_cursor_limit_query(cursor, limit),
+                query=cursor_limit_query(cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

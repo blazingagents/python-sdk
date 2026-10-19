@@ -8,6 +8,13 @@ from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar, cast, overload
 
 import httpx
 
+from ._agents import (
+    AgentsResource,
+    AsyncAgentsResource,
+    AsyncUserAgentsResource,
+    UserAgentsResource,
+)
+from ._artifacts import ArtifactsResource, AsyncArtifactsResource
 from ._chat import (
     AsyncChatStream,
     ChatStream,
@@ -24,6 +31,8 @@ from ._functions import (
     _CallScope,
     function_definitions,
 )
+from ._mcp_connections import AsyncMcpConnectionsResource, McpConnectionsResource
+from ._memories import AsyncMemoriesResource, MemoriesResource
 from ._merchant import (
     AsyncMerchantBindingsResource,
     AsyncMerchantConnectionResource,
@@ -38,37 +47,13 @@ from ._object import (
     decode_object,
     resolve_output,
 )
-from ._resources import (
-    AgentSkillsResource,
-    AgentsResource,
-    ArtifactsResource,
-    AsyncAgentSkillsResource,
-    AsyncAgentsResource,
-    AsyncArtifactsResource,
-    AsyncMcpConnectionsResource,
-    AsyncMemoriesResource,
-    AsyncPromptsResource,
-    AsyncProvidersResource,
-    AsyncSessionsResource,
-    AsyncTasksResource,
-    AsyncTenantResource,
-    AsyncUsageResource,
-    AsyncUserAgentsResource,
-    AsyncUserUsageResource,
-    AsyncWorkspacesResource,
-    McpConnectionsResource,
-    MemoriesResource,
-    PromptsResource,
-    ProvidersResource,
-    SessionsResource,
-    TasksResource,
-    TenantResource,
-    UsageResource,
-    UserAgentsResource,
-    UserUsageResource,
-    WorkspacesResource,
-)
+from ._prompts import AsyncPromptsResource, PromptsResource
+from ._providers import AsyncProvidersResource, ProvidersResource
 from ._responses import Completion
+from ._sessions import AsyncSessionsResource, SessionsResource
+from ._skills import AgentSkillsResource, AsyncAgentSkillsResource
+from ._tasks import AsyncTasksResource, TasksResource
+from ._tenant import AsyncTenantResource, TenantResource
 from ._transport import (
     OMITTED,
     RESPONSE_OBJECT_TEXT,
@@ -86,7 +71,14 @@ from ._types import (
     Timeout,
     ToolApprovalDecisionInput,
 )
+from ._usage import (
+    AsyncUsageResource,
+    AsyncUserUsageResource,
+    UsageResource,
+    UserUsageResource,
+)
 from ._version import __version__
+from ._workspaces import AsyncWorkspacesResource, WorkspacesResource
 
 if TYPE_CHECKING:
     from typing_extensions import TypeForm
