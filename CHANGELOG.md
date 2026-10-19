@@ -4,6 +4,20 @@
 
 ### Changed
 
+- Every operation the API contract marks `x-credential-bearing` (all
+  `providers`, `mcp_connections` and `chat_connections` methods,
+  `chat_deliveries.list` and `iter`, and `merchant_connection.get`, `create`,
+  `update` and `retire`) now rejects a successful JSON response that contains a
+  credential field (`apiKey`, `botToken`, `signingSecret`, `webhookSecret`,
+  `bearerToken`, `clientSecret`, `credential`, or their snake_case forms) or
+  echoes a submitted secret. It raises the new `CredentialEchoError`, a
+  `BlazingAgentsError` subclass that carries `request_id` and none of the body.
+  Before, only `providers`, `mcp_connections` and `chat_connections` responses
+  were checked, and they raised a plain `BlazingAgentsError`; a non-JSON
+  response from those methods now raises the decoder's `ValidationError`
+  instead. Migration: catch `CredentialEchoError` where you matched the
+  `BlazingAgentsError` message "credential material".
+
 - The client no longer checks rules that the API already enforces. These calls
   now send the request, and the API rejects an invalid one with
   `APIStatusError` (status 400) instead of the SDK raising `ValueError` (or

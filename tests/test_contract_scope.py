@@ -5,7 +5,6 @@ import inspect
 import json
 import re
 from collections.abc import AsyncIterator, Callable, Iterator
-from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -18,6 +17,7 @@ from blazing_agents import (
     AsyncBlazingAgents,
     AsyncUserClient,
     BlazingAgents,
+    CredentialEchoError,
     UserClient,
 )
 
@@ -289,6 +289,7 @@ class Operation:
         self.path = path
         self.id: str | None = spec.get("operationId")
         self.scope: str | None = spec.get("x-scope")
+        self.credential_bearing: bool = spec.get("x-credential-bearing", False)
         self.api_key = any("ApiKey" in way for way in spec.get("security", security))
         segments = path.split("/")
         self.literals = sum(not segment.startswith("{") for segment in segments)
@@ -374,33 +375,70 @@ def public_methods(view: object, prefix: str = "") -> set[str]:
     return names
 
 
-def send_sync(call: Callable[[Client], object], client: Client) -> None:
-    with suppress(APIStatusError):
+@dataclass(frozen=True)
+class Reply:
+    """The response every request gets, and the call failures it may cause."""
+
+    status: int
+    body: object
+    expected: tuple[type[Exception], ...]
+
+
+NOT_FOUND = Reply(
+    404, {"error": {"code": "not_found", "message": "Not found"}}, (APIStatusError,)
+)
+# A successful body carrying a credential key. A guarded operation raises
+# CredentialEchoError; any other call fails to decode it, which is fine here.
+CREDENTIAL_ECHO = Reply(200, {"apiKey": "sk-echoed"}, (Exception,))
+
+
+def send_sync(call: Callable[[Client], object], client: Client, reply: Reply) -> bool:
+    """Send the call's requests and report whether it rejected a credential echo."""
+    try:
         result = call(client)
         if isinstance(result, Iterator):
             next(cast(Iterator[object], result), None)
+    except CredentialEchoError:
+        return True
+    except reply.expected:
+        pass
+    return False
 
 
-async def send_async(call: Callable[[Client], object], client: Client) -> None:
-    with suppress(APIStatusError):
+async def send_async(
+    call: Callable[[Client], object], client: Client, reply: Reply
+) -> bool:
+    """Send the call's requests and report whether it rejected a credential echo."""
+    try:
         result = call(client)
         if isinstance(result, AsyncIterator):
             await anext(cast(AsyncIterator[object], result), None)
         elif inspect.isawaitable(result):
             await result
+    except CredentialEchoError:
+        return True
+    except reply.expected:
+        pass
+    return False
 
 
-def observe(
-    surface: Surface, asynchronous: bool
-) -> tuple[set[str], dict[str, list[httpx.Request]]]:
+@dataclass(frozen=True)
+class Observation:
+    public: set[str]
+    sent: dict[str, list[httpx.Request]]
+    """The requests each method sent."""
+    echo_rejected: list[httpx.Request]
+    """The last request of each call that raised CredentialEchoError."""
+
+
+def observe(surface: Surface, asynchronous: bool, reply: Reply) -> Observation:
     """Run the calls the surface's client has and record the requests each sends."""
     requests: list[httpx.Request] = []
+    echo_rejected: list[httpx.Request] = []
 
     def record(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(
-            404, json={"error": {"code": "not_found", "message": "Not found"}}
-        )
+        return httpx.Response(reply.status, json=reply.body)
 
     sent: dict[str, list[httpx.Request]] = {}
     transport = httpx.MockTransport(record)
@@ -415,13 +453,14 @@ def observe(
             public = public_methods(client)
             for method in sorted(surface.calls.keys() & public):
                 for call in surface.calls[method]:
-                    await send_async(call, client)
+                    if await send_async(call, client, reply):
+                        echo_rejected.append(requests[-1])
                 sent[method] = requests.copy()
                 requests.clear()
             return public
 
     if asynchronous:
-        return asyncio.run(run_async()), sent
+        return Observation(asyncio.run(run_async()), sent, echo_rejected)
     with BlazingAgents(
         api_key="ba_test",
         base_url=BASE_URL,
@@ -431,10 +470,11 @@ def observe(
         public = public_methods(client)
         for method in sorted(surface.calls.keys() & public):
             for call in surface.calls[method]:
-                send_sync(call, client)
+                if send_sync(call, client, reply):
+                    echo_rejected.append(requests[-1])
             sent[method] = requests.copy()
             requests.clear()
-        return public, sent
+        return Observation(public, sent, echo_rejected)
 
 
 def test_every_api_key_operation_names_its_scope() -> None:
@@ -454,7 +494,8 @@ def test_every_api_key_operation_names_its_scope() -> None:
 def test_client_matches_contract(surface: Surface, asynchronous: bool) -> None:
     operations = contract()
     by_id = {operation.id: operation for operation in operations}
-    public, sent = observe(surface, asynchronous)
+    observation = observe(surface, asynchronous, NOT_FOUND)
+    public, sent = observation.public, observation.sent
     problems: list[str] = []
 
     problems += [
@@ -504,4 +545,28 @@ def test_client_matches_contract(surface: Surface, asynchronous: bool) -> None:
 
     assert not problems, (
         f"{surface.name} drifted from spec/openapi.json:\n" + "\n".join(problems)
+    )
+
+
+@pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize("surface", SURFACES.values(), ids=SURFACES.keys())
+def test_client_guards_exactly_the_credential_bearing_operations(
+    surface: Surface, asynchronous: bool
+) -> None:
+    operations = contract()
+    observation = observe(surface, asynchronous, CREDENTIAL_ECHO)
+    guarded = {
+        str(resolve(operations, request)) for request in observation.echo_rejected
+    }
+    flagged = {
+        str(operation)
+        for operation in operations
+        if operation.credential_bearing and surface.sends(operation)
+    }
+    assert guarded == flagged, (
+        f"{surface.name} credential guard drifted from x-credential-bearing:\n"
+        + "\n".join(
+            [f"unguarded: {operation}" for operation in sorted(flagged - guarded)]
+            + [f"guarded, not flagged: {op}" for op in sorted(guarded - flagged)]
+        )
     )

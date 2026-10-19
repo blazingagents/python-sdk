@@ -70,6 +70,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "GET",
                 "/v1/chat-connections",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -103,6 +104,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "GET",
                 _path(chat_connection_id),
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -136,6 +138,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "POST",
                 _path(chat_connection_id) + "/health",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -169,6 +172,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "POST",
                 _path(chat_connection_id) + "/enable",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -202,6 +206,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "POST",
                 _path(chat_connection_id) + "/disable",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -232,6 +237,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "DELETE",
                 _path(chat_connection_id),
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -274,6 +280,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "PATCH",
                 _path(chat_connection_id),
+                credential_bearing=True,
                 json_body=body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -393,6 +400,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "POST",
                 "/v1/chat-connections",
+                credential_bearing=True,
                 json_body=body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -488,6 +496,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "POST",
                 _path(chat_connection_id) + "/credentials",
+                credential_bearing=True,
                 json_body=body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -537,6 +546,7 @@ class AsyncChatConnectionsResource:
             _Request(
                 "GET",
                 _path(chat_connection_id) + "/deliveries",
+                credential_bearing=True,
                 query=wire_fields(cursor=cursor, limit=limit),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -625,6 +635,7 @@ class AsyncChatConnectionsResource:
                 "POST",
                 f"{_path(chat_connection_id)}/deliveries/"
                 f"{path_segment('delivery_id', delivery_id)}/repair",
+                credential_bearing=True,
                 json_body={
                     "expectedAttempt": expected_attempt,
                     "previousSenderStopped": True,

@@ -75,6 +75,7 @@ class AsyncMerchantConnectionResource:
             _Request(
                 "GET",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -121,6 +122,7 @@ class AsyncMerchantConnectionResource:
             _Request(
                 "POST",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 json_body=json_body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -164,6 +166,7 @@ class AsyncMerchantConnectionResource:
             _Request(
                 "PATCH",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 json_body=json_body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -193,6 +196,7 @@ class AsyncMerchantConnectionResource:
             _Request(
                 "DELETE",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

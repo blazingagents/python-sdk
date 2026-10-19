@@ -58,6 +58,25 @@ class APITimeoutError(APIConnectionError):
     """An HTTP timeout."""
 
 
+class CredentialEchoError(BlazingAgentsError):
+    """A credential operation's successful response that carried credential material.
+
+    The SDK discards the body, so the error holds none of it.
+    """
+
+    def __init__(self, *, request_id: str | None) -> None:
+        """Report a response that echoed a credential.
+
+        Args:
+            request_id: Server request ID, if present.
+        """
+        super().__init__(
+            "The server returned credential material in a response; "
+            "the body was discarded."
+        )
+        self.request_id = request_id
+
+
 class StreamError(BlazingAgentsError):
     """A transport or decoding failure after streaming headers arrive."""
 

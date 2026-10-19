@@ -52,6 +52,7 @@ class ChatDeliveriesResource:
             _Request(
                 "GET",
                 "/v1/chat-deliveries",
+                credential_bearing=True,
                 query=_chat_deliveries_query(status, since, cursor, limit),
                 extra_headers=extra_headers,
                 timeout=timeout,

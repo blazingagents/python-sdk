@@ -68,6 +68,7 @@ class MerchantConnectionResource:
             _Request(
                 "GET",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -114,6 +115,7 @@ class MerchantConnectionResource:
             _Request(
                 "POST",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 json_body=json_body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -157,6 +159,7 @@ class MerchantConnectionResource:
             _Request(
                 "PATCH",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 json_body=json_body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -186,6 +189,7 @@ class MerchantConnectionResource:
             _Request(
                 "DELETE",
                 _CONNECTION_PATH,
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

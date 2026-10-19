@@ -92,6 +92,7 @@ class AsyncProvidersResource:
             _Request(
                 "POST",
                 "/v1/providers",
+                credential_bearing=True,
                 json_body=_provider_body(
                     provider_type=provider_type,
                     api_key=api_key,
@@ -131,6 +132,7 @@ class AsyncProvidersResource:
             _Request(
                 "GET",
                 "/v1/providers",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -165,6 +167,7 @@ class AsyncProvidersResource:
             _Request(
                 "GET",
                 _provider_path(provider_id),
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -199,6 +202,7 @@ class AsyncProvidersResource:
             _Request(
                 "GET",
                 f"{_provider_path(provider_id)}/models",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -235,6 +239,7 @@ class AsyncProvidersResource:
             _Request(
                 "GET",
                 f"{_provider_path(provider_id)}/thinking-levels",
+                credential_bearing=True,
                 query={"model": model},
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -272,6 +277,7 @@ class AsyncProvidersResource:
             _Request(
                 "PATCH",
                 _provider_path(provider_id),
+                credential_bearing=True,
                 json_body=_provider_update_body(name),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -307,6 +313,7 @@ class AsyncProvidersResource:
             _Request(
                 "DELETE",
                 _provider_path(provider_id),
+                credential_bearing=True,
                 query=(
                     {"confirmSnapshotInvalidation": "true"}
                     if confirm_snapshot_invalidation
