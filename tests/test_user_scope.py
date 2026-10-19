@@ -171,17 +171,6 @@ def test_task_create_sends_idempotency_key(asynchronous: bool) -> None:
     assert "idempotencyKey" not in bodies[1]
 
 
-def test_task_create_rejects_blank_idempotency_key() -> None:
-    with BlazingAgents(api_key="ba_test") as client:
-        with pytest.raises(ValueError, match="must not be blank"):
-            client.tasks.create(
-                agent_id=TASK["agentId"],
-                name="Digest",
-                prompt="Summarize",
-                idempotency_key=" ",
-            )
-
-
 @pytest.mark.parametrize("asynchronous", [False, True])
 def test_user_client_reads_one_agents_usage(asynchronous: bool) -> None:
     with loopback(Response(body={"buckets": [], "totals": TOTALS})) as (

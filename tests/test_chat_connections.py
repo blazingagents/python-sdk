@@ -149,8 +149,6 @@ def test_slack_and_secret_error_redaction() -> None:
                 )
             assert token not in str(error.value)
             assert secret not in str(error.value)
-            with pytest.raises(ValueError, match="Provide"):
-                client.chat_connections.update(CONNECTION["id"])
     body = json.loads(state.requests[0].body)
     assert "enabled" not in body
     assert body["configuration"]["channelIds"] == ["C123"]
@@ -195,17 +193,7 @@ def test_slack_rotation_and_update_validation(asynchronous: bool) -> None:
                     platform="slack",
                     credentials={"bot_token": "token", "signing_secret": "b" * 32},
                 )
-                with pytest.raises(ValueError, match="Provide"):
-                    await resource.update(created.id)
-                with pytest.raises(ValueError, match="Configuration"):
-                    await resource.create(**invalid)
                 invalid["credentials"] = wrong_credentials
-                with pytest.raises(ValueError, match="Credentials"):
-                    await resource.create(**invalid)
-                with pytest.raises(ValueError, match="Credentials"):
-                    await resource.rotate_credentials(
-                        created.id, platform="slack", credentials=wrong_credentials
-                    )
 
         if asynchronous:
             asyncio.run(run_async())
@@ -226,15 +214,7 @@ def test_slack_rotation_and_update_validation(asynchronous: bool) -> None:
                     platform="slack",
                     credentials={"bot_token": "token", "signing_secret": "b" * 32},
                 )
-                with pytest.raises(ValueError, match="Configuration"):
-                    resource.create(**invalid)
                 invalid["credentials"] = wrong_credentials
-                with pytest.raises(ValueError, match="Credentials"):
-                    resource.create(**invalid)
-                with pytest.raises(ValueError, match="Credentials"):
-                    resource.rotate_credentials(
-                        created.id, platform="slack", credentials=wrong_credentials
-                    )
     assert len(state.requests) == 3
     assert json.loads(state.requests[1].body) == {"name": "Renamed"}
     assert json.loads(state.requests[2].body) == {

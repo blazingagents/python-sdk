@@ -1,0 +1,653 @@
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+
+from ._models import (
+    Agent,
+    AgentsPage,
+    McpAttachment,
+    McpAttachments,
+    SpendingLimitResponse,
+)
+from ._transport import (
+    OMITTED,
+    AsyncTransport,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+    path_segment,
+    wire_fields,
+)
+from ._types import (
+    AgentTool,
+    ApprovalPolicyInput,
+    SpendingLimitInput,
+    Timeout,
+    UploadFile,
+    WorkspaceTier,
+)
+from ._wire import agent_path, spending_limit_body, upload_part
+
+
+def _agent_body(
+    *,
+    name: str | _Omitted,
+    model: str | None | _Omitted,
+    provider_id: str | None | _Omitted,
+    thinking_level: str | None | _Omitted,
+    workspace_id: str | _Omitted,
+    workspace_tier: WorkspaceTier | _Omitted = OMITTED,
+    auto_compaction: bool | _Omitted,
+    compaction_reserve_tokens: int | _Omitted,
+    memory_injection_enabled: bool | _Omitted,
+    tools: Sequence[AgentTool] | _Omitted,
+    approval_in_chat: ApprovalPolicyInput | _Omitted,
+    approval_in_tasks: ApprovalPolicyInput | _Omitted,
+    instructions: str | _Omitted,
+    user_id: str | _Omitted,
+    metadata: dict[str, object] | _Omitted,
+    mcp_connection_ids: Sequence[str] | _Omitted,
+) -> dict[str, object]:
+    """Build the agent request body, omitting unspecified fields."""
+    body: dict[str, object] = wire_fields(
+        name=name,
+        model=model,
+        provider_id=provider_id,
+        thinking_level=thinking_level,
+        workspace_id=workspace_id,
+        workspace_tier=workspace_tier,
+        auto_compaction=auto_compaction,
+        compaction_reserve_tokens=compaction_reserve_tokens,
+        memory_injection_enabled=memory_injection_enabled,
+        tools=tools,
+        instructions=instructions,
+        user_id=user_id,
+        metadata=metadata,
+        mcp_connection_ids=mcp_connection_ids,
+    )
+    for wire_name, policy in wire_fields(
+        approval_in_chat=approval_in_chat, approval_in_tasks=approval_in_tasks
+    ).items():
+        body[wire_name] = _approval_policy_body(policy)
+    return body
+
+
+def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
+    """Build the approval policy request body, omitting unspecified fields."""
+    body: dict[str, object] = {"default": policy["default"]}
+    if "overrides" in policy:
+        body["overrides"] = [
+            {"tool": wire_fields(**rule["tool"]), "decision": rule["decision"]}
+            for rule in policy["overrides"]
+        ]
+    return body
+
+
+def _mcp_attachment_body(
+    forward_user_id: bool | _Omitted,
+    forwarded_metadata_keys: Sequence[str] | _Omitted,
+) -> dict[str, object]:
+    """Build the mcp attachment request body, omitting unspecified fields."""
+    body: dict[str, object] = wire_fields(
+        forward_user_id=forward_user_id, forwarded_metadata_keys=forwarded_metadata_keys
+    )
+    return body
+
+
+class AsyncUserAgentsResource:
+    def __init__(self, transport: AsyncTransport) -> None:
+        """Bind Agent operations to the transport.
+
+        Args:
+            transport: Transport used for requests.
+        """
+        self._transport = transport
+
+    async def create(
+        self,
+        *,
+        name: str,
+        model: str | _Omitted = OMITTED,
+        provider_id: str | _Omitted = OMITTED,
+        workspace_id: str | _Omitted = OMITTED,
+        workspace_tier: WorkspaceTier | _Omitted = OMITTED,
+        thinking_level: str | None | _Omitted = OMITTED,
+        auto_compaction: bool | _Omitted = OMITTED,
+        compaction_reserve_tokens: int | _Omitted = OMITTED,
+        memory_injection_enabled: bool | _Omitted = OMITTED,
+        tools: list[AgentTool] | _Omitted = OMITTED,
+        approval_in_chat: ApprovalPolicyInput | _Omitted = OMITTED,
+        approval_in_tasks: ApprovalPolicyInput | _Omitted = OMITTED,
+        instructions: str | _Omitted = OMITTED,
+        user_id: str | _Omitted = OMITTED,
+        metadata: dict[str, object] | _Omitted = OMITTED,
+        mcp_connection_ids: list[str] | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Create an Agent.
+
+        Omitted fields retain server defaults or existing values.
+
+        Args:
+            name: Agent display name, 1 to 80 characters.
+            model: Provider model identifier.
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            workspace_id: Workspace identifier.
+            workspace_tier: Tier for an automatic Workspace; defaults to Core.
+                Mutually exclusive with workspace_id.
+            thinking_level: Provider-supported reasoning level.
+            auto_compaction: Whether the Agent compacts its context automatically.
+            compaction_reserve_tokens: Tokens reserved for context compaction.
+            memory_injection_enabled: Whether the Agent injects matching Memories.
+            tools: Built-in tools available to the Agent.
+            approval_in_chat: Tool approval policy for chat Turns.
+            approval_in_tasks: Tool approval policy for Task Turns.
+            instructions: Agent instructions.
+            user_id: Caller-defined user identifier.
+            metadata: Caller-defined JSON metadata.
+            mcp_connection_ids: MCP Connections attached to the Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "POST",
+                "/v1/agents",
+                json_body=_agent_body(
+                    name=name,
+                    model=model,
+                    provider_id=provider_id,
+                    workspace_id=workspace_id,
+                    workspace_tier=workspace_tier,
+                    thinking_level=thinking_level,
+                    auto_compaction=auto_compaction,
+                    compaction_reserve_tokens=compaction_reserve_tokens,
+                    memory_injection_enabled=memory_injection_enabled,
+                    tools=tools,
+                    approval_in_chat=approval_in_chat,
+                    approval_in_tasks=approval_in_tasks,
+                    instructions=instructions,
+                    user_id=user_id,
+                    metadata=metadata,
+                    mcp_connection_ids=mcp_connection_ids,
+                ),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(Agent),
+        )
+
+    async def list(
+        self,
+        *,
+        cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
+        user_id: str | _Omitted = OMITTED,
+        workspace_id: str | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> AgentsPage:
+        """Fetch one page of Agent records.
+
+        Args:
+            cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page.
+            user_id: Caller-defined user identifier.
+            workspace_id: Workspace identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            One page of matching records and its continuation cursor.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "GET",
+                "/v1/agents",
+                query=wire_fields(
+                    user_id=user_id,
+                    workspace_id=workspace_id,
+                    cursor=cursor,
+                    limit=limit,
+                ),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(AgentsPage),
+        )
+
+    async def get(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Fetch the requested Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "GET",
+                agent_path(agent_id),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(Agent),
+        )
+
+    async def list_mcp_attachments(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> McpAttachments:
+        """Fetch MCP attachments for an Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            MCP attachments for the Agent.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "GET",
+                f"{agent_path(agent_id)}/mcp-attachments",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(McpAttachments),
+        )
+
+    async def update_mcp_attachment(
+        self,
+        agent_id: str,
+        mcp_connection_id: str,
+        *,
+        forward_user_id: bool | _Omitted = OMITTED,
+        forwarded_metadata_keys: Sequence[str] | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> McpAttachment:
+        """Update an Agent MCP attachment.
+
+        Args:
+            agent_id: Agent identifier.
+            mcp_connection_id: MCP Connection identifier.
+            forward_user_id: Whether to forward the user identifier to this MCP
+                Connection.
+            forwarded_metadata_keys: Metadata keys to forward to this MCP Connection.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Updated MCP attachment settings.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "PATCH",
+                (
+                    f"{agent_path(agent_id)}/mcp-attachments/"
+                    f"{path_segment('mcp_connection_id', mcp_connection_id)}"
+                ),
+                json_body=_mcp_attachment_body(
+                    forward_user_id,
+                    forwarded_metadata_keys,
+                ),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(McpAttachment),
+        )
+
+    async def update(
+        self,
+        agent_id: str,
+        *,
+        name: str | _Omitted = OMITTED,
+        model: str | None | _Omitted = OMITTED,
+        provider_id: str | None | _Omitted = OMITTED,
+        workspace_id: str | _Omitted = OMITTED,
+        thinking_level: str | None | _Omitted = OMITTED,
+        auto_compaction: bool | _Omitted = OMITTED,
+        compaction_reserve_tokens: int | _Omitted = OMITTED,
+        memory_injection_enabled: bool | _Omitted = OMITTED,
+        tools: Sequence[AgentTool] | _Omitted = OMITTED,
+        approval_in_chat: ApprovalPolicyInput | _Omitted = OMITTED,
+        approval_in_tasks: ApprovalPolicyInput | _Omitted = OMITTED,
+        instructions: str | _Omitted = OMITTED,
+        metadata: dict[str, object] | _Omitted = OMITTED,
+        mcp_connection_ids: Sequence[str] | _Omitted = OMITTED,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Update the provided Agent fields.
+
+        Omitted fields retain server defaults or existing values. Changing
+        provider_id requires model. Set both to None to clear them.
+
+        Args:
+            agent_id: Agent identifier.
+            name: Agent display name, 1 to 80 characters.
+            model: Provider model identifier.
+            provider_id: Provider identifier. Supply with model when configuring an
+                Agent.
+            workspace_id: Workspace identifier.
+            thinking_level: Provider-supported reasoning level. None clears the
+                setting. Omission retains the current value.
+            auto_compaction: Whether the Agent compacts its context automatically.
+            compaction_reserve_tokens: Tokens reserved for context compaction.
+            memory_injection_enabled: Whether the Agent injects matching Memories.
+            tools: Built-in tools available to the Agent.
+            approval_in_chat: Tool approval policy for chat Turns.
+            approval_in_tasks: Tool approval policy for Task Turns.
+            instructions: Agent instructions.
+            metadata: Caller-defined JSON metadata.
+            mcp_connection_ids: MCP Connections attached to the Agent.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        body = _agent_body(
+            name=name,
+            model=model,
+            provider_id=provider_id,
+            workspace_id=workspace_id,
+            thinking_level=thinking_level,
+            auto_compaction=auto_compaction,
+            compaction_reserve_tokens=compaction_reserve_tokens,
+            memory_injection_enabled=memory_injection_enabled,
+            tools=tools,
+            approval_in_chat=approval_in_chat,
+            approval_in_tasks=approval_in_tasks,
+            instructions=instructions,
+            user_id=OMITTED,
+            metadata=metadata,
+            mcp_connection_ids=mcp_connection_ids,
+        )
+        return await self._transport.request(
+            _Request(
+                "PUT",
+                agent_path(agent_id),
+                json_body=body,
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(Agent),
+        )
+
+    async def disable(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Disable the Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "POST",
+                f"{agent_path(agent_id)}/disable",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(Agent),
+        )
+
+    async def enable(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Enable the Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "POST",
+                f"{agent_path(agent_id)}/enable",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(Agent),
+        )
+
+    async def delete(
+        self,
+        agent_id: str,
+        *,
+        include_artifacts: bool,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> None:
+        """Delete the requested Agent.
+
+        Args:
+            agent_id: Agent identifier.
+            include_artifacts: Whether to include the Agent Artifacts in deletion.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "DELETE",
+                agent_path(agent_id),
+                query={"includeArtifacts": str(include_artifacts).lower()},
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_none,
+        )
+
+    async def upload_avatar(
+        self,
+        agent_id: str,
+        file: UploadFile,
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Upload an Agent avatar.
+
+        Paths are opened and closed by the SDK. Caller-owned file objects remain
+        open.
+
+        Args:
+            agent_id: Agent identifier.
+            file: File upload input.
+            filename: Filename supplied for the upload.
+            content_type: Media type for the upload.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            ValueError: No filename is available for bytes or an unnamed file object.
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        with upload_part(
+            file,
+            filename=filename,
+            content_type=content_type,
+        ) as files:
+            return await self._transport.request(
+                _Request(
+                    "POST",
+                    f"{agent_path(agent_id)}/avatar",
+                    files=files,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                ),
+                decode_model(Agent),
+            )
+
+    async def remove_avatar(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> Agent:
+        """Remove an Agent avatar.
+
+        Args:
+            agent_id: Agent identifier.
+            extra_headers: Headers for this request. Authorization uses the client
+                API key.
+            timeout: Request timeout override. OMITTED inherits the client timeout.
+
+        Returns:
+            Requested Agent details.
+
+        Raises:
+            APIStatusError: The API returns a non-success status.
+            APIConnectionError: The HTTP request fails before a complete response.
+            APITimeoutError: The HTTP request times out.
+        """
+        return await self._transport.request(
+            _Request(
+                "DELETE",
+                f"{agent_path(agent_id)}/avatar",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(Agent),
+        )
+
+
+class AsyncAgentsResource(AsyncUserAgentsResource):
+    async def get_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Fetch the Agent model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "GET",
+                agent_path(agent_id) + "/spending-limit",
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(SpendingLimitResponse),
+        )
+
+    async def update_spending_limit(
+        self,
+        agent_id: str,
+        *,
+        spending_limit: SpendingLimitInput | None,
+        extra_headers: Mapping[str, str] | None = None,
+        timeout: Timeout | _Omitted = OMITTED,
+    ) -> SpendingLimitResponse:
+        """Set or disable the Agent model spending limit using tenant authority."""
+        return await self._transport.request(
+            _Request(
+                "PUT",
+                agent_path(agent_id) + "/spending-limit",
+                json_body=spending_limit_body(spending_limit),
+                extra_headers=extra_headers,
+                timeout=timeout,
+            ),
+            decode_model(SpendingLimitResponse),
+        )

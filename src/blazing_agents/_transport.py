@@ -14,7 +14,7 @@ import httpx
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
-from ._downloads import AsyncByteStream, ByteStream
+from ._downloads import AsyncByteStream
 from ._errors import (
     APIConnectionError,
     APIStatusError,
@@ -22,10 +22,7 @@ from ._errors import (
     BlazingAgentsError,
     StreamError,
 )
-from ._models import (
-    CredentialSafeResponseModel,
-    ResponseMeta,
-)
+from ._models import CredentialSafeResponseModel, ResponseMeta
 from ._responses import Completion
 from ._types import Timeout
 
@@ -47,42 +44,16 @@ class _Omitted:
 OMITTED = _Omitted()
 
 
-def drop_omitted(*fields: tuple[str, _T | _Omitted]) -> dict[str, _T]:
-    """Map each wire name to its value, leaving out the fields still OMITTED."""
-    return {name: value for name, value in fields if not isinstance(value, _Omitted)}
+def wire_fields(**fields: _T | _Omitted) -> dict[str, _T]:
+    """Rename snake_case fields to camelCase wire names, leaving out OMITTED ones.
 
-
-def camel_case_keys(values: Mapping[str, object]) -> dict[str, object]:
-    """Rename snake_case input keys to their camelCase wire names."""
-    return {to_camel(key): value for key, value in values.items()}
-
-
-class _ResponseStatus:
-    pass
-
-
-RESPONSE_STATUS = _ResponseStatus()
-
-
-class _ResponseBytes:
-    pass
-
-
-RESPONSE_BYTES = _ResponseBytes()
-
-
-class _ResponseText:
-    pass
-
-
-RESPONSE_TEXT = _ResponseText()
-
-
-class _ResponseObjectText:
-    pass
-
-
-RESPONSE_OBJECT_TEXT = _ResponseObjectText()
+    A trailing underscore, as in ``from_``, is dropped from the wire name.
+    """
+    return {
+        to_camel(name.rstrip("_")): value
+        for name, value in fields.items()
+        if not isinstance(value, _Omitted)
+    }
 
 
 @dataclass(frozen=True)
@@ -126,6 +97,8 @@ class _Request:
     extra_headers: Mapping[str, str] | None = None
     timeout: Timeout | _Omitted = OMITTED
     sensitive_values: tuple[str, ...] = ()
+    streamed_read: bool = False
+    """Read the body through a streamed response, as object generation needs."""
 
 
 class _TransportConfig:
@@ -505,370 +478,34 @@ def _stream_request_options(
     return options
 
 
-@overload
-def _response_value(
-    response: httpx.Response,
-    model: type[_ModelT],
-    sensitive_values: tuple[str, ...],
-) -> _ModelT:
-    """Decode the selected response representation."""
-    ...
+_Decoder = Callable[[httpx.Response, tuple[str, ...]], _T]
+"""Turn a successful response into a value, given the request's sensitive values."""
 
 
-@overload
-def _response_value(
-    response: httpx.Response,
-    model: None,
-    sensitive_values: tuple[str, ...],
-) -> None:
-    """Decode the selected response representation."""
-    ...
+def decode_model(model: type[_ModelT]) -> _Decoder[_ModelT]:
+    """Decode the response body into a Pydantic model."""
+    return lambda response, sensitive_values: _model(response, model, sensitive_values)
 
 
-@overload
-def _response_value(
-    response: httpx.Response,
-    model: _ResponseStatus,
-    sensitive_values: tuple[str, ...],
-) -> int:
-    """Decode the selected response representation."""
-    ...
+def decode_none(_response: httpx.Response, _sensitive: tuple[str, ...]) -> None:
+    """Discard the response body."""
 
 
-@overload
-def _response_value(
-    response: httpx.Response,
-    model: _ResponseBytes,
-    sensitive_values: tuple[str, ...],
-) -> bytes:
-    """Decode the selected response representation."""
-    ...
+def decode_status(response: httpx.Response, _sensitive: tuple[str, ...]) -> int:
+    """Return the response HTTP status code."""
+    return response.status_code
 
 
-@overload
-def _response_value(
-    response: httpx.Response,
-    model: _ResponseText,
-    sensitive_values: tuple[str, ...],
+def decode_bytes(response: httpx.Response, _sensitive: tuple[str, ...]) -> bytes:
+    """Return the downloaded response bytes."""
+    return response.content
+
+
+def decode_completion(
+    response: httpx.Response, _sensitive: tuple[str, ...]
 ) -> Completion:
-    """Decode the selected response representation."""
-    ...
-
-
-@overload
-def _response_value(
-    response: httpx.Response,
-    model: _ResponseObjectText,
-    sensitive_values: tuple[str, ...],
-) -> Completion:
-    """Decode the selected response representation."""
-    ...
-
-
-def _response_value(
-    response: httpx.Response,
-    model: (
-        type[_ModelT]
-        | _ResponseBytes
-        | _ResponseObjectText
-        | _ResponseStatus
-        | _ResponseText
-        | None
-    ),
-    sensitive_values: tuple[str, ...],
-) -> _ModelT | Completion | bytes | int | None:
-    """Decode the selected response representation."""
-    if not response.is_success:
-        raise _status_error(response, sensitive_values)
-    if model is None:
-        return None
-    if isinstance(model, _ResponseStatus):
-        return response.status_code
-    if isinstance(model, _ResponseBytes):
-        return response.content
-    if isinstance(model, (_ResponseObjectText, _ResponseText)):
-        return Completion(response.text, response)
-    return _model(response, model, sensitive_values)
-
-
-class SyncTransport:
-    def __init__(
-        self,
-        config: _TransportConfig,
-        http_client: httpx.Client | None,
-    ) -> None:
-        """Send requests through a new or caller-supplied HTTPX client.
-
-        Args:
-            config: Authentication, headers, and timeout configuration.
-            http_client: HTTPX client to reuse. The SDK closes only clients it
-                creates.
-        """
-        self._config = config
-        self._owns_client = http_client is None
-        self._client = http_client or httpx.Client()
-
-    def with_client_request_id(self, client_request_id: str) -> SyncTransport:
-        """Copy configuration with a caller correlation ID.
-
-        Args:
-            client_request_id: Caller correlation ID sent as X-Client-Request-Id.
-
-        Returns:
-            Transport view sharing the HTTP client.
-        """
-        return SyncTransport(
-            self._config.with_client_request_id(client_request_id),
-            self._client,
-        )
-
-    def with_scope_user_id(self, user_id: str) -> SyncTransport:
-        """Copy configuration with an end-user scope.
-
-        Args:
-            user_id: End-user ID sent as X-BA-User-Id.
-
-        Returns:
-            Transport view sharing the HTTP client.
-        """
-        return SyncTransport(self._config.with_scope_user_id(user_id), self._client)
-
-    @overload
-    def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Pydantic model used to decode the response.
-
-        Returns:
-            Response decoded into the supplied Pydantic model.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: None) -> None:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: None to discard the response body.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseStatus) -> int:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting the HTTP status code.
-
-        Returns:
-            Response HTTP status code.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseBytes) -> bytes:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting response bytes.
-
-        Returns:
-            Downloaded response bytes.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseText) -> Completion:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting generated text and request metadata.
-
-        Returns:
-            Generated text with its server request_id.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseObjectText) -> Completion:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting generated JSON text and request metadata.
-
-        Returns:
-            Generated text with its server request_id.
-        """
-        ...
-
-    def request(
-        self,
-        request: _Request,
-        model: (
-            type[_ModelT]
-            | _ResponseBytes
-            | _ResponseObjectText
-            | _ResponseStatus
-            | _ResponseText
-            | None
-        ),
-    ) -> _ModelT | Completion | bytes | int | None:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Response Pydantic model, decoding sentinel, or None.
-
-        Returns:
-            Decoded response selected by model, or None.
-
-        Raises:
-            StreamError: Response body read failed.
-        """
-        started_at = perf_counter()
-        response: httpx.Response | None = None
-        transport_error: APIConnectionError | None = None
-        try:
-            if model is RESPONSE_OBJECT_TEXT:
-                built = self._client.build_request(
-                    request.method,
-                    self._config.url(request.path),
-                    **_request_options(self._config, request),
-                )
-                response = self._client.send(built, stream=True)
-                self._config.observe(request, started_at=started_at, response=response)
-                try:
-                    response.read()
-                except httpx.HTTPError as error:
-                    raise StreamError(
-                        "Response body read failed.",
-                        response=response,
-                    ) from error
-            else:
-                response = self._client.request(
-                    request.method,
-                    self._config.url(request.path),
-                    **_request_options(self._config, request),
-                )
-                self._config.observe(request, started_at=started_at, response=response)
-        except httpx.TimeoutException:
-            transport_error = APITimeoutError("Request timed out.")
-        except httpx.RequestError:
-            transport_error = APIConnectionError("Connection failed.")
-        finally:
-            if model is RESPONSE_OBJECT_TEXT and response is not None:
-                response.close()
-            self._config.log(request, started_at=started_at, response=response)
-        if transport_error is not None:
-            raise transport_error from None
-        assert response is not None
-        return _response_value(response, model, request.sensitive_values)
-
-    @overload
-    def stream(self, request: _Request) -> ByteStream:
-        """Send an HTTP request and wrap its streamed response.
-
-        Args:
-            request: Prepared HTTP request.
-
-        Returns:
-            Open byte stream.
-        """
-        ...
-
-    @overload
-    def stream(
-        self,
-        request: _Request,
-        response_factory: Callable[[httpx.Response], _StreamT],
-    ) -> _StreamT:
-        """Send an HTTP request and wrap its streamed response.
-
-        Args:
-            request: Prepared HTTP request.
-            response_factory: Factory that wraps the open streaming response.
-
-        Returns:
-            Stream returned by response_factory.
-        """
-        ...
-
-    def stream(
-        self,
-        request: _Request,
-        response_factory: Callable[[httpx.Response], _StreamT] | None = None,
-    ) -> ByteStream | _StreamT:
-        """Send an HTTP request and wrap its streamed response.
-
-        Args:
-            request: Prepared HTTP request.
-            response_factory: Factory that wraps the open streaming response.
-
-        Returns:
-            Open byte stream, or the stream returned by response_factory.
-
-        Raises:
-            AssertionError: stream response did not produce a stream
-        """
-        started_at = perf_counter()
-        response: httpx.Response | None = None
-        transport_error: APIConnectionError | None = None
-        stream_error: StreamError | None = None
-        try:
-            built = self._client.build_request(
-                request.method,
-                self._config.url(request.path),
-                **_stream_request_options(self._config, request),
-            )
-            response = self._client.send(built, stream=True)
-            self._config.observe(request, started_at=started_at, response=response)
-            if not response.is_success:
-                read_failed = False
-                try:
-                    response.read()
-                except httpx.HTTPError:
-                    read_failed = True
-                finally:
-                    response.close()
-                if read_failed:
-                    stream_error = StreamError(
-                        "Stream read failed.",
-                        response=response,
-                    )
-                else:
-                    raise _status_error(response, request.sensitive_values)
-            if stream_error is None:
-                factory = ByteStream if response_factory is None else response_factory
-                try:
-                    return factory(response)
-                except BaseException:
-                    response.close()
-                    raise
-        except httpx.TimeoutException:
-            transport_error = APITimeoutError("Request timed out.")
-        except httpx.RequestError:
-            transport_error = APIConnectionError("Connection failed.")
-        finally:
-            self._config.log(request, started_at=started_at, response=response)
-        if stream_error is not None:
-            raise stream_error from None
-        if transport_error is not None:
-            raise transport_error from None
-        assert response is not None
-        # A non-successful response always raises before this point.
-        raise AssertionError("stream response did not produce a stream")
-
-    def close(self) -> None:
-        """Close the HTTP client if this transport owns it."""
-        if self._owns_client:
-            self._client.close()
+    """Return generated text with its server request_id."""
+    return Completion(response.text, response)
 
 
 class AsyncTransport:
@@ -877,7 +514,7 @@ class AsyncTransport:
         config: _TransportConfig,
         http_client: httpx.AsyncClient | None,
     ) -> None:
-        """Send async requests through a new or caller-supplied HTTPX client.
+        """Send requests through a new or caller-supplied HTTPX client.
 
         Args:
             config: Authentication, headers, and timeout configuration.
@@ -895,7 +532,7 @@ class AsyncTransport:
             client_request_id: Caller correlation ID sent as X-Client-Request-Id.
 
         Returns:
-            Async transport view sharing the HTTP client.
+            Transport view sharing the HTTP client.
         """
         return AsyncTransport(
             self._config.with_client_request_id(client_request_id),
@@ -909,107 +546,19 @@ class AsyncTransport:
             user_id: End-user ID sent as X-BA-User-Id.
 
         Returns:
-            Async transport view sharing the HTTP client.
+            Transport view sharing the HTTP client.
         """
         return AsyncTransport(self._config.with_scope_user_id(user_id), self._client)
 
-    @overload
-    async def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
+    async def request(self, request: _Request, decode: _Decoder[_T]) -> _T:
         """Send an HTTP request and decode its response.
 
         Args:
             request: Prepared HTTP request.
-            model: Pydantic model used to decode the response.
+            decode: Decoder for a successful response.
 
         Returns:
-            Response decoded into the supplied Pydantic model.
-        """
-        ...
-
-    @overload
-    async def request(self, request: _Request, model: None) -> None:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: None to discard the response body.
-        """
-        ...
-
-    @overload
-    async def request(self, request: _Request, model: _ResponseStatus) -> int:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting the HTTP status code.
-
-        Returns:
-            Response HTTP status code.
-        """
-        ...
-
-    @overload
-    async def request(self, request: _Request, model: _ResponseBytes) -> bytes:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting response bytes.
-
-        Returns:
-            Downloaded response bytes.
-        """
-        ...
-
-    @overload
-    async def request(self, request: _Request, model: _ResponseText) -> Completion:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting generated text and request metadata.
-
-        Returns:
-            Generated text with its server request_id.
-        """
-        ...
-
-    @overload
-    async def request(
-        self, request: _Request, model: _ResponseObjectText
-    ) -> Completion:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting generated JSON text and request metadata.
-
-        Returns:
-            Generated text with its server request_id.
-        """
-        ...
-
-    async def request(
-        self,
-        request: _Request,
-        model: (
-            type[_ModelT]
-            | _ResponseBytes
-            | _ResponseObjectText
-            | _ResponseStatus
-            | _ResponseText
-            | None
-        ),
-    ) -> _ModelT | Completion | bytes | int | None:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Response Pydantic model, decoding sentinel, or None.
-
-        Returns:
-            Decoded response selected by model, or None.
+            The decoded response.
 
         Raises:
             StreamError: Response body read failed.
@@ -1018,7 +567,7 @@ class AsyncTransport:
         response: httpx.Response | None = None
         transport_error: APIConnectionError | None = None
         try:
-            if model is RESPONSE_OBJECT_TEXT:
+            if request.streamed_read:
                 built = self._client.build_request(
                     request.method,
                     self._config.url(request.path),
@@ -1045,13 +594,15 @@ class AsyncTransport:
         except httpx.RequestError:
             transport_error = APIConnectionError("Connection failed.")
         finally:
-            if model is RESPONSE_OBJECT_TEXT and response is not None:
+            if request.streamed_read and response is not None:
                 await response.aclose()
             self._config.log(request, started_at=started_at, response=response)
         if transport_error is not None:
             raise transport_error from None
         assert response is not None
-        return _response_value(response, model, request.sensitive_values)
+        if not response.is_success:
+            raise _status_error(response, request.sensitive_values)
+        return decode(response, request.sensitive_values)
 
     @overload
     async def stream(self, request: _Request) -> AsyncByteStream:
@@ -1061,7 +612,7 @@ class AsyncTransport:
             request: Prepared HTTP request.
 
         Returns:
-            Open async byte stream.
+            Open byte stream.
         """
         ...
 
@@ -1146,9 +697,10 @@ class AsyncTransport:
         if transport_error is not None:
             raise transport_error from None
         assert response is not None
+        # A non-successful response always raises before this point.
         raise AssertionError("stream response did not produce a stream")
 
     async def close(self) -> None:
-        """Close resources owned by this client."""
+        """Close the HTTP client if this transport owns it."""
         if self._owns_client:
             await self._client.aclose()

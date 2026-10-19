@@ -8,7 +8,7 @@ import httpx
 from ._downloads import _ByteStreamBase
 from ._errors import StreamError
 from ._responses import Completion
-from ._transport import OMITTED, _Omitted, _Request, drop_omitted, path_segment
+from ._transport import OMITTED, _Omitted, _Request, path_segment, wire_fields
 from ._types import Timeout
 
 
@@ -241,10 +241,7 @@ def generation_request(
         body["promptId"] = prompt_id
         if not isinstance(variables, _Omitted):
             body["variables"] = variables
-    body |= drop_omitted(
-        ("userId", user_id),
-        ("metadata", metadata),
-    )
+    body |= wire_fields(user_id=user_id, metadata=metadata)
 
     return _Request(
         "POST",
@@ -253,4 +250,5 @@ def generation_request(
         json_body=body,
         extra_headers=extra_headers,
         timeout=timeout,
+        streamed_read=output["type"] == "object",
     )
