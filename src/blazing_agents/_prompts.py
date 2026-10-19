@@ -193,9 +193,6 @@ class AsyncPromptsResource:
             user_id=OMITTED,
             metadata=metadata,
         )
-        if not body:
-            msg = "At least one Prompt field must be provided."
-            raise ValueError(msg)
         return await self._transport.request(
             _Request(
                 "PATCH",

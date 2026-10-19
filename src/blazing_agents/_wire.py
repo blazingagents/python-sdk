@@ -6,9 +6,6 @@ from contextlib import contextmanager
 from os import PathLike
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
-
 from ._transport import (
     path_segment,
     wire_fields,
@@ -32,18 +29,6 @@ def spending_limit_body(
 def agent_path(agent_id: str) -> str:
     """Build the encoded agent endpoint path."""
     return f"/v1/agents/{path_segment('agent_id', agent_id)}"
-
-
-class WireInput(BaseModel):
-    """Caller input validated by its snake_case names, sent with camelCase names."""
-
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        extra="forbid",
-        strict=True,
-        validate_by_name=True,
-        validate_by_alias=False,
-    )
 
 
 @contextmanager

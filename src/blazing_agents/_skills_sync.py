@@ -55,9 +55,6 @@ class AgentSkillsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        if path != "SKILL.md":
-            msg = "path must be SKILL.md"
-            raise ValueError(msg)
         return self._transport.request(
             _Request(
                 "POST",
@@ -95,7 +92,6 @@ class AgentSkillsResource:
             Skill details and file listing.
 
         Raises:
-            ValueError: The archive format is unsupported.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.

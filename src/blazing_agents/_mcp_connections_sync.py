@@ -20,6 +20,7 @@ from ._transport import (
     _Request,
     decode_model,
     decode_none,
+    wire_fields,
 )
 from ._transport_sync import Transport
 from ._types import McpConnectionAuthType, Timeout
@@ -69,8 +70,6 @@ class McpConnectionsResource:
             Requested MCP Connection details.
 
         Raises:
-            ValueError: The authentication type and supplied credential fields do not
-                match.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
@@ -188,14 +187,11 @@ class McpConnectionsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        if isinstance(name, _Omitted):
-            msg = "At least one MCP Connection field must be provided."
-            raise ValueError(msg)
         return self._transport.request(
             _Request(
                 "PATCH",
                 _mcp_connection_path(mcp_connection_id),
-                json_body={"name": name},
+                json_body=wire_fields(name=name),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -300,8 +296,6 @@ class McpConnectionsResource:
             Result of the reconnect request.
 
         Raises:
-            ValueError: The authentication type and supplied credential fields do not
-                match.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.

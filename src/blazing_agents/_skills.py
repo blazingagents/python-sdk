@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Generator, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Literal, get_args
+from typing import Literal
 
 from ._models import Skill, SkillCopyResult, SkillCopyResults, SkillDetail, SkillsPage
 from ._transport import (
@@ -45,9 +45,6 @@ def _skill_upload_request(
     timeout: Timeout | _Omitted,
 ) -> Generator[_Request]:
     """Build a multipart Skill upload request."""
-    if archive_type not in get_args(SkillArchiveType):
-        msg = "archive_type must be zip, tar, or tar.gz"
-        raise ValueError(msg)
     with upload_part(
         file,
         filename=filename,
@@ -103,9 +100,6 @@ class AsyncAgentSkillsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        if path != "SKILL.md":
-            msg = "path must be SKILL.md"
-            raise ValueError(msg)
         return await self._transport.request(
             _Request(
                 "POST",
@@ -143,7 +137,6 @@ class AsyncAgentSkillsResource:
             Skill details and file listing.
 
         Raises:
-            ValueError: The archive format is unsupported.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.

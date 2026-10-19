@@ -3,12 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from ._agents import (
-    _agent_body,
-    _mcp_attachment_body,
-    _validate_agent_create_configuration,
-    _validate_agent_update_configuration,
-)
+from ._agents import _agent_body, _mcp_attachment_body
 from ._models import (
     Agent,
     AgentsPage,
@@ -99,13 +94,10 @@ class UserAgentsResource:
             Requested Agent details.
 
         Raises:
-            ValueError: provider_id and model are not both supplied when configuring
-                an Agent.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        _validate_agent_create_configuration(model, provider_id)
         return self._transport.request(
             _Request(
                 "POST",
@@ -344,12 +336,10 @@ class UserAgentsResource:
             Requested Agent details.
 
         Raises:
-            ValueError: Provider and model changes are inconsistent.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        _validate_agent_update_configuration(model, provider_id)
         body = _agent_body(
             name=name,
             model=model,
@@ -367,9 +357,6 @@ class UserAgentsResource:
             metadata=metadata,
             mcp_connection_ids=mcp_connection_ids,
         )
-        if not body:
-            msg = "At least one agent field must be provided."
-            raise ValueError(msg)
         return self._transport.request(
             _Request(
                 "PUT",

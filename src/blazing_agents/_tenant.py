@@ -16,13 +16,7 @@ from ._types import (
     SpendingLimitInput,
     Timeout,
 )
-from ._wire import WireInput, spending_limit_body
-
-
-class _QuotaInput(WireInput):
-    monthly_token_limit: int | None
-    monthly_request_limit: int | None
-    reset_day: int
+from ._wire import spending_limit_body
 
 
 def _tenant_body(
@@ -35,14 +29,7 @@ def _tenant_body(
         name=name, monetization_enabled=monetization_enabled
     )
     if not isinstance(quota, _Omitted):
-        body["quota"] = (
-            None
-            if quota is None
-            else _QuotaInput.model_validate(quota).model_dump(by_alias=True)
-        )
-    if not body:
-        msg = "At least one tenant field must be provided."
-        raise ValueError(msg)
+        body["quota"] = None if quota is None else wire_fields(**quota)
     return body
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import get_args
 
 from ._models import (
     McpConnection,
@@ -41,40 +40,6 @@ def _mcp_connection_body(
     scope: str | _Omitted,
 ) -> dict[str, object]:
     """Build the mcp connection request body, omitting unspecified fields."""
-    if auth_type not in get_args(McpConnectionAuthType):
-        msg = "auth_type must be a supported MCP Connection authentication type"
-        raise ValueError(msg)
-
-    supplied = {
-        "bearer": not isinstance(bearer_token, _Omitted),
-        "client_id": not isinstance(client_id, _Omitted),
-        "client_secret": not isinstance(client_secret, _Omitted),
-        "scope": not isinstance(scope, _Omitted),
-    }
-    if auth_type == "none" and any(supplied.values()):
-        msg = "none authentication accepts exactly no credential fields"
-        raise ValueError(msg)
-    if auth_type == "bearer" and (
-        not supplied["bearer"]
-        or supplied["client_id"]
-        or supplied["client_secret"]
-        or supplied["scope"]
-    ):
-        msg = "bearer authentication accepts exactly bearer_token"
-        raise ValueError(msg)
-    if auth_type == "oauth_authorization_code":
-        if supplied["bearer"]:
-            msg = "Authorization Code does not accept bearer_token"
-            raise ValueError(msg)
-        if supplied["client_id"] != supplied["client_secret"]:
-            msg = "client_id and client_secret must be provided together"
-            raise ValueError(msg)
-    if auth_type == "oauth_client_credentials" and (
-        supplied["bearer"] or not supplied["client_id"] or not supplied["client_secret"]
-    ):
-        msg = "OAuth Client Credentials requires exactly client_id and client_secret"
-        raise ValueError(msg)
-
     body: dict[str, object] = {"authType": auth_type, "url": url}
     body |= wire_fields(
         name=name,
@@ -135,8 +100,6 @@ class AsyncMcpConnectionsResource:
             Requested MCP Connection details.
 
         Raises:
-            ValueError: The authentication type and supplied credential fields do not
-                match.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
@@ -254,14 +217,11 @@ class AsyncMcpConnectionsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        if isinstance(name, _Omitted):
-            msg = "At least one MCP Connection field must be provided."
-            raise ValueError(msg)
         return await self._transport.request(
             _Request(
                 "PATCH",
                 _mcp_connection_path(mcp_connection_id),
-                json_body={"name": name},
+                json_body=wire_fields(name=name),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -366,8 +326,6 @@ class AsyncMcpConnectionsResource:
             Result of the reconnect request.
 
         Raises:
-            ValueError: The authentication type and supplied credential fields do not
-                match.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.

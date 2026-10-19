@@ -1,5 +1,57 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The client no longer checks rules that the API already enforces. These calls
+  now send the request, and the API rejects an invalid one with
+  `APIStatusError` (status 400) instead of the SDK raising `ValueError` (or
+  `TypeError`) before sending:
+
+  - `agents.create`: `provider_id` and `model` must be given together;
+    `workspace_id` and `workspace_tier` are mutually exclusive.
+  - `agents.update`: changing `provider_id` requires `model`; clearing needs
+    both `None`; at least one field must be given.
+  - `agents.update_mcp_attachment`, `prompts.update`, `providers.update`,
+    `tasks.update`, `tenant.update`, `workspaces.update`,
+    `mcp_connections.update` and `chat_connections.update`: at least one field
+    must be given.
+  - `providers.create`: `provider_type` must be supported; `custom` requires
+    `base_url`; `vercel_ai_gateway` rejects `base_url`.
+  - `mcp_connections.create` and `mcp_connections.reconnect`: `auth_type` must
+    be supported and the credential fields must match it.
+  - `chat_connections.create` and `chat_connections.rotate_credentials`:
+    credentials and configuration must match `platform`;
+    `chat_connections.update` rejects unknown configuration fields.
+  - `tasks.create` and `tasks.update`: the schedule's shape, `at` offset
+    datetime, `every_ms` minimum, cron expression, timezone and `stagger_ms`
+    are no longer validated, and a cron timezone is sent as given (the API
+    trims it). `tenant.update` no longer validates the `quota` shape.
+  - `tasks.create` and `tasks.submit`: a blank or non-string
+    `idempotency_key`.
+  - `skills.create`: `path` must be `SKILL.md`; `skills.upload`:
+    `archive_type` must be supported.
+
+  Checks that stop the SDK from building a wrong request stay: path segments,
+  the end-user ID header, a missing upload filename, and keyword combinations
+  that cannot become one request body. Migrate by catching `APIStatusError`
+  where you caught `ValueError` for these calls:
+
+  ```python
+  # Before
+  try:
+      client.tenant.update()
+  except ValueError:
+      ...
+
+  # After
+  try:
+      client.tenant.update()
+  except APIStatusError as error:
+      assert error.status_code == 400
+  ```
+
 ## 0.27.0
 
 ### Changed

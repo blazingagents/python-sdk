@@ -258,26 +258,13 @@ class ChatConnectionsResource:
             Requested Chat Connection details.
 
         Raises:
-            ValueError: Provide a name or configuration change Configuration contains
-                unsupported fields
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        body: dict[str, object] = {}
-        if not isinstance(name, _Omitted):
-            body["name"] = name
+        body: dict[str, object] = wire_fields(name=name)
         if not isinstance(configuration, _Omitted):
-            configuration_body = wire_fields(**configuration)
-            if not configuration_body or not set(configuration_body) <= {
-                "businessMode",
-                "channelIds",
-                "chatIds",
-            }:
-                raise ValueError("Configuration contains unsupported fields")
-            body["configuration"] = configuration_body
-        if not body:
-            raise ValueError("Provide a name or configuration change")
+            body["configuration"] = wire_fields(**configuration)
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -382,26 +369,11 @@ class ChatConnectionsResource:
             Requested Chat Connection details.
 
         Raises:
-            ValueError: Credentials must match the selected platform Configuration
-                must match the selected platform
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
         credentials_body = wire_fields(**credentials)
-        required = (
-            {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
-        )
-        if platform not in {"slack", "telegram"} or set(credentials_body) != required:
-            raise ValueError("Credentials must match the selected platform")
-        configuration_body = (
-            {} if isinstance(configuration, _Omitted) else wire_fields(**configuration)
-        )
-        allowed_configuration = (
-            {"channelIds"} if platform == "slack" else {"businessMode", "chatIds"}
-        )
-        if not configuration_body.keys() <= allowed_configuration:
-            raise ValueError("Configuration must match the selected platform")
         body: dict[str, object] = {
             "name": name,
             "agentId": agent_id,
@@ -409,7 +381,7 @@ class ChatConnectionsResource:
             "credentials": credentials_body,
         }
         if not isinstance(configuration, _Omitted):
-            body["configuration"] = configuration_body
+            body["configuration"] = wire_fields(**configuration)
         if not isinstance(enabled, _Omitted):
             body["enabled"] = enabled
         return self._transport.request(
@@ -501,17 +473,11 @@ class ChatConnectionsResource:
             Requested Chat Connection details.
 
         Raises:
-            ValueError: Credentials must match the selected platform
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
         credentials_body = wire_fields(**credentials)
-        required = (
-            {"botToken", "signingSecret"} if platform == "slack" else {"botToken"}
-        )
-        if platform not in {"slack", "telegram"} or set(credentials_body) != required:
-            raise ValueError("Credentials must match the selected platform")
         body: dict[str, object] = {"platform": platform, **credentials_body}
         return self._transport.request(
             _Request(

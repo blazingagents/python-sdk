@@ -78,9 +78,6 @@ class TasksResource:
             Created Task and any submitted initial Run.
 
         Raises:
-            TypeError: The schedule structure or field types are invalid.
-            ValueError: The Task schedule, offset datetime, cron expression, or
-                timezone is invalid.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
@@ -253,9 +250,6 @@ class TasksResource:
             Requested Task details.
 
         Raises:
-            TypeError: The schedule structure or field types are invalid.
-            ValueError: The Task schedule, offset datetime, cron expression, or
-                timezone is invalid.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
@@ -271,9 +265,6 @@ class TasksResource:
             metadata=metadata,
             idempotency_key=OMITTED,
         )
-        if not body:
-            msg = "At least one Task field must be provided."
-            raise ValueError(msg)
         return self._transport.request(
             _Request(
                 "PATCH",
@@ -339,7 +330,6 @@ class TasksResource:
             Acknowledgement of the submitted Task Run.
 
         Raises:
-            ValueError: The idempotency key is empty or not a string.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.

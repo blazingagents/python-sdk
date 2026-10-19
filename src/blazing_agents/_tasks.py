@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-import re
 from collections.abc import AsyncIterator, Mapping
-from datetime import datetime
-from typing import Annotated, Literal
-
-from pydantic import AfterValidator, ConfigDict, Field, TypeAdapter
 
 from ._session_models import (
     Task,
@@ -16,8 +11,6 @@ from ._session_models import (
     TaskRunsPage,
     TaskRunSubmission,
     TasksPage,
-    _validate_cron,
-    _validate_timezone,
 )
 from ._transport import (
     OMITTED,
@@ -32,11 +25,6 @@ from ._transport import (
 from ._types import (
     TaskScheduleInput,
     Timeout,
-)
-from ._wire import WireInput
-
-_ISO_OFFSET_DATETIME = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
 )
 
 
@@ -56,67 +44,9 @@ def _task_run_path(task_id: str, run_id: str | None = None) -> str:
     return f"{path}/{path_segment('run_id', run_id)}"
 
 
-def _validate_offset_datetime(value: str) -> str:
-    """Return an ISO datetime with a timezone offset, or raise ValueError."""
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        parsed = None
-    if (
-        _ISO_OFFSET_DATETIME.fullmatch(value) is None
-        or parsed is None
-        or parsed.utcoffset() is None
-    ):
-        msg = "once schedule at must be an ISO datetime with an offset"
-        raise ValueError(msg)
-    return value
-
-
-class _TaskOnceConfigInput(WireInput):
-    at: Annotated[str, AfterValidator(_validate_offset_datetime)]
-
-
-class _TaskIntervalConfigInput(WireInput):
-    every_ms: int = Field(ge=60_000)
-
-
-class _TaskCronConfigInput(WireInput):
-    expression: Annotated[str, AfterValidator(_validate_cron)]
-    timezone: Annotated[str, AfterValidator(_validate_timezone)] | None = None
-    stagger_ms: int | None = Field(default=None, ge=0)
-
-
-class _TaskOnceScheduleInput(WireInput):
-    kind: Literal["once"]
-    config: _TaskOnceConfigInput
-
-
-class _TaskIntervalScheduleInput(WireInput):
-    kind: Literal["interval"]
-    config: _TaskIntervalConfigInput
-
-
-class _TaskCronScheduleInput(WireInput):
-    kind: Literal["cron"]
-    config: _TaskCronConfigInput
-
-
-_TASK_SCHEDULE: TypeAdapter[
-    _TaskOnceScheduleInput | _TaskIntervalScheduleInput | _TaskCronScheduleInput
-] = TypeAdapter(
-    Annotated[
-        _TaskOnceScheduleInput | _TaskIntervalScheduleInput | _TaskCronScheduleInput,
-        Field(discriminator="kind"),
-    ],
-    config=ConfigDict(title="schedule"),
-)
-
-
 def _task_schedule(schedule: TaskScheduleInput) -> dict[str, object]:
-    """Validate a one-time, interval, or cron Task schedule into its wire shape."""
-    return _TASK_SCHEDULE.validate_python(schedule).model_dump(
-        by_alias=True, exclude_none=True
-    )
+    """Convert a one-time, interval, or cron Task schedule to its wire shape."""
+    return {"kind": schedule["kind"], "config": wire_fields(**schedule["config"])}
 
 
 def _task_body(
@@ -153,12 +83,6 @@ def _task_run_body(
     """Build the task run request body, omitting unspecified fields."""
     if isinstance(idempotency_key, _Omitted):
         return {}
-    if not isinstance(idempotency_key, str):
-        msg = "idempotency_key must be a string"
-        raise TypeError(msg)
-    if not idempotency_key.strip():
-        msg = "idempotency_key must not be blank"
-        raise ValueError(msg)
     return {"idempotencyKey": idempotency_key}
 
 
@@ -209,9 +133,6 @@ class AsyncTasksResource:
             Created Task and any submitted initial Run.
 
         Raises:
-            TypeError: The schedule structure or field types are invalid.
-            ValueError: The Task schedule, offset datetime, cron expression, or
-                timezone is invalid.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
@@ -385,9 +306,6 @@ class AsyncTasksResource:
             Requested Task details.
 
         Raises:
-            TypeError: The schedule structure or field types are invalid.
-            ValueError: The Task schedule, offset datetime, cron expression, or
-                timezone is invalid.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
@@ -403,9 +321,6 @@ class AsyncTasksResource:
             metadata=metadata,
             idempotency_key=OMITTED,
         )
-        if not body:
-            msg = "At least one Task field must be provided."
-            raise ValueError(msg)
         return await self._transport.request(
             _Request(
                 "PATCH",
@@ -471,7 +386,6 @@ class AsyncTasksResource:
             Acknowledgement of the submitted Task Run.
 
         Raises:
-            ValueError: The idempotency key is empty or not a string.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.

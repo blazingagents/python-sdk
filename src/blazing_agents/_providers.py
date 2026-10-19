@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import get_args
 
 from ._models import Provider, ProviderModels, Providers, ThinkingLevels
 from ._transport import (
@@ -29,19 +28,6 @@ def _provider_body(
     base_url: str | None | _Omitted,
 ) -> dict[str, object]:
     """Build the provider request body, omitting unspecified fields."""
-    if provider_type not in get_args(ProviderType):
-        msg = "provider_type must be a supported Provider type"
-        raise ValueError(msg)
-    if provider_type == "custom" and (isinstance(base_url, _Omitted) or not base_url):
-        msg = "base_url is required for custom Providers"
-        raise ValueError(msg)
-    if (
-        provider_type == "vercel_ai_gateway"
-        and not isinstance(base_url, _Omitted)
-        and base_url is not None
-    ):
-        msg = "base_url is not accepted for Vercel AI Gateway Providers"
-        raise ValueError(msg)
     body: dict[str, object] = {
         "providerType": provider_type,
         "apiKey": api_key,
@@ -54,11 +40,7 @@ def _provider_update_body(
     name: str | _Omitted,
 ) -> dict[str, object]:
     """Build the provider update request body, omitting unspecified fields."""
-    body: dict[str, object] = {} if isinstance(name, _Omitted) else {"name": name}
-    if not body:
-        msg = "At least one Provider field must be provided."
-        raise ValueError(msg)
-    return body
+    return {} if isinstance(name, _Omitted) else {"name": name}
 
 
 def _provider_path(provider_id: str) -> str:

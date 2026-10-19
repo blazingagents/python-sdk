@@ -50,10 +50,6 @@ def _agent_body(
     mcp_connection_ids: Sequence[str] | _Omitted,
 ) -> dict[str, object]:
     """Build the agent request body, omitting unspecified fields."""
-    if not isinstance(workspace_id, _Omitted) and not isinstance(
-        workspace_tier, _Omitted
-    ):
-        raise ValueError("workspace_id and workspace_tier are mutually exclusive")
     body: dict[str, object] = wire_fields(
         name=name,
         model=model,
@@ -88,39 +84,6 @@ def _approval_policy_body(policy: ApprovalPolicyInput) -> dict[str, object]:
     return body
 
 
-def _validate_agent_create_configuration(
-    model: object,
-    provider_id: str | None | _Omitted,
-) -> None:
-    """Require provider_id and model together when configuring an Agent."""
-    if isinstance(model, _Omitted) and isinstance(provider_id, _Omitted):
-        return
-    if (
-        isinstance(model, _Omitted)
-        or isinstance(provider_id, _Omitted)
-        or model is None
-        or provider_id is None
-    ):
-        msg = "provider_id and model must both be provided"
-        raise ValueError(msg)
-
-
-def _validate_agent_update_configuration(
-    model: str | None | _Omitted,
-    provider_id: str | None | _Omitted,
-) -> None:
-    """Validate provider changes and paired null configuration values."""
-    if not isinstance(provider_id, _Omitted) and isinstance(model, _Omitted):
-        msg = "Changing provider_id requires model"
-        raise ValueError(msg)
-    if not isinstance(model, _Omitted) and (
-        (model is None and provider_id is not None)
-        or (model is not None and provider_id is None)
-    ):
-        msg = "provider_id and model must both be null when clearing"
-        raise ValueError(msg)
-
-
 def _mcp_attachment_body(
     forward_user_id: bool | _Omitted,
     forwarded_metadata_keys: Sequence[str] | _Omitted,
@@ -129,9 +92,6 @@ def _mcp_attachment_body(
     body: dict[str, object] = wire_fields(
         forward_user_id=forward_user_id, forwarded_metadata_keys=forwarded_metadata_keys
     )
-    if not body:
-        msg = "At least one MCP Attachment field must be provided."
-        raise ValueError(msg)
     return body
 
 
@@ -197,13 +157,10 @@ class AsyncUserAgentsResource:
             Requested Agent details.
 
         Raises:
-            ValueError: provider_id and model are not both supplied when configuring
-                an Agent.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        _validate_agent_create_configuration(model, provider_id)
         return await self._transport.request(
             _Request(
                 "POST",
@@ -442,12 +399,10 @@ class AsyncUserAgentsResource:
             Requested Agent details.
 
         Raises:
-            ValueError: Provider and model changes are inconsistent.
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        _validate_agent_update_configuration(model, provider_id)
         body = _agent_body(
             name=name,
             model=model,
@@ -465,9 +420,6 @@ class AsyncUserAgentsResource:
             metadata=metadata,
             mcp_connection_ids=mcp_connection_ids,
         )
-        if not body:
-            msg = "At least one agent field must be provided."
-            raise ValueError(msg)
         return await self._transport.request(
             _Request(
                 "PUT",

@@ -96,6 +96,7 @@ from blazing_agents import (
     Task,
     TaskCreate,
     TaskCreateResponse,
+    TaskCronConfig,
     TaskCronSchedule,
     TaskCronScheduleInput,
     TaskIntervalSchedule,
@@ -806,103 +807,29 @@ def test_task_public_request_types_are_available_from_installed_wheel() -> None:
 
 
 @pytest.mark.parametrize(
-    "schedule",
+    "config",
     [
-        cast(Any, []),
-        cast(Any, {"kind": "once"}),
-        cast(Any, {"kind": "once", "config": []}),
-        cast(Any, {"kind": "once", "config": {"at": 1}}),
-        cast(Any, {"kind": "once", "config": {"at": "not-a-date"}}),
-        cast(Any, {"kind": "interval", "config": {"every_ms": 1}}),
-        cast(Any, {"kind": "interval", "config": {"every_ms": True}}),
-        cast(
-            Any,
-            {
-                "kind": "interval",
-                "config": {"every_ms": 60_000, "unknown": True},
-            },
-        ),
-        cast(Any, {"kind": "cron", "config": {"timezone": "UTC"}}),
-        cast(
-            Any,
-            {
-                "kind": "cron",
-                "config": {"expression": "* * * * *", "unknown": True},
-            },
-        ),
-        cast(Any, {"kind": "cron", "config": {"expression": 1}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "not cron"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "60 * * * *"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "*/61 * * * *"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "* */25 * * *"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "* * */32 * *"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "* * * */13 *"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "* * * * */8"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "2-1 * * * *"}}),
-        cast(
-            Any,
-            {"kind": "cron", "config": {"expression": "1-2-3 * * * *"}},
-        ),
-        cast(Any, {"kind": "cron", "config": {"expression": "*/0 * * * *"}}),
-        cast(Any, {"kind": "cron", "config": {"expression": "1/2 * * * *"}}),
-        cast(
-            Any,
-            {"kind": "cron", "config": {"expression": "0 0 31 2 *"}},
-        ),
-        cast(
-            Any,
-            {
-                "kind": "cron",
-                "config": {"expression": "* * * * *", "timezone": 1},
-            },
-        ),
-        cast(
-            Any,
-            {
-                "kind": "cron",
-                "config": {
-                    "expression": "* * * * *",
-                    "timezone": "PST",
-                },
-            },
-        ),
-        cast(
-            Any,
-            {
-                "kind": "cron",
-                "config": {
-                    "expression": "* * * * *",
-                    "timezone": "Area/NoSuchZone",
-                },
-            },
-        ),
-        cast(
-            Any,
-            {
-                "kind": "cron",
-                "config": {"expression": "* * * * *", "stagger_ms": -1},
-            },
-        ),
-        cast(
-            Any,
-            {
-                "kind": "cron",
-                "config": {"expression": "* * * * *", "stagger_ms": True},
-            },
-        ),
-        cast(Any, {"kind": "future", "config": {}}),
+        {"expression": "not cron"},
+        {"expression": "60 * * * *"},
+        {"expression": "*/61 * * * *"},
+        {"expression": "* */25 * * *"},
+        {"expression": "* * */32 * *"},
+        {"expression": "* * * */13 *"},
+        {"expression": "* * * * */8"},
+        {"expression": "2-1 * * * *"},
+        {"expression": "1-2-3 * * * *"},
+        {"expression": "*/0 * * * *"},
+        {"expression": "1/2 * * * *"},
+        {"expression": "0 0 31 2 *"},
+        {"expression": "* * * * *", "timezone": "PST"},
+        {"expression": "* * * * *", "timezone": "Area/NoSuchZone"},
     ],
 )
-def test_task_schedule_requests_reject_malformed_values(schedule: Any) -> None:
-    client = BlazingAgents(api_key="ba_test", base_url="http://127.0.0.1:1")
-    with pytest.raises(ValueError):
-        client.tasks.create(
-            agent_id=TASK["agentId"],
-            name="Task",
-            prompt="Prompt",
-            schedule=schedule,
-        )
-    client.close()
+def test_task_cron_responses_reject_malformed_schedules(
+    config: dict[str, str],
+) -> None:
+    with pytest.raises(ValidationError):
+        TaskCronConfig.model_validate({"timezone": "UTC", **config})
 
 
 def test_task_cron_accepts_dom_or_dow_and_range_schedules() -> None:
@@ -980,7 +907,7 @@ def test_task_cron_accepts_field_maximum_range_steps(expression: str) -> None:
     assert json.loads(state.requests[0].body)["schedule"] == schedule
 
 
-def test_task_cron_timezone_is_trimmed_for_request_and_response() -> None:
+def test_task_cron_timezone_is_sent_as_given_and_trimmed_in_response() -> None:
     schedule = {
         "kind": "cron",
         "config": {"expression": "0 2 * * *", "timezone": " UTC "},
@@ -1003,7 +930,7 @@ def test_task_cron_timezone_is_trimmed_for_request_and_response() -> None:
     assert isinstance(created.task.schedule, TaskCronSchedule)
     assert created.task.schedule.config.timezone == "UTC"
     assert json.loads(state.requests[0].body)["schedule"]["config"]["timezone"] == (
-        "UTC"
+        " UTC "
     )
 
 
@@ -1053,15 +980,6 @@ def test_task_boundaries_preserve_api_errors_and_reject_malformed_responses() ->
         *(Response(body=value) for value in malformed),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            with pytest.raises(ValueError, match="At least one"):
-                client.tasks.update(TASK["id"])
-            with pytest.raises(ValueError, match="blank"):
-                client.tasks.submit(TASK["id"], idempotency_key=" ")
-            with pytest.raises(TypeError, match="string"):
-                client.tasks.submit(
-                    TASK["id"],
-                    idempotency_key=cast(Any, 1),
-                )
             with pytest.raises(TypeError):
                 cast(Any, client.tasks.create)(
                     agent_id=TASK["agentId"],
@@ -1104,19 +1022,6 @@ def test_task_boundaries_preserve_api_errors_and_reject_malformed_responses() ->
     assert conflict.value.request_id == "req_task_conflict"
     assert conflict.value.details == {"activeRunId": TASK_RUN["id"]}
     assert len(state.requests) == 9
-
-    async def reject_invalid_async_requests() -> None:
-        client = AsyncBlazingAgents(
-            api_key="ba_test",
-            base_url="http://127.0.0.1:1",
-        )
-        with pytest.raises(ValueError, match="At least one"):
-            await client.tasks.update(TASK["id"])
-        with pytest.raises(ValueError, match="blank"):
-            await client.tasks.submit(TASK["id"], idempotency_key=" ")
-        await client.aclose()
-
-    asyncio.run(reject_invalid_async_requests())
 
     with loopback(
         Response(
@@ -1274,23 +1179,16 @@ def test_task_next_fire_at() -> None:
     assert task.next_fire_at.hour == 9
 
 
-def test_tenant_update_rejects_empty_and_unknown_nested_fields() -> None:
-    client = BlazingAgents(api_key="ba_test", base_url="http://127.0.0.1:1")
-    with pytest.raises(ValueError, match="At least one"):
-        client.tenant.update()
-    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
-        client.tenant.update(
-            quota=cast(
-                Any,
-                {
-                    "monthly_token_limit": 1,
-                    "monthly_request_limit": 1,
-                    "reset_day": 1,
-                    "opaque": {"DoNotChange": True},
-                },
-            )
-        )
-    client.close()
+def test_tenant_update_leaves_value_rules_to_the_server() -> None:
+    invalid = {"error": {"code": "invalid_request", "message": "Invalid request"}}
+    with loopback(Response(body=invalid, status=400)) as (base_url, state):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            with pytest.raises(APIStatusError) as rejected:
+                client.tenant.update()
+
+    assert rejected.value.status_code == 400
+    assert state.requests[0].method == "PATCH"
+    assert json.loads(state.requests[0].body) == {}
 
 
 def test_sync_usage_queries_translate_only_owned_names() -> None:
@@ -2022,11 +1920,6 @@ def test_sync_agent_mcp_attachment_settings() -> None:
                 forward_user_id=True,
                 forwarded_metadata_keys=["locale"],
             )
-            with pytest.raises(ValueError, match="At least one"):
-                client.agents.update_mcp_attachment(
-                    "ag_0123456789abcdef",
-                    "mcp_0123456789abcdef",
-                )
 
     assert listed.mcp_attachments[0].forward_user_id is False
     assert updated.forwarded_metadata_keys == ["locale"]
@@ -2166,30 +2059,11 @@ def test_async_agents_match_every_sync_operation() -> None:
     assert state.requests[-1].method == "DELETE"
 
 
-def test_agent_boundaries_reject_invalid_inputs_and_responses() -> None:
+def test_agent_boundaries_reject_malformed_responses() -> None:
     with loopback(Response(body={**AGENT, "name": " "})) as (base_url, _):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            with pytest.raises(ValueError, match="At least one"):
-                client.agents.update(AGENT["id"])
-            with pytest.raises(ValueError, match="both be provided"):
-                client.agents.create(name="Builder", model="openai/gpt-5")
-            with pytest.raises(ValueError, match="requires model"):
-                client.agents.update(AGENT["id"], provider_id=PROVIDER["id"])
-            with pytest.raises(ValueError, match="both be null"):
-                client.agents.update(
-                    AGENT["id"], model="openai/gpt-5", provider_id=None
-                )
             with pytest.raises(ValidationError):
                 client.agents.get(AGENT["id"])
-
-        async def exercise() -> None:
-            async with AsyncBlazingAgents(
-                api_key="ba_test", base_url=base_url
-            ) as client:
-                with pytest.raises(ValueError, match="At least one"):
-                    await client.agents.update(AGENT["id"])
-
-        asyncio.run(exercise())
 
 
 def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
@@ -2450,8 +2324,6 @@ def test_workspace_boundaries_reject_invalid_inputs_and_responses() -> None:
     ]
     with loopback(*responses) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            with pytest.raises(ValueError, match="At least one"):
-                client.workspaces.update(workspace_id="ws_0123456789abcdef")
             with pytest.raises(TypeError):
                 client.workspaces.create(unknown=True)  # type: ignore[call-arg]
             with pytest.raises(TypeError):
@@ -2469,8 +2341,6 @@ def test_workspace_boundaries_reject_invalid_inputs_and_responses() -> None:
                 api_key="ba_test",
                 base_url=base_url,
             ) as client:
-                with pytest.raises(ValueError, match="At least one"):
-                    await client.workspaces.update(workspace_id="ws_0123456789abcdef")
                 workspaces = client.workspaces.iter()
                 with pytest.raises(StopAsyncIteration):
                     await anext(workspaces)
@@ -2644,23 +2514,6 @@ def test_gateway_provider_type_has_sync_request_parity() -> None:
     }
 
 
-def test_provider_endpoint_rules_are_validated_before_transport() -> None:
-    with BlazingAgents(api_key="ba_test", base_url="https://example.test") as client:
-        with pytest.raises(ValueError, match="required for custom"):
-            client.providers.create(
-                name="Custom",
-                provider_type="custom",
-                api_key="custom-key",
-            )
-        with pytest.raises(ValueError, match="not accepted for Vercel"):
-            client.providers.create(
-                name="Gateway",
-                provider_type="vercel_ai_gateway",
-                api_key="vck_test",
-                base_url="https://example.test/v1",
-            )
-
-
 def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> None:
     responses = (
         Response(body=PROVIDER),
@@ -2708,14 +2561,6 @@ def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> Non
         f"/v1/providers/{PROVIDER['id']}?confirmSnapshotInvalidation=true"
     )
     client = BlazingAgents(api_key="ba_test", base_url="http://127.0.0.1:1")
-    with pytest.raises(ValueError, match="provider_type"):
-        client.providers.create(
-            name="Invalid",
-            provider_type=cast(Any, "bedrock"),
-            api_key="secret-not-in-error",
-        )
-    with pytest.raises(ValueError, match="At least one"):
-        client.providers.update(PROVIDER["id"])
     client.close()
 
 
@@ -2932,8 +2777,6 @@ def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
                     auth_type="none",
                 )
                 await client.mcp_connections.delete(MCP_CONNECTION["id"])
-                with pytest.raises(ValueError, match="At least one"):
-                    await client.mcp_connections.update(MCP_CONNECTION["id"])
                 with pytest.raises(ValidationError):
                     await client.mcp_connections.get(MCP_CONNECTION["id"])
                 with pytest.raises(ValidationError):
@@ -2943,47 +2786,6 @@ def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
 
     assert len(state.requests) == 9
     client = BlazingAgents(api_key="ba_test", base_url="http://127.0.0.1:1")
-    with pytest.raises(ValueError, match="auth_type"):
-        client.mcp_connections.create(
-            name="Tools",
-            url="https://mcp.example.com/",
-            auth_type=cast(Any, "future"),
-        )
-    with pytest.raises(ValueError, match="exact"):
-        client.mcp_connections.create(
-            name="Tools",
-            url="https://mcp.example.com/",
-            auth_type="none",
-            bearer_token="secret-not-in-error",
-        )
-    with pytest.raises(ValueError, match="exact"):
-        client.mcp_connections.create(
-            name="Tools",
-            url="https://mcp.example.com/",
-            auth_type="bearer",
-        )
-    with pytest.raises(ValueError, match="does not accept"):
-        client.mcp_connections.create(
-            name="Tools",
-            url="https://mcp.example.com/",
-            auth_type="oauth_authorization_code",
-            bearer_token="secret-not-in-error",
-        )
-    with pytest.raises(ValueError, match="requires exactly"):
-        client.mcp_connections.create(
-            name="Tools",
-            url="https://mcp.example.com/",
-            auth_type="oauth_client_credentials",
-        )
-    with pytest.raises(ValueError, match="together"):
-        client.mcp_connections.reconnect(
-            MCP_CONNECTION["id"],
-            url="https://mcp.example.com/",
-            auth_type="oauth_authorization_code",
-            client_id="client-id",
-        )
-    with pytest.raises(ValueError, match="At least one"):
-        client.mcp_connections.update(MCP_CONNECTION["id"])
     client.close()
 
 
@@ -3471,8 +3273,6 @@ def test_async_prompts_match_every_sync_operation_and_omission() -> None:
                 assert updated.agent_id is None
                 assert updated.template == "Welcome {{name}}"
                 await client.prompts.delete(prompt_id=PROMPT["id"])
-                with pytest.raises(ValueError, match="At least one"):
-                    await client.prompts.update(prompt_id=PROMPT["id"])
 
         asyncio.run(exercise())
 
@@ -3706,8 +3506,6 @@ def test_prompt_and_memory_boundaries_preserve_errors_and_reject_malformed() -> 
         Response(body={"data": "wrong", "nextCursor": None}),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            with pytest.raises(ValueError, match="At least one"):
-                client.prompts.update(prompt_id=PROMPT["id"])
             with pytest.raises(TypeError):
                 cast(Any, client.prompts.create)(
                     name="Greeting",
@@ -4159,16 +3957,6 @@ def test_skill_request_validation_and_malformed_responses() -> None:
         api_key="ba_test",
         base_url="http://127.0.0.1:1",
     )
-    with pytest.raises(ValueError, match="SKILL.md"):
-        sync_client.agent(SKILL["agentId"]).skills.create(
-            path=cast(Any, "nested/SKILL.md"),
-            content="invalid",
-        )
-    with pytest.raises(ValueError, match="archive_type"):
-        sync_client.agent(SKILL["agentId"]).skills.upload(
-            archive_type=cast(Any, "rar"),
-            file=b"invalid",
-        )
     sync_client.close()
 
     async def reject_async_requests() -> None:
@@ -4176,16 +3964,6 @@ def test_skill_request_validation_and_malformed_responses() -> None:
             api_key="ba_test",
             base_url="http://127.0.0.1:1",
         )
-        with pytest.raises(ValueError, match="SKILL.md"):
-            await client.agent(SKILL["agentId"]).skills.create(
-                path=cast(Any, "nested/SKILL.md"),
-                content="invalid",
-            )
-        with pytest.raises(ValueError, match="archive_type"):
-            await client.agent(SKILL["agentId"]).skills.upload(
-                archive_type=cast(Any, "rar"),
-                file=b"invalid",
-            )
         await client.aclose()
 
     asyncio.run(reject_async_requests())
@@ -6857,12 +6635,6 @@ def test_workspace_tier_creation_and_conflicts(tier: str) -> None:
             workspace = client.workspaces.create(tier=cast(Any, tier))
             assert workspace.tier == tier
             client.agents.create(name="Agent", workspace_tier=cast(Any, tier))
-            with pytest.raises(ValueError, match="mutually exclusive"):
-                client.agents.create(
-                    name="Agent",
-                    workspace_id=WORKSPACE["id"],
-                    workspace_tier=cast(Any, tier),
-                )
             with pytest.raises(TypeError):
                 cast(Any, client.workspaces.update)(
                     workspace_id=WORKSPACE["id"], tier=tier
@@ -6888,12 +6660,6 @@ def test_workspace_tier_creation_and_conflicts(tier: str) -> None:
                     await client.workspaces.create(tier=cast(Any, tier))
                 ).tier == tier
                 await client.agents.create(name="Agent", workspace_tier=cast(Any, tier))
-                with pytest.raises(ValueError, match="mutually exclusive"):
-                    await client.agents.create(
-                        name="Agent",
-                        workspace_id=WORKSPACE["id"],
-                        workspace_tier=cast(Any, tier),
-                    )
             assert json.loads(state.requests[0].body) == {"tier": tier}
             assert json.loads(state.requests[1].body) == {
                 "name": "Agent",

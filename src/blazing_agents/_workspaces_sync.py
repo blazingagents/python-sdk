@@ -223,9 +223,6 @@ class WorkspacesResource:
             metadata=metadata,
             network_policy=network_policy,
         )
-        if not body:
-            msg = "At least one Workspace field must be provided."
-            raise ValueError(msg)
         return self._transport.request(
             _Request(
                 "PUT",
