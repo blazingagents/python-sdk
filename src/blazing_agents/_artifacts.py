@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
-from ._models import (
-    Artifact,
-    ArtifactDownloadUrl,
-    ArtifactsPage,
-)
+from ._session_models import Artifact, ArtifactDownloadUrl, ArtifactsPage
 from ._transport import (
     OMITTED,
     AsyncTransport,

@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
-from ._models import (
-    MemoriesPage,
-    Memory,
-    MemoryResponse,
-)
+from ._models import MemoriesPage, Memory, MemoryResponse
 from ._transport import (
     OMITTED,
     AsyncTransport,

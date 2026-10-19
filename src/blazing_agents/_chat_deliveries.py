@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 
-from ._models import ChatDeliveriesPage, TenantChatDelivery
+from ._chat_models import ChatDeliveriesPage, TenantChatDelivery
 from ._transport import (
     OMITTED,
     AsyncTransport,

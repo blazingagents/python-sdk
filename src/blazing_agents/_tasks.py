@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, ConfigDict, Field, TypeAdapter
 
-from ._models import (
+from ._session_models import (
     Task,
     TaskCreateResponse,
     TaskListItem,

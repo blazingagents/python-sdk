@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ._models import (
-    SpendingLimitResponse,
-    TenantSettings,
-)
+from ._models import SpendingLimitResponse, TenantSettings
 from ._transport import (
     OMITTED,
     AsyncTransport,

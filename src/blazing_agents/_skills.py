@@ -4,13 +4,7 @@ from collections.abc import AsyncIterator, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Literal, get_args
 
-from ._models import (
-    Skill,
-    SkillCopyResult,
-    SkillCopyResults,
-    SkillDetail,
-    SkillsPage,
-)
+from ._models import Skill, SkillCopyResult, SkillCopyResults, SkillDetail, SkillsPage
 from ._transport import (
     OMITTED,
     AsyncTransport,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
-from ._models import (
+from ._merchant_models import (
     MerchantBindingResponse,
     MerchantBindingsPage,
     MerchantConnectionResponse,

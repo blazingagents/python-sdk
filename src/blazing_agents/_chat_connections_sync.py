@@ -5,7 +5,7 @@ from collections.abc import Iterator, Mapping
 from typing import Literal, overload
 
 from ._chat_connections import _path
-from ._models import (
+from ._chat_models import (
     ChatConnection,
     ChatConnectionDeliveriesPage,
     ChatConnections,

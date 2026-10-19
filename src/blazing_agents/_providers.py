@@ -3,12 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import get_args
 
-from ._models import (
-    Provider,
-    ProviderModels,
-    Providers,
-    ThinkingLevels,
-)
+from ._models import Provider, ProviderModels, Providers, ThinkingLevels
 from ._transport import (
     OMITTED,
     AsyncTransport,

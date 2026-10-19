@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
-from ._models import (
+from ._session_models import (
     LatestSessionsPage,
     Session,
     SessionInputResponse,

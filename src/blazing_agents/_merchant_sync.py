@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 
 from ._merchant import _BINDINGS_PATH, _CONNECTION_PATH, _EVENTS_PATH, _guard_body
-from ._models import (
+from ._merchant_models import (
     MerchantBindingResponse,
     MerchantBindingsPage,
     MerchantConnectionResponse,

@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 
 from ._artifacts import _artifact_path
-from ._models import Artifact, ArtifactDownloadUrl, ArtifactsPage
+from ._session_models import Artifact, ArtifactDownloadUrl, ArtifactsPage
 from ._transport import (
     OMITTED,
     _Omitted,

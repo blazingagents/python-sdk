@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from typing import Literal, overload
 
-from ._models import (
+from ._chat_models import (
     ChatConnection,
     ChatConnectionDeliveriesPage,
     ChatConnections,

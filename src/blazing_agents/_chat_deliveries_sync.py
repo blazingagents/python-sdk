@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 
 from ._chat_deliveries import _chat_deliveries_query
-from ._models import ChatDeliveriesPage, TenantChatDelivery
+from ._chat_models import ChatDeliveriesPage, TenantChatDelivery
 from ._transport import OMITTED, _Omitted, _Request, decode_model
 from ._transport_sync import Transport
 from ._types import ChatDeliveryListStatus, Timeout

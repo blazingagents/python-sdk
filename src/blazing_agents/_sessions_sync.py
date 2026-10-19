@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from ._models import (
+from ._session_models import (
     LatestSessionsPage,
     Session,
     SessionInputResponse,

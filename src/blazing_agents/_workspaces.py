@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
-from ._models import (
-    Workspace,
-    WorkspacesPage,
-)
+from ._models import Workspace, WorkspacesPage
 from ._transport import (
     OMITTED,
     AsyncTransport,

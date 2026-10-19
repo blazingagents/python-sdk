@@ -22,10 +22,7 @@ from ._errors import (
     BlazingAgentsError,
     StreamError,
 )
-from ._models import (
-    CredentialSafeResponseModel,
-    ResponseMeta,
-)
+from ._models import CredentialSafeResponseModel, ResponseMeta
 from ._responses import Completion
 from ._types import Timeout
 
