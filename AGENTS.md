@@ -17,6 +17,8 @@ Releases follow `CONTRIBUTING.md`: pushing a `vX.Y.Z` tag publishes to PyPI, and
 
 Breaking changes (a removed or renamed method, field, enum value, or endpoint, or a `!` commit) break Tenant apps already in production, so ship them in two steps. First release the new shape while the old one still works: the server and this SDK keep accepting the old input, and the old input is marked deprecated in its doc comment. Remove the old shape only in a later release. Every release that deprecates or removes something adds a `CHANGELOG.md` entry under its version that names what changed and shows the migration from the old call to the new one.
 
+The sync API is generated from the async API. Each `src/blazing_agents/<name>_sync.py` file is written by `scripts/generate_sync.py` from `<name>.py`, which holds the async classes and the helpers both forms share. Edit the async source and run `uv run python scripts/generate_sync.py`; never edit a `_sync.py` file. `scripts/run_tests.py` runs the generator with `--check` and fails when a generated file is stale. `_functions.py`, `_chat.py`, `_completion.py`, `_object.py` and `_downloads.py` keep hand-written sync and async classes because the two forms differ.
+
 Tests use only the public API: what `blazing_agents` exports from its package root. `uv run ruff check .` rejects imports from private modules (`blazing_agents._*`, rule TID251) and private attribute access such as `client._transport` (SLF001) under `tests/`. When a test trips either rule, do one of two things:
 
 1. Rewrite the test against the public client, asserting what a Tenant app can observe.

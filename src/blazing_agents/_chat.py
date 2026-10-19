@@ -9,8 +9,8 @@ from ._downloads import AsyncByteStream, ByteStream
 from ._errors import StreamError
 from ._functions import (
     AsyncFunctionRunner,
+    FunctionRunner,
     SseFrames,
-    SyncFunctionRunner,
     function_call,
 )
 from ._transport import OMITTED, _Omitted, _Request, drop_omitted, path_segment
@@ -31,7 +31,7 @@ class ChatStream(ByteStream):
         self,
         response: httpx.Response,
         session_id: str | None,
-        functions: (Callable[[str], SyncFunctionRunner] | None) = None,
+        functions: (Callable[[str], FunctionRunner] | None) = None,
     ) -> None:
         """Wrap a raw chat response for the Session it started or resumed.
 

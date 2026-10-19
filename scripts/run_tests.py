@@ -16,33 +16,50 @@ PACKAGE_FILES = {
     "blazing_agents/__init__.py",
     "blazing_agents/_agent_tools.py",
     "blazing_agents/_agents.py",
+    "blazing_agents/_agents_sync.py",
     "blazing_agents/_artifacts.py",
+    "blazing_agents/_artifacts_sync.py",
     "blazing_agents/_chat.py",
     "blazing_agents/_chat_connections.py",
+    "blazing_agents/_chat_connections_sync.py",
     "blazing_agents/_chat_deliveries.py",
+    "blazing_agents/_chat_deliveries_sync.py",
     "blazing_agents/_client.py",
+    "blazing_agents/_client_sync.py",
     "blazing_agents/_completion.py",
     "blazing_agents/_downloads.py",
     "blazing_agents/_errors.py",
     "blazing_agents/_functions.py",
     "blazing_agents/_mcp_connections.py",
+    "blazing_agents/_mcp_connections_sync.py",
     "blazing_agents/_memories.py",
+    "blazing_agents/_memories_sync.py",
     "blazing_agents/_merchant.py",
+    "blazing_agents/_merchant_sync.py",
     "blazing_agents/_models.py",
     "blazing_agents/_object.py",
     "blazing_agents/_prompts.py",
+    "blazing_agents/_prompts_sync.py",
     "blazing_agents/_providers.py",
+    "blazing_agents/_providers_sync.py",
     "blazing_agents/_responses.py",
     "blazing_agents/_sessions.py",
+    "blazing_agents/_sessions_sync.py",
     "blazing_agents/_skills.py",
+    "blazing_agents/_skills_sync.py",
     "blazing_agents/_tasks.py",
+    "blazing_agents/_tasks_sync.py",
     "blazing_agents/_tenant.py",
+    "blazing_agents/_tenant_sync.py",
     "blazing_agents/_transport.py",
+    "blazing_agents/_transport_sync.py",
     "blazing_agents/_types.py",
     "blazing_agents/_usage.py",
+    "blazing_agents/_usage_sync.py",
     "blazing_agents/_version.py",
     "blazing_agents/_wire.py",
     "blazing_agents/_workspaces.py",
+    "blazing_agents/_workspaces_sync.py",
     "blazing_agents/py.typed",
 }
 
@@ -174,6 +191,10 @@ def inspect_test_import_ban(project: Path) -> None:
 def main() -> None:
     project = Path(__file__).resolve().parents[1]
     inspect_test_import_ban(project)
+    subprocess.run(
+        [sys.executable, str(project / "scripts" / "generate_sync.py"), "--check"],
+        check=True,
+    )
     with tempfile.TemporaryDirectory(prefix="blazing-agents-python-sdk-") as raw:
         temporary = Path(raw)
         distribution = temporary / "dist"

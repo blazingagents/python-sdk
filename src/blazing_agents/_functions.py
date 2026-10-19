@@ -12,7 +12,16 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast, get_args
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    ClassVar,
+    Literal,
+    TypeVar,
+    cast,
+    get_args,
+)
 
 import httpx
 from pydantic import (
@@ -25,7 +34,8 @@ from pydantic import (
 )
 
 from ._errors import APIStatusError, BlazingAgentsError, StreamError
-from ._transport import AsyncTransport, SyncTransport, _Request, path_segment
+from ._transport import AsyncTransport, _Request, path_segment
+from ._transport_sync import Transport
 from ._types import BuiltinToolName
 
 if TYPE_CHECKING:
@@ -135,8 +145,7 @@ def define_function(
 
 def function_definitions(
     functions: Mapping[str, ChatFunction],
-    *,
-    asynchronous: bool,
+    runner: type[_Runner],
 ) -> dict[str, object]:
     """Validate function names, handler mode, and serialized definitions.
 
@@ -144,7 +153,8 @@ def function_definitions(
 
     Args:
         functions: Named functions available for this invocation.
-        asynchronous: Whether async function handlers are allowed.
+        runner: Runner class that will answer the calls; it decides whether async
+            handlers are allowed.
 
     Returns:
         Validated function definitions keyed by function name.
@@ -162,7 +172,9 @@ def function_definitions(
             raise ValueError(f"Invalid or reserved function name: {name!r}.")
         if not isinstance(function, ChatFunction):
             raise TypeError("functions values must be created with define_function.")
-        if not asynchronous and inspect.iscoroutinefunction(function._execute):
+        if not runner.accepts_coroutines and inspect.iscoroutinefunction(
+            function._execute
+        ):
             raise ValueError(
                 f"Function {name} is async; use AsyncBlazingAgents for async handlers."
             )
@@ -357,6 +369,7 @@ def _log_execution_failure(call: _FunctionCall) -> None:
 
 
 class _Runner:
+    accepts_coroutines: ClassVar[bool]
     failure: BlazingAgentsError | None = None
     """A permanent claim or result failure the stream must raise."""
 
@@ -372,10 +385,12 @@ class _Runner:
             self.failure = self.failure or error
 
 
-class SyncFunctionRunner(_Runner):
+class FunctionRunner(_Runner):
+    accepts_coroutines = False
+
     def __init__(
         self,
-        transport: SyncTransport,
+        transport: Transport,
         scope: _CallScope,
         functions: Mapping[str, ChatFunction],
     ) -> None:
@@ -514,6 +529,8 @@ async def _invoke(
 
 
 class AsyncFunctionRunner(_Runner):
+    accepts_coroutines = True
+
     def __init__(
         self,
         transport: AsyncTransport,

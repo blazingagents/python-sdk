@@ -8,7 +8,8 @@ from ._agent_tools import (
     AgentToolTag,
 )
 from ._chat import AsyncChatStream, ChatStream
-from ._client import AsyncBlazingAgents, AsyncUserClient, BlazingAgents, UserClient
+from ._client import AsyncBlazingAgents, AsyncUserClient
+from ._client_sync import BlazingAgents, UserClient
 from ._completion import AsyncCompletionStream, CompletionStream
 from ._downloads import AsyncByteStream, ByteStream
 from ._errors import (
