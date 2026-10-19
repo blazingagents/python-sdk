@@ -117,6 +117,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "POST",
                 "/v1/mcp-connections",
+                credential_bearing=True,
                 json_body=body,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -153,6 +154,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "GET",
                 "/v1/mcp-connections",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -186,6 +188,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "GET",
                 _mcp_connection_path(mcp_connection_id),
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -221,6 +224,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "PATCH",
                 _mcp_connection_path(mcp_connection_id),
+                credential_bearing=True,
                 json_body=wire_fields(name=name),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -252,6 +256,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "DELETE",
                 _mcp_connection_path(mcp_connection_id),
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -285,6 +290,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "POST",
                 f"{_mcp_connection_path(mcp_connection_id)}/test",
+                credential_bearing=True,
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
@@ -343,6 +349,7 @@ class AsyncMcpConnectionsResource:
             _Request(
                 "POST",
                 f"{_mcp_connection_path(mcp_connection_id)}/reconnect",
+                credential_bearing=True,
                 json_body=body,
                 extra_headers=extra_headers,
                 timeout=timeout,

@@ -19,10 +19,10 @@ from ._errors import (
     APIConnectionError,
     APIStatusError,
     APITimeoutError,
-    BlazingAgentsError,
+    CredentialEchoError,
     StreamError,
 )
-from ._models import CredentialSafeResponseModel, ResponseMeta
+from ._models import ResponseMeta
 from ._responses import Completion
 from ._types import Timeout
 
@@ -31,6 +31,23 @@ _ModelT = TypeVar("_ModelT", bound=BaseModel)
 _StreamT = TypeVar("_StreamT")
 _T = TypeVar("_T")
 _MIN_SUBSTRING_SECRET_LENGTH = 8
+_CREDENTIAL_KEYS = frozenset(
+    {
+        "apiKey",
+        "api_key",
+        "botToken",
+        "bot_token",
+        "signingSecret",
+        "signing_secret",
+        "webhookSecret",
+        "webhook_secret",
+        "bearerToken",
+        "bearer_token",
+        "clientSecret",
+        "client_secret",
+        "credential",
+    }
+)
 
 
 class _ResponseMetaModel(Protocol):
@@ -97,6 +114,8 @@ class _Request:
     extra_headers: Mapping[str, str] | None = None
     timeout: Timeout | _Omitted = OMITTED
     sensitive_values: tuple[str, ...] = ()
+    credential_bearing: bool = False
+    """The contract marks the operation ``x-credential-bearing``."""
     streamed_read: bool = False
     """Read the body through a streamed response, as object generation needs."""
 
@@ -376,19 +395,6 @@ def _model(
     sensitive_values: tuple[str, ...],
 ) -> _ModelT:
     """Validate a response model and attach the response metadata."""
-    if issubclass(model, CredentialSafeResponseModel):
-        try:
-            decoded: object = json.loads(response.content)
-        except json.JSONDecodeError:
-            msg = "The server returned an invalid credential-safe response."
-            raise BlazingAgentsError(msg) from None
-        if _contains_credential_material(
-            decoded,
-            sensitive_values=sensitive_values,
-            credential_fields=model._credential_fields,
-        ):
-            msg = "The server returned credential material in a response."
-            raise BlazingAgentsError(msg)
     value = model.model_validate_json(response.content)
     cast(_ResponseMetaModel, value)._attach_response_meta(
         ResponseMeta._from_response(
@@ -398,33 +404,38 @@ def _model(
     return value
 
 
+def _reject_credential_echo(
+    response: httpx.Response,
+    sensitive_values: tuple[str, ...],
+) -> None:
+    """Raise when a credential operation's response carries credential material.
+
+    A body that is not JSON passes, so the decoder reports it.
+    """
+    try:
+        decoded: object = json.loads(response.content)
+    except json.JSONDecodeError:
+        return
+    if _contains_credential_material(decoded, sensitive_values):
+        raise CredentialEchoError(request_id=response.headers.get("x-request-id"))
+
+
 def _contains_credential_material(
     value: object,
-    *,
     sensitive_values: tuple[str, ...],
-    credential_fields: frozenset[str],
 ) -> bool:
-    """Check response data for credential fields or submitted secrets."""
+    """Check JSON data for a credential key or a submitted secret."""
     if isinstance(value, dict):
         fields = cast(dict[str, object], value)
         return any(
-            key in credential_fields
-            or _contains_credential_material(
-                item,
-                sensitive_values=sensitive_values,
-                credential_fields=credential_fields,
-            )
+            key in _CREDENTIAL_KEYS
+            or _contains_credential_material(item, sensitive_values)
             for key, item in fields.items()
         )
     if isinstance(value, list):
         items = cast(list[object], value)
         return any(
-            _contains_credential_material(
-                item,
-                sensitive_values=sensitive_values,
-                credential_fields=credential_fields,
-            )
-            for item in items
+            _contains_credential_material(item, sensitive_values) for item in items
         )
     if isinstance(value, str):
         return any(
@@ -506,6 +517,15 @@ def decode_completion(
 ) -> Completion:
     """Return generated text with its server request_id."""
     return Completion(response.text, response)
+
+
+def _decoded(response: httpx.Response, request: _Request, decode: _Decoder[_T]) -> _T:
+    """Raise for a failed or credential-echoing response, else decode it."""
+    if not response.is_success:
+        raise _status_error(response, request.sensitive_values)
+    if request.credential_bearing:
+        _reject_credential_echo(response, request.sensitive_values)
+    return decode(response, request.sensitive_values)
 
 
 class AsyncTransport:
@@ -600,9 +620,7 @@ class AsyncTransport:
         if transport_error is not None:
             raise transport_error from None
         assert response is not None
-        if not response.is_success:
-            raise _status_error(response, request.sensitive_values)
-        return decode(response, request.sensitive_values)
+        return _decoded(response, request, decode)
 
     @overload
     async def stream(self, request: _Request) -> AsyncByteStream:

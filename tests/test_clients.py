@@ -50,6 +50,7 @@ from blazing_agents import (
     CompletionLiteralInput,
     CompletionPromptInput,
     CompletionStream,
+    CredentialEchoError,
     JsonValue,
     LatestSessionListItem,
     LatestSessionsListOptions,
@@ -2410,9 +2411,9 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
             fetched = client.providers.get("provider/with space")
             updated = client.providers.update(PROVIDER["id"], name="Renamed")
             client.providers.delete(PROVIDER["id"])
-            with pytest.raises(BlazingAgentsError, match="credential material"):
+            with pytest.raises(CredentialEchoError):
                 client.providers.get(PROVIDER["id"])
-            with pytest.raises(BlazingAgentsError, match="invalid credential-safe"):
+            with pytest.raises(ValidationError):
                 client.providers.get(PROVIDER["id"])
             with pytest.raises(APIStatusError) as captured:
                 client.providers.create(
@@ -3043,13 +3044,13 @@ def test_provider_and_mcp_response_substrings_are_safe_in_sync_and_async_clients
     )
     with loopback(*responses) as (base_url, _state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            with pytest.raises(BlazingAgentsError, match="credential material"):
+            with pytest.raises(CredentialEchoError):
                 client.providers.create(
                     name="OpenAI",
                     provider_type="openai",
                     api_key=provider_secret,
                 )
-            with pytest.raises(BlazingAgentsError, match="credential material"):
+            with pytest.raises(CredentialEchoError):
                 client.mcp_connections.create(
                     name="Tools",
                     url="https://mcp.example.com/",
@@ -3073,13 +3074,13 @@ def test_provider_and_mcp_response_substrings_are_safe_in_sync_and_async_clients
                 api_key="ba_test",
                 base_url=base_url,
             ) as client:
-                with pytest.raises(BlazingAgentsError, match="credential material"):
+                with pytest.raises(CredentialEchoError):
                     await client.providers.create(
                         name="OpenAI",
                         provider_type="openai",
                         api_key=provider_secret,
                     )
-                with pytest.raises(BlazingAgentsError, match="credential material"):
+                with pytest.raises(CredentialEchoError):
                     await client.mcp_connections.create(
                         name="Tools",
                         url="https://mcp.example.com/",

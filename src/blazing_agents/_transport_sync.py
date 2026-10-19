@@ -15,6 +15,7 @@ from ._errors import (
 )
 from ._transport import (
     _T,
+    _decoded,
     _Decoder,
     _Request,
     _request_options,
@@ -117,9 +118,7 @@ class Transport:
         if transport_error is not None:
             raise transport_error from None
         assert response is not None
-        if not response.is_success:
-            raise _status_error(response, request.sensitive_values)
-        return decode(response, request.sensitive_values)
+        return _decoded(response, request, decode)
 
     @overload
     def stream(self, request: _Request) -> ByteStream:

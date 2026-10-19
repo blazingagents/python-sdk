@@ -4,7 +4,7 @@ import re
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Annotated, ClassVar, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 import httpx
 from pydantic import (
@@ -287,25 +287,6 @@ class ResponseModel(BaseModel):
         self._response_meta = meta
 
 
-class CredentialSafeResponseModel(ResponseModel):
-    _credential_fields: ClassVar[frozenset[str]] = frozenset(
-        {
-            "apiKey",
-            "botToken",
-            "bot_token",
-            "signingSecret",
-            "signing_secret",
-            "webhookSecret",
-            "webhook_secret",
-            "api_key",
-            "bearerToken",
-            "bearer_token",
-            "clientSecret",
-            "client_secret",
-        }
-    )
-
-
 class Quota(ResponseModel):
     monthly_token_limit: int | None = Field(alias="monthlyTokenLimit")
     monthly_request_limit: int | None = Field(alias="monthlyRequestLimit")
@@ -441,7 +422,7 @@ class UsageOverview(ResponseModel):
     active_agent_count: int = Field(alias="activeAgentCount", ge=0)
 
 
-class Provider(CredentialSafeResponseModel):
+class Provider(ResponseModel):
     id: ProviderId
     name: NonEmptyString
     provider_type: str = Field(alias="providerType")
@@ -451,7 +432,7 @@ class Provider(CredentialSafeResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
-class ProviderListItem(CredentialSafeResponseModel):
+class ProviderListItem(ResponseModel):
     id: ProviderId
     name: NonEmptyString
     provider_type: str = Field(alias="providerType")
@@ -459,24 +440,24 @@ class ProviderListItem(CredentialSafeResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
-class Providers(CredentialSafeResponseModel):
+class Providers(ResponseModel):
     providers: list[ProviderListItem]
 
 
-class ProviderModel(CredentialSafeResponseModel):
+class ProviderModel(ResponseModel):
     id: NonEmptyString
 
 
-class ThinkingLevels(CredentialSafeResponseModel):
+class ThinkingLevels(ResponseModel):
     known: bool
     levels: list[NonEmptyString]
 
 
-class ProviderModels(CredentialSafeResponseModel):
+class ProviderModels(ResponseModel):
     models: list[ProviderModel]
 
 
-class McpConnection(CredentialSafeResponseModel):
+class McpConnection(ResponseModel):
     id: McpConnectionId
     name: NonEmptyString
     url: AnyUrl
@@ -494,21 +475,21 @@ class McpConnection(CredentialSafeResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
-class McpConnections(CredentialSafeResponseModel):
+class McpConnections(ResponseModel):
     mcp_connections: list[McpConnection] = Field(alias="mcpConnections")
 
 
-class McpConnectionTestError(CredentialSafeResponseModel):
+class McpConnectionTestError(ResponseModel):
     code: str
     message: NonEmptyString
 
 
-class McpServer(CredentialSafeResponseModel):
+class McpServer(ResponseModel):
     name: NonEmptyString
     version: NonEmptyString
 
 
-class McpConnectionTestResult(CredentialSafeResponseModel):
+class McpConnectionTestResult(ResponseModel):
     ok: bool
     latency_ms: int | None = Field(default=None, alias="latencyMs", ge=0)
     server: McpServer | None = None
@@ -540,7 +521,7 @@ class McpConnectionTestResult(CredentialSafeResponseModel):
         return self
 
 
-class McpConnectionReconnectResult(CredentialSafeResponseModel):
+class McpConnectionReconnectResult(ResponseModel):
     status: str
     connection: McpConnection
 
