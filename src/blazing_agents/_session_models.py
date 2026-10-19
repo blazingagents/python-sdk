@@ -401,6 +401,7 @@ class TaskRun(ResponseModel):
     turn_id: TurnId | None = Field(alias="turnId")
     status: TaskRunStatus
     error: str | None
+    error_code: str | None = Field(alias="errorCode")
     user_id: str = Field(alias="userId")
     metadata: dict[str, object]
     started_at: AwareDatetime | None = Field(alias="startedAt")

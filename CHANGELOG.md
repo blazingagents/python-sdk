@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `TaskRun.error_code` is the API error code a `blocked` or `failed` run
+  ended with, such as `usage_credit_required`, `quota_exceeded` or
+  `provider_required`. It is `None` for every other run and for a failure
+  without a code; `error` still carries the message. `tasks.get_run`,
+  `tasks.list_runs` and `tasks.iter_runs` return it, sync and async.
+
 ## 0.28.0
 
 ### Changed

@@ -330,6 +330,7 @@ TASK_RUN: dict[str, Any] = {
     "turnId": "turn_0123456789abcdef",
     "status": "blocked",
     "error": "Monthly token quota reached",
+    "errorCode": "quota_exceeded",
     "userId": "end-user",
     "metadata": {"OpaqueKey": {"nested_key": True}},
     "startedAt": "2026-08-02T02:00:00.000Z",
@@ -433,6 +434,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
         "id": "tr_fedcba9876543210",
         "status": "succeeded",
         "error": None,
+        "errorCode": None,
         "futureRunField": {"opaque_key": True},
     }
     submitted_runs: dict[str, str] = {}
@@ -592,8 +594,10 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert isinstance(runs_page, TaskRunsPage)
     assert runs_page.data[0].status == "blocked"
     assert runs_page.data[0].error == "Monthly token quota reached"
+    assert runs_page.data[0].error_code == "quota_exceeded"
     assert runs_page.data[0].turn_id == TASK_RUN["turnId"]
     assert run.status == "succeeded"
+    assert run.error_code is None
     assert run.turn_id == TASK_RUN["turnId"]
     assert run.model_extra == {"futureRunField": {"opaque_key": True}}
     assert response_meta(run).request_id == "req_task_run"
