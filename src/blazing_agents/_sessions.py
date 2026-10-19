@@ -18,6 +18,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -131,7 +133,7 @@ class AsyncSessionsResource:
                 extra_headers=headers,
                 timeout=timeout,
             ),
-            SessionResponse,
+            decode_model(SessionResponse),
         )
 
     async def get(
@@ -166,7 +168,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionResponse,
+            decode_model(SessionResponse),
         )
 
     async def list(
@@ -206,7 +208,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionsPage,
+            decode_model(SessionsPage),
         )
 
     async def list_latest(
@@ -246,7 +248,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            LatestSessionsPage,
+            decode_model(LatestSessionsPage),
         )
 
     async def iter(
@@ -330,7 +332,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionMessagesPage,
+            decode_model(SessionMessagesPage),
         )
 
     async def tool_approvals(
@@ -365,7 +367,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ToolApprovals,
+            decode_model(ToolApprovals),
         )
 
     async def submit_input(
@@ -409,7 +411,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionInputResponse,
+            decode_model(SessionInputResponse),
         )
 
     async def inputs(
@@ -453,7 +455,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionInputsPage,
+            decode_model(SessionInputsPage),
         )
 
     async def stop(
@@ -493,7 +495,7 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionStopResponse,
+            decode_model(SessionStopResponse),
         )
 
     async def delete(
@@ -529,5 +531,5 @@ class AsyncSessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

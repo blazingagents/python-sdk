@@ -8,11 +8,12 @@ from ._models import (
 )
 from ._transport import (
     OMITTED,
-    RESPONSE_STATUS,
     AsyncTransport,
     _Omitted,
     _Request,
     camel_case_keys,
+    decode_model,
+    decode_status,
     drop_omitted,
     path_segment,
 )
@@ -119,7 +120,7 @@ class AsyncWorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Workspace,
+            decode_model(Workspace),
         )
 
     async def list(
@@ -157,7 +158,7 @@ class AsyncWorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            WorkspacesPage,
+            decode_model(WorkspacesPage),
         )
 
     async def iter(
@@ -229,7 +230,7 @@ class AsyncWorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Workspace,
+            decode_model(Workspace),
         )
 
     async def update(
@@ -278,7 +279,7 @@ class AsyncWorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Workspace,
+            decode_model(Workspace),
         )
 
     async def delete(
@@ -311,6 +312,6 @@ class AsyncWorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_STATUS,
+            decode_status,
         )
         return "pending" if status == 202 else "completed"

@@ -5,7 +5,13 @@ from collections.abc import Mapping
 
 from ._models import Provider, ProviderModels, Providers, ThinkingLevels
 from ._providers import _provider_body, _provider_path, _provider_update_body
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+)
 from ._transport_sync import Transport
 from ._types import ProviderType, Timeout
 
@@ -65,7 +71,7 @@ class ProvidersResource:
                 timeout=timeout,
                 sensitive_values=(api_key,),
             ),
-            Provider,
+            decode_model(Provider),
         )
 
     def list(
@@ -96,7 +102,7 @@ class ProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Providers,
+            decode_model(Providers),
         )
 
     def get(
@@ -130,7 +136,7 @@ class ProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Provider,
+            decode_model(Provider),
         )
 
     def list_models(
@@ -164,7 +170,7 @@ class ProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ProviderModels,
+            decode_model(ProviderModels),
         )
 
     def get_thinking_levels(
@@ -201,7 +207,7 @@ class ProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ThinkingLevels,
+            decode_model(ThinkingLevels),
         )
 
     def update(
@@ -238,7 +244,7 @@ class ProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Provider,
+            decode_model(Provider),
         )
 
     def delete(
@@ -277,5 +283,5 @@ class ProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

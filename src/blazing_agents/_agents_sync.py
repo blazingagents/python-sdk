@@ -21,6 +21,8 @@ from ._transport import (
     OMITTED,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     path_segment,
 )
 from ._transport_sync import Transport
@@ -129,7 +131,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agent,
+            decode_model(Agent),
         )
 
     def list(
@@ -172,7 +174,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            AgentsPage,
+            decode_model(AgentsPage),
         )
 
     def get(
@@ -205,7 +207,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agent,
+            decode_model(Agent),
         )
 
     def list_mcp_attachments(
@@ -238,7 +240,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpAttachments,
+            decode_model(McpAttachments),
         )
 
     def update_mcp_attachment(
@@ -285,7 +287,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpAttachment,
+            decode_model(McpAttachment),
         )
 
     def update(
@@ -374,7 +376,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agent,
+            decode_model(Agent),
         )
 
     def disable(
@@ -407,7 +409,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agent,
+            decode_model(Agent),
         )
 
     def enable(
@@ -440,7 +442,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agent,
+            decode_model(Agent),
         )
 
     def delete(
@@ -473,7 +475,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     def upload_avatar(
@@ -522,7 +524,7 @@ class UserAgentsResource:
                     extra_headers=extra_headers,
                     timeout=timeout,
                 ),
-                Agent,
+                decode_model(Agent),
             )
 
     def remove_avatar(
@@ -555,7 +557,7 @@ class UserAgentsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Agent,
+            decode_model(Agent),
         )
 
 
@@ -575,7 +577,7 @@ class AgentsResource(UserAgentsResource):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SpendingLimitResponse,
+            decode_model(SpendingLimitResponse),
         )
 
     def update_spending_limit(
@@ -595,5 +597,5 @@ class AgentsResource(UserAgentsResource):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SpendingLimitResponse,
+            decode_model(SpendingLimitResponse),
         )

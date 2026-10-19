@@ -13,9 +13,11 @@ from ._skills import (
 )
 from ._transport import (
     OMITTED,
-    RESPONSE_BYTES,
     _Omitted,
     _Request,
+    decode_bytes,
+    decode_model,
+    decode_none,
 )
 from ._transport_sync import Transport
 from ._types import SkillArchiveType, Timeout, UploadFile
@@ -68,7 +70,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     def upload(
@@ -110,7 +112,7 @@ class AgentSkillsResource:
             extra_headers=extra_headers,
             timeout=timeout,
         ) as request:
-            return self._transport.request(request, SkillDetail)
+            return self._transport.request(request, decode_model(SkillDetail))
 
     def list(
         self,
@@ -145,7 +147,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillsPage,
+            decode_model(SkillsPage),
         )
 
     def iter(
@@ -213,7 +215,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     def delete(
@@ -243,7 +245,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     def read_file(
@@ -279,7 +281,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_BYTES,
+            decode_bytes,
         )
 
     def replace_file(
@@ -318,7 +320,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     def delete_file(
@@ -354,7 +356,7 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     def copy(
@@ -390,6 +392,6 @@ class AgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillCopyResults,
+            decode_model(SkillCopyResults),
         )
         return response.root

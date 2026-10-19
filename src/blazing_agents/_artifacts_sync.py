@@ -5,7 +5,13 @@ from collections.abc import Iterator, Mapping
 
 from ._artifacts import _artifact_path, _artifacts_query
 from ._models import Artifact, ArtifactDownloadUrl, ArtifactsPage
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+)
 from ._transport_sync import Transport
 from ._types import Timeout
 
@@ -54,7 +60,7 @@ class ArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ArtifactsPage,
+            decode_model(ArtifactsPage),
         )
 
     def iter(
@@ -125,7 +131,7 @@ class ArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ArtifactDownloadUrl,
+            decode_model(ArtifactDownloadUrl),
         )
 
     def get(
@@ -158,7 +164,7 @@ class ArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Artifact,
+            decode_model(Artifact),
         )
 
     def delete(
@@ -188,5 +194,5 @@ class ArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

@@ -14,6 +14,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -128,7 +130,7 @@ class AsyncProvidersResource:
                 timeout=timeout,
                 sensitive_values=(api_key,),
             ),
-            Provider,
+            decode_model(Provider),
         )
 
     async def list(
@@ -159,7 +161,7 @@ class AsyncProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Providers,
+            decode_model(Providers),
         )
 
     async def get(
@@ -193,7 +195,7 @@ class AsyncProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Provider,
+            decode_model(Provider),
         )
 
     async def list_models(
@@ -227,7 +229,7 @@ class AsyncProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ProviderModels,
+            decode_model(ProviderModels),
         )
 
     async def get_thinking_levels(
@@ -264,7 +266,7 @@ class AsyncProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ThinkingLevels,
+            decode_model(ThinkingLevels),
         )
 
     async def update(
@@ -301,7 +303,7 @@ class AsyncProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Provider,
+            decode_model(Provider),
         )
 
     async def delete(
@@ -340,5 +342,5 @@ class AsyncProvidersResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

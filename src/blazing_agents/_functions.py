@@ -34,7 +34,7 @@ from pydantic import (
 )
 
 from ._errors import APIStatusError, BlazingAgentsError, StreamError
-from ._transport import AsyncTransport, _Request, path_segment
+from ._transport import AsyncTransport, _Request, decode_none, path_segment
 from ._transport_sync import Transport
 from ._types import BuiltinToolName
 
@@ -503,7 +503,7 @@ class FunctionRunner(_Runner):
         while True:
             try:
                 self._transport.request(
-                    self._scope.request(call.id, action, body), None
+                    self._scope.request(call.id, action, body), decode_none
                 )
                 return True
             except BlazingAgentsError as error:
@@ -645,7 +645,7 @@ class AsyncFunctionRunner(_Runner):
         while True:
             try:
                 await self._transport.request(
-                    self._scope.request(call.id, action, body), None
+                    self._scope.request(call.id, action, body), decode_none
                 )
                 return True
             except BlazingAgentsError as error:

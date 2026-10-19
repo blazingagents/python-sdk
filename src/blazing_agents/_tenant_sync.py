@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 from ._models import SpendingLimitResponse, TenantSettings
 from ._tenant import _tenant_body
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import OMITTED, _Omitted, _Request, decode_model
 from ._transport_sync import Transport
 from ._types import QuotaUpdate, SpendingLimitInput, Timeout
 from ._wire import spending_limit_body
@@ -26,7 +26,7 @@ class TenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SpendingLimitResponse,
+            decode_model(SpendingLimitResponse),
         )
 
     def update_spending_limit(
@@ -45,7 +45,7 @@ class TenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SpendingLimitResponse,
+            decode_model(SpendingLimitResponse),
         )
 
     def __init__(self, transport: Transport) -> None:
@@ -84,7 +84,7 @@ class TenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TenantSettings,
+            decode_model(TenantSettings),
         )
 
     def update(
@@ -124,5 +124,5 @@ class TenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TenantSettings,
+            decode_model(TenantSettings),
         )

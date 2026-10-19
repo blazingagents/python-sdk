@@ -24,6 +24,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -247,7 +249,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskCreateResponse,
+            decode_model(TaskCreateResponse),
         )
 
     async def list(
@@ -287,7 +289,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TasksPage,
+            decode_model(TasksPage),
         )
 
     async def iter(
@@ -362,7 +364,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Task,
+            decode_model(Task),
         )
 
     async def update(
@@ -425,7 +427,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Task,
+            decode_model(Task),
         )
 
     async def delete(
@@ -455,7 +457,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     async def submit(
@@ -495,7 +497,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRunSubmission,
+            decode_model(TaskRunSubmission),
         )
 
     async def list_runs(
@@ -533,7 +535,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRunsPage,
+            decode_model(TaskRunsPage),
         )
 
     async def iter_runs(
@@ -607,7 +609,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRun,
+            decode_model(TaskRun),
         )
 
     async def run_messages(
@@ -649,7 +651,7 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRunMessagesPage,
+            decode_model(TaskRunMessagesPage),
         )
 
     async def cancel_run(
@@ -681,5 +683,5 @@ class AsyncTasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

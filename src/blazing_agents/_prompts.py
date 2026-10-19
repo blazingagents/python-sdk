@@ -11,6 +11,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -97,7 +99,7 @@ class AsyncPromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompt,
+            decode_model(Prompt),
         )
 
     async def list(
@@ -138,7 +140,7 @@ class AsyncPromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            PromptsPage,
+            decode_model(PromptsPage),
         )
 
     async def get(
@@ -171,7 +173,7 @@ class AsyncPromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompt,
+            decode_model(Prompt),
         )
 
     async def update(
@@ -223,7 +225,7 @@ class AsyncPromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompt,
+            decode_model(Prompt),
         )
 
     async def delete(
@@ -253,5 +255,5 @@ class AsyncPromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

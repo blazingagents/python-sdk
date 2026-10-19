@@ -4,7 +4,14 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from ._models import SessionUsageList, Usage, UsageOverview
-from ._transport import OMITTED, _Omitted, _Request, drop_omitted, path_segment
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    drop_omitted,
+    path_segment,
+)
 from ._transport_sync import Transport
 from ._types import Timeout, UsageGroupBy
 from ._usage import _usage_overview_query, _usage_query
@@ -71,7 +78,7 @@ class UserUsageResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Usage,
+            decode_model(Usage),
         )
 
     def sessions(
@@ -111,7 +118,7 @@ class UserUsageResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionUsageList,
+            decode_model(SessionUsageList),
         )
 
     def get_for_agent(
@@ -166,7 +173,7 @@ class UserUsageResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Usage,
+            decode_model(Usage),
         )
 
 
@@ -206,5 +213,5 @@ class UsageResource(UserUsageResource):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            UsageOverview,
+            decode_model(UsageOverview),
         )

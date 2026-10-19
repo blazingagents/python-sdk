@@ -253,4 +253,5 @@ def generation_request(
         json_body=body,
         extra_headers=extra_headers,
         timeout=timeout,
+        streamed_read=output["type"] == "object",
     )

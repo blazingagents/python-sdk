@@ -15,7 +15,13 @@ from ._models import (
     ToolApprovals,
 )
 from ._sessions import _inputs_body, _inputs_query, _sessions_path, _sessions_query
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+)
 from ._transport_sync import Transport
 from ._types import Timeout
 from ._wire import session_messages_query
@@ -78,7 +84,7 @@ class SessionsResource:
                 extra_headers=headers,
                 timeout=timeout,
             ),
-            SessionResponse,
+            decode_model(SessionResponse),
         )
 
     def get(
@@ -113,7 +119,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionResponse,
+            decode_model(SessionResponse),
         )
 
     def list(
@@ -153,7 +159,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionsPage,
+            decode_model(SessionsPage),
         )
 
     def list_latest(
@@ -193,7 +199,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            LatestSessionsPage,
+            decode_model(LatestSessionsPage),
         )
 
     def iter(
@@ -276,7 +282,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionMessagesPage,
+            decode_model(SessionMessagesPage),
         )
 
     def tool_approvals(
@@ -311,7 +317,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ToolApprovals,
+            decode_model(ToolApprovals),
         )
 
     def submit_input(
@@ -355,7 +361,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionInputResponse,
+            decode_model(SessionInputResponse),
         )
 
     def inputs(
@@ -399,7 +405,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionInputsPage,
+            decode_model(SessionInputsPage),
         )
 
     def stop(
@@ -439,7 +445,7 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionStopResponse,
+            decode_model(SessionStopResponse),
         )
 
     def delete(
@@ -475,5 +481,5 @@ class SessionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

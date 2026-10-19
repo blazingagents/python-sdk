@@ -5,7 +5,13 @@ from collections.abc import Iterator, Mapping
 
 from ._memories import _memories_query, _memory_body, _memory_path
 from ._models import MemoriesPage, Memory, MemoryResponse
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+)
 from ._transport_sync import Transport
 from ._types import Timeout
 
@@ -54,7 +60,7 @@ class MemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoryResponse,
+            decode_model(MemoryResponse),
         )
 
     def list(
@@ -101,7 +107,7 @@ class MemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoriesPage,
+            decode_model(MemoriesPage),
         )
 
     def iter(
@@ -180,7 +186,7 @@ class MemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoryResponse,
+            decode_model(MemoryResponse),
         )
 
     def update(
@@ -218,7 +224,7 @@ class MemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoryResponse,
+            decode_model(MemoryResponse),
         )
 
     def delete(
@@ -250,5 +256,5 @@ class MemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

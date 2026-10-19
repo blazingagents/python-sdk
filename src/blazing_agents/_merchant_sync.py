@@ -18,6 +18,8 @@ from ._transport import (
     OMITTED,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -69,7 +71,7 @@ class MerchantConnectionResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantConnectionResponse,
+            decode_model(MerchantConnectionResponse),
         )
 
     def create(
@@ -118,7 +120,7 @@ class MerchantConnectionResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantConnectionResponse,
+            decode_model(MerchantConnectionResponse),
         )
 
     def update(
@@ -163,7 +165,7 @@ class MerchantConnectionResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantConnectionResponse,
+            decode_model(MerchantConnectionResponse),
         )
 
     def retire(
@@ -191,7 +193,7 @@ class MerchantConnectionResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
 
@@ -241,7 +243,7 @@ class MerchantBindingsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantBindingsPage,
+            decode_model(MerchantBindingsPage),
         )
 
     def iter(
@@ -317,7 +319,7 @@ class MerchantBindingsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantBindingResponse,
+            decode_model(MerchantBindingResponse),
         )
 
     def delete(
@@ -347,7 +349,7 @@ class MerchantBindingsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
 
@@ -397,7 +399,7 @@ class MerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantUsageEventsPage,
+            decode_model(MerchantUsageEventsPage),
         )
 
     def iter(
@@ -468,7 +470,7 @@ class MerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantUsageEventResponse,
+            decode_model(MerchantUsageEventResponse),
         )
 
     def summary(
@@ -502,7 +504,7 @@ class MerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantUsageSummaryResponse,
+            decode_model(MerchantUsageSummaryResponse),
         )
 
     def retry(
@@ -535,7 +537,7 @@ class MerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantUsageEventResponse,
+            decode_model(MerchantUsageEventResponse),
         )
 
     def release(
@@ -568,7 +570,7 @@ class MerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantUsageEventResponse,
+            decode_model(MerchantUsageEventResponse),
         )
 
     def discard(
@@ -601,5 +603,5 @@ class MerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MerchantUsageEventResponse,
+            decode_model(MerchantUsageEventResponse),
         )

@@ -20,7 +20,13 @@ from ._tasks import (
     _task_run_path,
     _tasks_query,
 )
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+)
 from ._transport_sync import Transport
 from ._types import TaskScheduleInput, Timeout
 from ._wire import cursor_limit_query, session_messages_query
@@ -98,7 +104,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskCreateResponse,
+            decode_model(TaskCreateResponse),
         )
 
     def list(
@@ -138,7 +144,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TasksPage,
+            decode_model(TasksPage),
         )
 
     def iter(
@@ -212,7 +218,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Task,
+            decode_model(Task),
         )
 
     def update(
@@ -275,7 +281,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Task,
+            decode_model(Task),
         )
 
     def delete(
@@ -305,7 +311,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     def submit(
@@ -345,7 +351,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRunSubmission,
+            decode_model(TaskRunSubmission),
         )
 
     def list_runs(
@@ -383,7 +389,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRunsPage,
+            decode_model(TaskRunsPage),
         )
 
     def iter_runs(
@@ -456,7 +462,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRun,
+            decode_model(TaskRun),
         )
 
     def run_messages(
@@ -498,7 +504,7 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TaskRunMessagesPage,
+            decode_model(TaskRunMessagesPage),
         )
 
     def cancel_run(
@@ -530,5 +536,5 @@ class TasksResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

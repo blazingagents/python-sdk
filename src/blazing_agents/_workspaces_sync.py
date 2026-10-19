@@ -6,9 +6,10 @@ from collections.abc import Iterator, Mapping
 from ._models import Workspace, WorkspacesPage
 from ._transport import (
     OMITTED,
-    RESPONSE_STATUS,
     _Omitted,
     _Request,
+    decode_model,
+    decode_status,
 )
 from ._transport_sync import Transport
 from ._types import (
@@ -74,7 +75,7 @@ class WorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Workspace,
+            decode_model(Workspace),
         )
 
     def list(
@@ -112,7 +113,7 @@ class WorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            WorkspacesPage,
+            decode_model(WorkspacesPage),
         )
 
     def iter(
@@ -183,7 +184,7 @@ class WorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Workspace,
+            decode_model(Workspace),
         )
 
     def update(
@@ -232,7 +233,7 @@ class WorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Workspace,
+            decode_model(Workspace),
         )
 
     def delete(
@@ -265,6 +266,6 @@ class WorkspacesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_STATUS,
+            decode_status,
         )
         return "pending" if status == 202 else "completed"

@@ -6,7 +6,14 @@ from ._models import (
     SpendingLimitResponse,
     TenantSettings,
 )
-from ._transport import OMITTED, AsyncTransport, _Omitted, _Request, drop_omitted
+from ._transport import (
+    OMITTED,
+    AsyncTransport,
+    _Omitted,
+    _Request,
+    decode_model,
+    drop_omitted,
+)
 from ._types import (
     QuotaUpdate,
     SpendingLimitInput,
@@ -57,7 +64,7 @@ class AsyncTenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SpendingLimitResponse,
+            decode_model(SpendingLimitResponse),
         )
 
     async def update_spending_limit(
@@ -76,7 +83,7 @@ class AsyncTenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SpendingLimitResponse,
+            decode_model(SpendingLimitResponse),
         )
 
     def __init__(self, transport: AsyncTransport) -> None:
@@ -115,7 +122,7 @@ class AsyncTenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TenantSettings,
+            decode_model(TenantSettings),
         )
 
     async def update(
@@ -155,5 +162,5 @@ class AsyncTenantResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            TenantSettings,
+            decode_model(TenantSettings),
         )

@@ -31,11 +31,10 @@ from ._tasks_sync import TasksResource
 from ._tenant_sync import TenantResource
 from ._transport import (
     OMITTED,
-    RESPONSE_OBJECT_TEXT,
-    RESPONSE_TEXT,
     ResponseObservation,
     _Omitted,
     _TransportConfig,
+    decode_completion,
 )
 from ._transport_sync import Transport
 from ._types import (
@@ -418,7 +417,7 @@ class _Client(ABC):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_TEXT,
+            decode_completion,
         )
 
     def completion_stream(
@@ -643,7 +642,7 @@ class _Client(ABC):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_OBJECT_TEXT,
+            decode_completion,
         )
         return decode_object(response, response._response, adapter)
 

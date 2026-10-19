@@ -14,7 +14,13 @@ from ._models import (
     McpConnections,
     McpConnectionTestResult,
 )
-from ._transport import OMITTED, _Omitted, _Request
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+)
 from ._transport_sync import Transport
 from ._types import McpConnectionAuthType, Timeout
 
@@ -90,7 +96,7 @@ class McpConnectionsResource:
                     client_secret,
                 ),
             ),
-            McpConnection,
+            decode_model(McpConnection),
         )
 
     def list(
@@ -121,7 +127,7 @@ class McpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnections,
+            decode_model(McpConnections),
         )
 
     def get(
@@ -154,7 +160,7 @@ class McpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnection,
+            decode_model(McpConnection),
         )
 
     def update(
@@ -193,7 +199,7 @@ class McpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnection,
+            decode_model(McpConnection),
         )
 
     def delete(
@@ -223,7 +229,7 @@ class McpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     def test(
@@ -256,7 +262,7 @@ class McpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnectionTestResult,
+            decode_model(McpConnectionTestResult),
         )
 
     def reconnect(
@@ -321,5 +327,5 @@ class McpConnectionsResource:
                     client_secret,
                 ),
             ),
-            McpConnectionReconnectResult,
+            decode_model(McpConnectionReconnectResult),
         )

@@ -45,12 +45,11 @@ from ._tasks import AsyncTasksResource
 from ._tenant import AsyncTenantResource
 from ._transport import (
     OMITTED,
-    RESPONSE_OBJECT_TEXT,
-    RESPONSE_TEXT,
     AsyncTransport,
     ResponseObservation,
     _Omitted,
     _TransportConfig,
+    decode_completion,
 )
 from ._types import (
     ChatTrigger,
@@ -460,7 +459,7 @@ class _AsyncClient(ABC):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_TEXT,
+            decode_completion,
         )
 
     async def completion_stream(
@@ -685,7 +684,7 @@ class _AsyncClient(ABC):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_OBJECT_TEXT,
+            decode_completion,
         )
         return decode_object(response, response._response, adapter)
 

@@ -16,6 +16,8 @@ from ._transport import (
     _Omitted,
     _Request,
     camel_case_keys,
+    decode_model,
+    decode_none,
     path_segment,
 )
 from ._types import (
@@ -72,7 +74,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnections,
+            decode_model(ChatConnections),
         )
 
     async def get(
@@ -105,7 +107,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     async def check_health(
@@ -138,7 +140,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     async def enable(
@@ -171,7 +173,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     async def disable(
@@ -204,7 +206,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     async def delete(
@@ -234,7 +236,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     async def update(
@@ -290,7 +292,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     @overload
@@ -431,7 +433,7 @@ class AsyncChatConnectionsResource:
                     if isinstance(value, str) and value
                 ),
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     @overload
@@ -532,7 +534,7 @@ class AsyncChatConnectionsResource:
                     if isinstance(value, str) and value
                 ),
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     async def list_deliveries(
@@ -576,7 +578,7 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnectionDeliveriesPage,
+            decode_model(ChatConnectionDeliveriesPage),
         )
 
     async def iter_deliveries(
@@ -668,5 +670,5 @@ class AsyncChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatDeliveryResult,
+            decode_model(ChatDeliveryResult),
         )

@@ -12,6 +12,7 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
     drop_omitted,
     path_segment,
 )
@@ -118,7 +119,7 @@ class AsyncUserUsageResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Usage,
+            decode_model(Usage),
         )
 
     async def sessions(
@@ -158,7 +159,7 @@ class AsyncUserUsageResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SessionUsageList,
+            decode_model(SessionUsageList),
         )
 
     async def get_for_agent(
@@ -213,7 +214,7 @@ class AsyncUserUsageResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Usage,
+            decode_model(Usage),
         )
 
 
@@ -253,5 +254,5 @@ class AsyncUsageResource(AsyncUserUsageResource):
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            UsageOverview,
+            decode_model(UsageOverview),
         )

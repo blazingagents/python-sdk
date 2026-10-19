@@ -12,6 +12,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -99,7 +101,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoryResponse,
+            decode_model(MemoryResponse),
         )
 
     async def list(
@@ -146,7 +148,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoriesPage,
+            decode_model(MemoriesPage),
         )
 
     async def iter(
@@ -226,7 +228,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoryResponse,
+            decode_model(MemoryResponse),
         )
 
     async def update(
@@ -264,7 +266,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            MemoryResponse,
+            decode_model(MemoryResponse),
         )
 
     async def delete(
@@ -296,5 +298,5 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

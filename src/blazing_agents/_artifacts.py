@@ -12,6 +12,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -82,7 +84,7 @@ class AsyncArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ArtifactsPage,
+            decode_model(ArtifactsPage),
         )
 
     async def iter(
@@ -154,7 +156,7 @@ class AsyncArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ArtifactDownloadUrl,
+            decode_model(ArtifactDownloadUrl),
         )
 
     async def get(
@@ -187,7 +189,7 @@ class AsyncArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Artifact,
+            decode_model(Artifact),
         )
 
     async def delete(
@@ -217,5 +219,5 @@ class AsyncArtifactsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

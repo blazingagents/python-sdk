@@ -13,17 +13,11 @@ from ._errors import (
     APITimeoutError,
     StreamError,
 )
-from ._responses import Completion
 from ._transport import (
-    RESPONSE_OBJECT_TEXT,
-    _ModelT,
+    _T,
+    _Decoder,
     _Request,
     _request_options,
-    _response_value,
-    _ResponseBytes,
-    _ResponseObjectText,
-    _ResponseStatus,
-    _ResponseText,
     _status_error,
     _stream_request_options,
     _StreamT,
@@ -73,101 +67,15 @@ class Transport:
         """
         return Transport(self._config.with_scope_user_id(user_id), self._client)
 
-    @overload
-    def request(self, request: _Request, model: type[_ModelT]) -> _ModelT:
+    def request(self, request: _Request, decode: _Decoder[_T]) -> _T:
         """Send an HTTP request and decode its response.
 
         Args:
             request: Prepared HTTP request.
-            model: Pydantic model used to decode the response.
+            decode: Decoder for a successful response.
 
         Returns:
-            Response decoded into the supplied Pydantic model.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: None) -> None:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: None to discard the response body.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseStatus) -> int:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting the HTTP status code.
-
-        Returns:
-            Response HTTP status code.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseBytes) -> bytes:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting response bytes.
-
-        Returns:
-            Downloaded response bytes.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseText) -> Completion:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting generated text and request metadata.
-
-        Returns:
-            Generated text with its server request_id.
-        """
-        ...
-
-    @overload
-    def request(self, request: _Request, model: _ResponseObjectText) -> Completion:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Sentinel selecting generated JSON text and request metadata.
-
-        Returns:
-            Generated text with its server request_id.
-        """
-        ...
-
-    def request(
-        self,
-        request: _Request,
-        model: (
-            type[_ModelT]
-            | _ResponseBytes
-            | _ResponseObjectText
-            | _ResponseStatus
-            | _ResponseText
-            | None
-        ),
-    ) -> _ModelT | Completion | bytes | int | None:
-        """Send an HTTP request and decode its response.
-
-        Args:
-            request: Prepared HTTP request.
-            model: Response Pydantic model, decoding sentinel, or None.
-
-        Returns:
-            Decoded response selected by model, or None.
+            The decoded response.
 
         Raises:
             StreamError: Response body read failed.
@@ -176,7 +84,7 @@ class Transport:
         response: httpx.Response | None = None
         transport_error: APIConnectionError | None = None
         try:
-            if model is RESPONSE_OBJECT_TEXT:
+            if request.streamed_read:
                 built = self._client.build_request(
                     request.method,
                     self._config.url(request.path),
@@ -203,13 +111,15 @@ class Transport:
         except httpx.RequestError:
             transport_error = APIConnectionError("Connection failed.")
         finally:
-            if model is RESPONSE_OBJECT_TEXT and response is not None:
+            if request.streamed_read and response is not None:
                 response.close()
             self._config.log(request, started_at=started_at, response=response)
         if transport_error is not None:
             raise transport_error from None
         assert response is not None
-        return _response_value(response, model, request.sensitive_values)
+        if not response.is_success:
+            raise _status_error(response, request.sensitive_values)
+        return decode(response, request.sensitive_values)
 
     @overload
     def stream(self, request: _Request) -> ByteStream:

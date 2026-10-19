@@ -5,7 +5,14 @@ from collections.abc import Mapping
 
 from ._models import Prompt, PromptsPage
 from ._prompts import _prompt_body, _prompt_path
-from ._transport import OMITTED, _Omitted, _Request, drop_omitted
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    decode_model,
+    decode_none,
+    drop_omitted,
+)
 from ._transport_sync import Transport
 from ._types import Timeout
 from ._wire import cursor_limit_query
@@ -65,7 +72,7 @@ class PromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompt,
+            decode_model(Prompt),
         )
 
     def list(
@@ -106,7 +113,7 @@ class PromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            PromptsPage,
+            decode_model(PromptsPage),
         )
 
     def get(
@@ -139,7 +146,7 @@ class PromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompt,
+            decode_model(Prompt),
         )
 
     def update(
@@ -191,7 +198,7 @@ class PromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            Prompt,
+            decode_model(Prompt),
         )
 
     def delete(
@@ -221,5 +228,5 @@ class PromptsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )

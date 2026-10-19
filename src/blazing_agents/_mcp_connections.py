@@ -14,6 +14,8 @@ from ._transport import (
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -160,7 +162,7 @@ class AsyncMcpConnectionsResource:
                     client_secret,
                 ),
             ),
-            McpConnection,
+            decode_model(McpConnection),
         )
 
     async def list(
@@ -191,7 +193,7 @@ class AsyncMcpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnections,
+            decode_model(McpConnections),
         )
 
     async def get(
@@ -224,7 +226,7 @@ class AsyncMcpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnection,
+            decode_model(McpConnection),
         )
 
     async def update(
@@ -263,7 +265,7 @@ class AsyncMcpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnection,
+            decode_model(McpConnection),
         )
 
     async def delete(
@@ -293,7 +295,7 @@ class AsyncMcpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     async def test(
@@ -326,7 +328,7 @@ class AsyncMcpConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            McpConnectionTestResult,
+            decode_model(McpConnectionTestResult),
         )
 
     async def reconnect(
@@ -391,5 +393,5 @@ class AsyncMcpConnectionsResource:
                     client_secret,
                 ),
             ),
-            McpConnectionReconnectResult,
+            decode_model(McpConnectionReconnectResult),
         )

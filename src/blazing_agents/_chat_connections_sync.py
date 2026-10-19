@@ -12,7 +12,15 @@ from ._models import (
     ChatDelivery,
     ChatDeliveryResult,
 )
-from ._transport import OMITTED, _Omitted, _Request, camel_case_keys, path_segment
+from ._transport import (
+    OMITTED,
+    _Omitted,
+    _Request,
+    camel_case_keys,
+    decode_model,
+    decode_none,
+    path_segment,
+)
 from ._transport_sync import Transport
 from ._types import (
     SlackChatConfigurationInput,
@@ -61,7 +69,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnections,
+            decode_model(ChatConnections),
         )
 
     def get(
@@ -94,7 +102,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     def check_health(
@@ -127,7 +135,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     def enable(
@@ -160,7 +168,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     def disable(
@@ -193,7 +201,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     def delete(
@@ -223,7 +231,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     def update(
@@ -279,7 +287,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     @overload
@@ -420,7 +428,7 @@ class ChatConnectionsResource:
                     if isinstance(value, str) and value
                 ),
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     @overload
@@ -521,7 +529,7 @@ class ChatConnectionsResource:
                     if isinstance(value, str) and value
                 ),
             ),
-            ChatConnection,
+            decode_model(ChatConnection),
         )
 
     def list_deliveries(
@@ -565,7 +573,7 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatConnectionDeliveriesPage,
+            decode_model(ChatConnectionDeliveriesPage),
         )
 
     def iter_deliveries(
@@ -656,5 +664,5 @@ class ChatConnectionsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatDeliveryResult,
+            decode_model(ChatDeliveryResult),
         )

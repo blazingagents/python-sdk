@@ -13,10 +13,12 @@ from ._models import (
 )
 from ._transport import (
     OMITTED,
-    RESPONSE_BYTES,
     AsyncTransport,
     _Omitted,
     _Request,
+    decode_bytes,
+    decode_model,
+    decode_none,
     drop_omitted,
     path_segment,
 )
@@ -126,7 +128,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     async def upload(
@@ -168,7 +170,7 @@ class AsyncAgentSkillsResource:
             extra_headers=extra_headers,
             timeout=timeout,
         ) as request:
-            return await self._transport.request(request, SkillDetail)
+            return await self._transport.request(request, decode_model(SkillDetail))
 
     async def list(
         self,
@@ -203,7 +205,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillsPage,
+            decode_model(SkillsPage),
         )
 
     async def iter(
@@ -272,7 +274,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     async def delete(
@@ -302,7 +304,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            None,
+            decode_none,
         )
 
     async def read_file(
@@ -338,7 +340,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            RESPONSE_BYTES,
+            decode_bytes,
         )
 
     async def replace_file(
@@ -377,7 +379,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     async def delete_file(
@@ -413,7 +415,7 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillDetail,
+            decode_model(SkillDetail),
         )
 
     async def copy(
@@ -449,6 +451,6 @@ class AsyncAgentSkillsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            SkillCopyResults,
+            decode_model(SkillCopyResults),
         )
         return response.root

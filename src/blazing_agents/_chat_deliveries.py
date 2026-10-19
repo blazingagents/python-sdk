@@ -3,7 +3,14 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 
 from ._models import ChatDeliveriesPage, TenantChatDelivery
-from ._transport import OMITTED, AsyncTransport, _Omitted, _Request, drop_omitted
+from ._transport import (
+    OMITTED,
+    AsyncTransport,
+    _Omitted,
+    _Request,
+    decode_model,
+    drop_omitted,
+)
 from ._types import ChatDeliveryListStatus, Timeout
 
 
@@ -72,7 +79,7 @@ class AsyncChatDeliveriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            ChatDeliveriesPage,
+            decode_model(ChatDeliveriesPage),
         )
 
     async def iter(
