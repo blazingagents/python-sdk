@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import get_args
@@ -14,16 +13,11 @@ from blazing_agents import (
     AgentToolGroupTag,
 )
 
-TYPESCRIPT_CATALOG = Path(
-    os.environ.get(
-        "AGENT_TOOLS_JSON",
-        Path(__file__).parents[2] / "typescript-sdk" / "agent-tools.json",
-    )
-)
+SPEC = Path(__file__).resolve().parents[1] / "spec" / "openapi.json"
 
 
-def test_catalog_matches_the_typescript_sdk() -> None:
-    catalog = json.loads(TYPESCRIPT_CATALOG.read_text())
+def test_catalog_matches_the_contract() -> None:
+    catalog = json.loads(SPEC.read_text())["x-agent-tools"]
     assert [asdict(group) for group in AGENT_TOOL_GROUPS] == catalog["groups"]
     assert [
         {
