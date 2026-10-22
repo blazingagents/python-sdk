@@ -134,9 +134,7 @@ def test_invalid_request_identity(value: str) -> None:
             )
 
 
-@pytest.mark.parametrize(
-    "state", ["accepted", "delivered", "committed", "not_placed", "uncertain"]
-)
+@pytest.mark.parametrize("state", ["accepted", "committed", "not_placed"])
 def test_receipt_states_and_removed_fields(state: str) -> None:
     value = SessionInput.model_validate_json(
         json.dumps(receipt(state=state, mode="queue", consumedAt=None))
@@ -150,6 +148,8 @@ def test_receipt_states_and_removed_fields(state: str) -> None:
     "overrides",
     [
         {"state": "consumed"},
+        {"state": "delivered"},
+        {"state": "uncertain"},
         {"turnId": None},
         {"reason": "deleted"},
         {"message": {**MESSAGE, "role": "assistant"}},

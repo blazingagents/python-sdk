@@ -232,8 +232,11 @@ class SessionActivity(ResponseModel):
 class SessionInput(ResponseModel):
     """A steer receipt bound to one Turn.
 
-    Committed proves durable history inclusion. A not_placed message may be
-    sent through ordinary chat. Never replay uncertain messages automatically.
+    accepted: stored for a Turn that is still live; it may still be placed and
+    committed, so wait. committed: saved with that Turn's accepted history.
+    not_placed: not committed, because its Turn ended or its owner was lost
+    without saving it; send it again as ordinary chat. If the Turn read it and
+    then failed, a resend may repeat Tool effects, as any resend can.
     """
 
     model_config = ConfigDict(extra="ignore")

@@ -9,13 +9,12 @@ from ._transport import (
     _Omitted,
     _Request,
     decode_model,
-    decode_status,
+    decode_none,
     path_segment,
     wire_fields,
 )
 from ._types import (
     Timeout,
-    WorkspaceDeletionOutcome,
     WorkspaceNetworkPolicy,
     WorkspaceTier,
 )
@@ -265,8 +264,8 @@ class AsyncWorkspacesResource:
         workspace_id: str,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> WorkspaceDeletionOutcome:
-        """Delete the requested Workspace.
+    ) -> None:
+        """Delete the requested Workspace at once.
 
         Args:
             workspace_id: Workspace identifier.
@@ -274,21 +273,18 @@ class AsyncWorkspacesResource:
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
-        Returns:
-            Outcome of the Workspace deletion.
-
         Raises:
-            APIStatusError: The API returns a non-success status.
+            APIStatusError: The API returns a non-success status, such as 409
+                workspace_in_use while an Agent still uses the Workspace.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        status = await self._transport.request(
+        await self._transport.request(
             _Request(
                 "DELETE",
                 _workspace_path(workspace_id),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_status,
+            decode_none,
         )
-        return "pending" if status == 202 else "completed"

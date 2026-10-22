@@ -26,24 +26,17 @@ JsonValue: TypeAlias = (
 )
 JsonSchema: TypeAlias = Mapping[str, Any]
 ChatTrigger = Literal["submit-message", "regenerate-message"]
-ChatDeliveryStatus = Literal["pending", "confirmed", "failed", "ambiguous"]
 MerchantProvider = Literal["polar", "dodo"]
 MerchantEnvironment = Literal["sandbox", "live"]
-MerchantConnectionStatus = Literal["active", "disconnected"]
 MerchantUsageEventStatus = Literal[
     "pending",
     "accepted",
     "failed",
-    "uncertain",
-    "unmapped",
     "incomplete",
     "discarded",
     "expired",
 ]
-ChatDeliveryListStatus = Literal["failed", "ambiguous"]
-SessionInputState = Literal[
-    "accepted", "delivered", "committed", "not_placed", "uncertain"
-]
+SessionInputState = Literal["accepted", "committed", "not_placed"]
 SessionInputReason = Literal["stopped", "failed", "owner_lost", "turn_finished"]
 SessionActivityState = Literal["idle", "running", "stopping", "approval"]
 UsageGroupBy = Literal["day", "agent", "model", "session", "user"]
@@ -104,7 +97,6 @@ class ApprovalPolicyInput(TypedDict, total=False):
 
 UploadFile = bytes | str | PathLike[str] | BinaryIO
 SkillArchiveType = Literal["zip", "tar", "tar.gz"]
-WorkspaceDeletionOutcome = Literal["completed", "pending"]
 ProviderType = Literal[
     "openai",
     "anthropic",
@@ -644,10 +636,3 @@ class SlackChatCredentialsInput(TypedDict):
 
 class TelegramChatCredentialsInput(TypedDict):
     bot_token: str
-
-
-class ChatDeliveriesListOptions(TypedDict, total=False):
-    status: Sequence[ChatDeliveryListStatus]
-    since: str
-    cursor: str
-    limit: int

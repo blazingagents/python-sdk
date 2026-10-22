@@ -11,7 +11,6 @@ from ._agents_sync import AgentsResource, UserAgentsResource
 from ._artifacts_sync import ArtifactsResource
 from ._chat import ChatStream, chat_request, continue_request
 from ._chat_connections_sync import ChatConnectionsResource
-from ._chat_deliveries_sync import ChatDeliveriesResource
 from ._completion import CompletionStream, generation_request
 from ._functions import ChatFunction, FunctionRunner, _CallScope, function_definitions
 from ._mcp_connections_sync import McpConnectionsResource
@@ -899,7 +898,6 @@ class BlazingAgents(_Client):
         self.artifacts = ArtifactsResource(transport)
         self.providers = ProvidersResource(transport)
         self.chat_connections = ChatConnectionsResource(transport)
-        self.chat_deliveries = ChatDeliveriesResource(transport)
         self.mcp_connections = McpConnectionsResource(transport)
         self.memories = MemoriesResource(transport)
         self.prompts = PromptsResource(transport)

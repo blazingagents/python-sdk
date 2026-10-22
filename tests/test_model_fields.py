@@ -13,7 +13,12 @@ from blazing_agents import BlazingAgents
 
 # Response properties, as "Model.property", that no model field has to carry,
 # each with the reason. An entry the responses no longer need fails the test.
-ALLOWED_MISSING: dict[str, str] = {}
+_OLD_SDK_CONSTANT = "the platform still returns it for older SDKs; removed here"
+ALLOWED_MISSING: dict[str, str] = {
+    "MerchantConnection.status": _OLD_SDK_CONSTANT,
+    "MerchantUsageSummaryCounts.uncertain": _OLD_SDK_CONSTANT,
+    "MerchantUsageSummaryCounts.unmapped": _OLD_SDK_CONSTANT,
+}
 
 Schema = dict[str, Any]
 DOCUMENT: Schema = json.loads(SPEC.read_text())

@@ -18,7 +18,7 @@ Blazing Agents `/v1` API. It supports CPython 3.11 and newer.
 - Typed Pydantic request and response models.
 - Matching synchronous and asynchronous APIs.
 - Agent, Workspace, Skill, Provider, Prompt, Memory, Session, Artifact, Task,
-  Chat Connection and delivery, usage, and Tenant management.
+  Chat Connection, usage, and Tenant management.
 - Chat with ordered message batches, live steering, and one-call tool approvals.
 - Text and structured-object generation streams.
 - Lazy pagination and binary transfers.

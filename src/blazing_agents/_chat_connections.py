@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import Mapping
 from typing import Literal, overload
 
 from ._chat_models import (
     ChatConnection,
-    ChatConnectionDeliveriesPage,
     ChatConnections,
-    ChatDelivery,
-    ChatDeliveryResult,
 )
 from ._transport import (
     OMITTED,
@@ -507,142 +504,4 @@ class AsyncChatConnectionsResource:
                 ),
             ),
             decode_model(ChatConnection),
-        )
-
-    async def list_deliveries(
-        self,
-        chat_connection_id: str,
-        *,
-        cursor: str | _Omitted = OMITTED,
-        limit: int | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatConnectionDeliveriesPage:
-        """Fetch one page of a Chat Connection's deliveries, newest first.
-
-        Lists the replies and approval cards the connection sent or tried to
-        send, in every status. Records carry no message bodies, tool arguments,
-        or credentials.
-
-        Args:
-            chat_connection_id: Chat Connection identifier.
-            cursor: Continuation cursor from a previous page, to fetch older
-                records.
-            limit: Maximum number of items per page, 1 to 100. The API defaults
-                to 100.
-            extra_headers: Headers for this request. Authorization uses the client
-                API key.
-            timeout: Request timeout override. OMITTED inherits the client timeout.
-
-        Returns:
-            One page of Chat Deliveries and its continuation cursor.
-
-        Raises:
-            APIStatusError: The API returns a non-success status.
-            APIConnectionError: The HTTP request fails before a complete response.
-            APITimeoutError: The HTTP request times out.
-        """
-        return await self._transport.request(
-            _Request(
-                "GET",
-                _path(chat_connection_id) + "/deliveries",
-                credential_bearing=True,
-                query=wire_fields(cursor=cursor, limit=limit),
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            decode_model(ChatConnectionDeliveriesPage),
-        )
-
-    async def iter_deliveries(
-        self,
-        chat_connection_id: str,
-        *,
-        cursor: str | _Omitted = OMITTED,
-        limit: int | _Omitted = OMITTED,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> AsyncIterator[ChatDelivery]:
-        """Iterate a Chat Connection's deliveries across all pages.
-
-        Pages are fetched lazily. limit controls each page, not the total.
-
-        Args:
-            chat_connection_id: Chat Connection identifier.
-            cursor: Continuation cursor from a previous page, to start from
-                older records.
-            limit: Maximum number of items per page, 1 to 100.
-            extra_headers: Headers for this request. Authorization uses the client
-                API key.
-            timeout: Request timeout override. OMITTED inherits the client timeout.
-
-        Yields:
-            ChatDelivery records in server order, newest first.
-        """
-        next_cursor = cursor
-        while True:
-            page = await self.list_deliveries(
-                chat_connection_id,
-                cursor=next_cursor,
-                limit=limit,
-                extra_headers=extra_headers,
-                timeout=timeout,
-            )
-            for delivery in page.data:
-                yield delivery
-            if page.next_cursor is None:
-                return
-            next_cursor = page.next_cursor
-
-    async def repair_delivery(
-        self,
-        chat_connection_id: str,
-        delivery_id: str,
-        *,
-        expected_attempt: int,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> ChatDeliveryResult:
-        """Send a stuck reply or approval card again, without running a Turn.
-
-        Calling this confirms that the sender of the previous attempt has
-        stopped and accepts that the message may appear twice, because the
-        platform may already have it. The request always sends
-        previousSenderStopped and acceptDuplicateRisk as true. The connection
-        must be enabled. A successful call does not mean the message was
-        delivered; check the result's status.
-
-        Args:
-            chat_connection_id: Chat Connection identifier.
-            delivery_id: Chat Delivery identifier.
-            expected_attempt: The delivery's current attempt, 0 to 99. The API
-                refuses the repair if the attempt has changed.
-            extra_headers: Headers for this request. Authorization uses the client
-                API key.
-            timeout: Request timeout override. OMITTED inherits the client timeout.
-
-        Returns:
-            The delivery outcome after the new attempt.
-
-        Raises:
-            ValueError: delivery_id is empty, '.' or '..'.
-            APIStatusError: The API returns a non-success status.
-            APIConnectionError: The HTTP request fails before a complete response.
-            APITimeoutError: The HTTP request times out.
-        """
-        return await self._transport.request(
-            _Request(
-                "POST",
-                f"{_path(chat_connection_id)}/deliveries/"
-                f"{path_segment('delivery_id', delivery_id)}/repair",
-                credential_bearing=True,
-                json_body={
-                    "expectedAttempt": expected_attempt,
-                    "previousSenderStopped": True,
-                    "acceptDuplicateRisk": True,
-                },
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            decode_model(ChatDeliveryResult),
         )

@@ -305,7 +305,6 @@ class SpendingLimitPeriod(ResponseModel):
     starts_at: AwareDatetime = Field(alias="startsAt")
     ends_at: AwareDatetime = Field(alias="endsAt")
     spent_usd: float = Field(alias="spentUsd", ge=0)
-    reserved_usd: float = Field(alias="reservedUsd", ge=0)
     available_usd: float = Field(alias="availableUsd", ge=0)
 
 
@@ -317,9 +316,8 @@ class SpendingLimitResponse(ResponseModel):
 
 class SpendingLimitStopDetails(ResponseModel):
     scope: Literal["agent", "tenant", "both"]
-    reason: Literal["exhausted", "reserved", "unpriced", "unknown_usage"]
+    reason: Literal["exhausted", "unpriced"]
     spent_usd: float = Field(alias="spentUsd", ge=0)
-    reserved_usd: float = Field(alias="reservedUsd", ge=0)
     available_usd: float = Field(alias="availableUsd", ge=0)
     next_reset_at: AwareDatetime | None = Field(alias="nextResetAt")
 
