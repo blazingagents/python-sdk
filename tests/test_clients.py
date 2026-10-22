@@ -4747,7 +4747,7 @@ def test_sync_chat_create_relays_exact_bytes_and_exposes_headers_immediately() -
         with BlazingAgents(
             api_key="ba_test",
             base_url=base_url,
-            timeout=0.01,
+            timeout=httpx.Timeout(5.0, read=0.01),
         ) as client:
             stream = client.chat(
                 agent_id=AGENT["id"],
@@ -5050,7 +5050,7 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
             async with AsyncBlazingAgents(
                 api_key="ba_test",
                 base_url=base_url,
-                timeout=0.01,
+                timeout=httpx.Timeout(5.0, read=0.01),
             ) as client:
                 created = await client.chat(
                     agent_id=AGENT["id"],
@@ -5332,7 +5332,7 @@ def test_sync_completion_stream_decodes_incrementally_and_drains_final_text() ->
         with BlazingAgents(
             api_key="ba_test",
             base_url=base_url,
-            timeout=0.01,
+            timeout=httpx.Timeout(5.0, read=0.01),
         ) as client:
             stream = client.completion_stream(
                 agent_id=AGENT["id"],
