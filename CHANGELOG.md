@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.30.0
 
 This release removes API surface the platform no longer serves. The SDK has no
 production users yet, so each removal ships in one release with no
