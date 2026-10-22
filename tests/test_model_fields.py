@@ -11,15 +11,6 @@ from test_contract_scope import NOT_FOUND, SPEC, SURFACES, contract, observe, re
 
 from blazing_agents import BlazingAgents
 
-# Response properties, as "Model.property", that no model field has to carry,
-# each with the reason. An entry the responses no longer need fails the test.
-_OLD_SDK_CONSTANT = "the platform still returns it for older SDKs; removed here"
-ALLOWED_MISSING: dict[str, str] = {
-    "MerchantConnection.status": _OLD_SDK_CONSTANT,
-    "MerchantUsageSummaryCounts.uncertain": _OLD_SDK_CONSTANT,
-    "MerchantUsageSummaryCounts.unmapped": _OLD_SDK_CONSTANT,
-}
-
 Schema = dict[str, Any]
 DOCUMENT: Schema = json.loads(SPEC.read_text())
 
@@ -181,11 +172,7 @@ def test_every_response_property_maps_to_a_model_field() -> None:
         for (method, operation_id), (schema, returned) in sorted(pairs.items())
         for problem in missing(schema, returned, f"{method} ({operation_id})")
     ]
-    unmapped = [
-        f"{where}: {path}" for where, path in found if path not in ALLOWED_MISSING
-    ]
+    unmapped = [f"{where}: {path}" for where, path in found]
     assert not unmapped, "Response properties with no model field:\n" + "\n".join(
         unmapped
     )
-    stale = ALLOWED_MISSING.keys() - {path for _, path in found}
-    assert not stale, f"ALLOWED_MISSING entries no response needs: {sorted(stale)}"
