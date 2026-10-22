@@ -30,8 +30,7 @@ STATUS: dict[str, Any] = {
         "startsAt": "2026-10-09T00:00:00Z",
         "endsAt": "2026-11-09T00:00:00Z",
         "spentUsd": 5,
-        "reservedUsd": 2,
-        "availableUsd": 18.123456,
+        "availableUsd": 20.123456,
     },
     "nextResetAt": "2026-11-09T00:00:00Z",
 }
@@ -42,9 +41,8 @@ DISABLED: dict[str, Any] = {
 }
 STOP_DETAILS: dict[str, Any] = {
     "scope": "both",
-    "reason": "reserved",
-    "spentUsd": 5,
-    "reservedUsd": 20,
+    "reason": "exhausted",
+    "spentUsd": 25.123456,
     "availableUsd": 0,
     "nextResetAt": "2026-11-09T00:00:00Z",
 }
@@ -63,7 +61,7 @@ def test_spending_limit_requests_and_statuses(asynchronous: bool) -> None:
                 assert agent.spending_limit.amount_usd == 25.123456
                 assert agent.spending_limit.reset_start_date == date(2026, 10, 9)
                 assert agent.period is not None
-                assert agent.period.reserved_usd == 2
+                assert agent.period.available_usd == 20.123456
                 assert agent.next_reset_at is not None
                 await c.agents.update_spending_limit(
                     AGENT_ID,
@@ -104,7 +102,7 @@ def test_spending_limit_requests_and_statuses(asynchronous: bool) -> None:
                 assert agent.spending_limit.amount_usd == 25.123456
                 assert agent.spending_limit.reset_start_date == date(2026, 10, 9)
                 assert agent.period is not None
-                assert agent.period.reserved_usd == 2
+                assert agent.period.available_usd == 20.123456
                 assert agent.next_reset_at is not None
                 c.agents.update_spending_limit(
                     AGENT_ID,
@@ -222,9 +220,17 @@ def test_invalid_reset_dates_are_rejected(value: str) -> None:
 def test_typed_stop_details_decode() -> None:
     details = SpendingLimitStopDetails.model_validate_json(json.dumps(STOP_DETAILS))
     assert details.scope == "both"
-    assert details.reason == "reserved"
-    assert details.spent_usd == 5
+    assert details.reason == "exhausted"
+    assert details.spent_usd == 25.123456
     assert details.next_reset_at is not None
+
+
+@pytest.mark.parametrize("reason", ["reserved", "unknown_usage"])
+def test_removed_stop_reasons_are_rejected(reason: str) -> None:
+    with pytest.raises(ValidationError):
+        SpendingLimitStopDetails.model_validate_json(
+            json.dumps({**STOP_DETAILS, "reason": reason})
+        )
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -259,7 +265,7 @@ def test_stream_spending_stop_carries_its_numbers_in_details() -> None:
     assert event.data.code == "model_spending_limit_exceeded"
     details = SpendingLimitStopDetails.model_validate(event.data.details, strict=False)
     assert details.scope == "both"
-    assert details.reason == "reserved"
+    assert details.reason == "exhausted"
     assert details.next_reset_at is not None
 
 

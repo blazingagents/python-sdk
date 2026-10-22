@@ -16,7 +16,6 @@ from ._chat import (
     continue_request,
 )
 from ._chat_connections import AsyncChatConnectionsResource
-from ._chat_deliveries import AsyncChatDeliveriesResource
 from ._completion import AsyncCompletionStream, generation_request
 from ._functions import (
     AsyncFunctionRunner,
@@ -941,7 +940,6 @@ class AsyncBlazingAgents(_AsyncClient):
         self.artifacts = AsyncArtifactsResource(transport)
         self.providers = AsyncProvidersResource(transport)
         self.chat_connections = AsyncChatConnectionsResource(transport)
-        self.chat_deliveries = AsyncChatDeliveriesResource(transport)
         self.mcp_connections = AsyncMcpConnectionsResource(transport)
         self.memories = AsyncMemoriesResource(transport)
         self.prompts = AsyncPromptsResource(transport)

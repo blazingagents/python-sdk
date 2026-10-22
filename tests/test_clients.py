@@ -2153,7 +2153,6 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
         Response(body=attached_agent),
         Response(body={"data": [attached_agent], "nextCursor": None}),
         Response(body=AGENT),
-        Response(status=202, raw_body=b""),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
@@ -2196,8 +2195,7 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
                 "ag_0123456789abcdef",
                 workspace_id=cast(str, AGENT["workspaceId"]),
             )
-            pending = client.workspaces.delete(workspace_id="ws_0123456789abcdef")
-            completed = client.workspaces.delete(workspace_id="ws_0123456789abcdef")
+            client.workspaces.delete(workspace_id="ws_0123456789abcdef")
 
     assert response_meta(created).request_id == "req_workspace"
     assert created.model_extra == {"futureCreateField": {"opaque": True}}
@@ -2208,8 +2206,6 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
     assert attached.workspace_id == WORKSPACE["id"]
     assert listed_agents.data[0].workspace_id == WORKSPACE["id"]
     assert reassigned.workspace_id == AGENT["workspaceId"]
-    assert pending == "pending"
-    assert completed == "completed"
     assert json.loads(state.requests[0].body) == {
         "name": "Build files",
         "userId": "end-user",
@@ -2238,10 +2234,8 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
         "/v1/agents?workspaceId=ws_0123456789abcdef"
     )
     assert json.loads(state.requests[8].body) == {"workspaceId": AGENT["workspaceId"]}
-    assert [request.method for request in state.requests[-2:]] == [
-        "DELETE",
-        "DELETE",
-    ]
+    assert state.requests[-1].method == "DELETE"
+    assert state.requests[-1].target.endswith("/v1/workspaces/ws_0123456789abcdef")
 
 
 def test_async_workspaces_match_every_sync_operation() -> None:
@@ -2252,7 +2246,6 @@ def test_async_workspaces_match_every_sync_operation() -> None:
         Response(body={"data": [WORKSPACE], "nextCursor": None}),
         Response(body=WORKSPACE),
         Response(body=updated),
-        Response(status=202, raw_body=b""),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
 
@@ -2279,19 +2272,12 @@ def test_async_workspaces_match_every_sync_operation() -> None:
                     workspace_id="ws_0123456789abcdef",
                     name="Async files",
                 )
-                pending = await client.workspaces.delete(
-                    workspace_id="ws_0123456789abcdef"
-                )
-                completed = await client.workspaces.delete(
-                    workspace_id="ws_0123456789abcdef"
-                )
+                await client.workspaces.delete(workspace_id="ws_0123456789abcdef")
             assert created.id == WORKSPACE["id"]
             assert first.user_id == "end-user"
             assert second.id == WORKSPACE["id"]
             assert fetched.metadata == {"OpaqueKey": {"nested_key": True}}
             assert renamed.name == "Async files"
-            assert pending == "pending"
-            assert completed == "completed"
 
         asyncio.run(exercise())
 
@@ -2302,6 +2288,8 @@ def test_async_workspaces_match_every_sync_operation() -> None:
     assert state.requests[2].target.endswith(
         "/v1/workspaces?cursor=next&limit=1&userId=end-user"
     )
+    assert state.requests[-1].method == "DELETE"
+    assert state.requests[-1].target.endswith("/v1/workspaces/ws_0123456789abcdef")
 
 
 def test_workspace_boundaries_reject_invalid_inputs_and_responses() -> None:

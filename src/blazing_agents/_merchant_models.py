@@ -11,7 +11,6 @@ from pydantic import (
 
 from ._models import AgentId, ResponseModel, SessionId, TurnId
 from ._types import (
-    MerchantConnectionStatus,
     MerchantEnvironment,
     MerchantProvider,
     MerchantUsageEventStatus,
@@ -38,7 +37,6 @@ class MerchantConnection(ResponseModel):
     id: MerchantConnectionId
     provider: MerchantProvider
     environment: MerchantEnvironment
-    status: MerchantConnectionStatus
     merchant_account_id: str = Field(alias="merchantAccountId", min_length=1)
     key_fragment: str = Field(alias="keyFragment", min_length=1, max_length=4)
     guard: MerchantGuard
@@ -94,9 +92,9 @@ class MerchantUsageEvent(ResponseModel):
     workflow_issue: Literal["error", "cancelled", "recovery_exhausted"] | None = Field(
         alias="workflowIssue"
     )
-    next_action: Literal[
-        "none", "wait", "retry", "bind_and_release", "investigate", "discard"
-    ] = Field(alias="nextAction")
+    next_action: Literal["none", "wait", "retry", "investigate", "discard"] = Field(
+        alias="nextAction"
+    )
 
 
 class MerchantUsageEventResponse(ResponseModel):
@@ -111,9 +109,7 @@ class MerchantUsageEventsPage(ResponseModel):
 class MerchantUsageSummaryCounts(ResponseModel):
     pending: int = Field(ge=0)
     accepted: int = Field(ge=0)
-    uncertain: int = Field(ge=0)
     failed: int = Field(ge=0)
-    unmapped: int = Field(ge=0)
     incomplete: int = Field(ge=0)
     expired: int = Field(ge=0)
     discarded: int = Field(ge=0)

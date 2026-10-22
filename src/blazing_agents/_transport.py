@@ -502,11 +502,6 @@ def decode_none(_response: httpx.Response, _sensitive: tuple[str, ...]) -> None:
     """Discard the response body."""
 
 
-def decode_status(response: httpx.Response, _sensitive: tuple[str, ...]) -> int:
-    """Return the response HTTP status code."""
-    return response.status_code
-
-
 def decode_bytes(response: httpx.Response, _sensitive: tuple[str, ...]) -> bytes:
     """Return the downloaded response bytes."""
     return response.content

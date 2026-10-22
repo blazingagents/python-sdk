@@ -20,7 +20,6 @@ SOURCES = (
     "_agents",
     "_artifacts",
     "_chat_connections",
-    "_chat_deliveries",
     "_client",
     "_mcp_connections",
     "_memories",

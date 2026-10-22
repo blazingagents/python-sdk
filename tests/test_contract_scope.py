@@ -188,24 +188,13 @@ TENANT_CALLS: dict[str, tuple[Callable[[Tenant], object], ...]] = {
     "chat_connections.disable": (lambda c: c.chat_connections.disable(ID),),
     "chat_connections.enable": (lambda c: c.chat_connections.enable(ID),),
     "chat_connections.get": (lambda c: c.chat_connections.get(ID),),
-    "chat_connections.iter_deliveries": (
-        lambda c: c.chat_connections.iter_deliveries(ID),
-    ),
     "chat_connections.list": (lambda c: c.chat_connections.list(),),
-    "chat_connections.list_deliveries": (
-        lambda c: c.chat_connections.list_deliveries(ID),
-    ),
-    "chat_connections.repair_delivery": (
-        lambda c: c.chat_connections.repair_delivery(ID, ID, expected_attempt=1),
-    ),
     "chat_connections.rotate_credentials": (
         lambda c: c.chat_connections.rotate_credentials(
             ID, platform="telegram", credentials={"bot_token": "123:secret"}
         ),
     ),
     "chat_connections.update": (lambda c: c.chat_connections.update(ID, name="Chat"),),
-    "chat_deliveries.iter": (lambda c: c.chat_deliveries.iter(),),
-    "chat_deliveries.list": (lambda c: c.chat_deliveries.list(),),
     "mcp_connections.create": (
         lambda c: c.mcp_connections.create(
             name="Tools", url="https://mcp.example.com/", auth_type="none"
@@ -241,7 +230,6 @@ TENANT_CALLS: dict[str, tuple[Callable[[Tenant], object], ...]] = {
     "merchant_usage_events.get": (lambda c: c.merchant_usage_events.get(ID),),
     "merchant_usage_events.iter": (lambda c: c.merchant_usage_events.iter(),),
     "merchant_usage_events.list": (lambda c: c.merchant_usage_events.list(),),
-    "merchant_usage_events.release": (lambda c: c.merchant_usage_events.release(ID),),
     "merchant_usage_events.retry": (lambda c: c.merchant_usage_events.retry(ID),),
     "merchant_usage_events.summary": (lambda c: c.merchant_usage_events.summary(),),
     "providers.create": (

@@ -22,8 +22,6 @@ PACKAGE_FILES = {
     "blazing_agents/_chat.py",
     "blazing_agents/_chat_connections.py",
     "blazing_agents/_chat_connections_sync.py",
-    "blazing_agents/_chat_deliveries.py",
-    "blazing_agents/_chat_deliveries_sync.py",
     "blazing_agents/_chat_models.py",
     "blazing_agents/_client.py",
     "blazing_agents/_client_sync.py",

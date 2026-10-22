@@ -26,7 +26,6 @@ SESSION_USAGE: dict[str, Any] = {
 TENANT_ONLY = (
     "providers",
     "chat_connections",
-    "chat_deliveries",
     "mcp_connections",
     "tenant",
     "merchant_connection",

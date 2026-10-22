@@ -34,7 +34,6 @@ def main() -> None:
         project / "typing" / "invalid_chat_connection.py",
         project / "typing" / "invalid_chat_batch.py",
         project / "typing" / "invalid_removed_session_apis.py",
-        project / "typing" / "invalid_chat_delivery_status.py",
         project / "typing" / "invalid_approval_policy.py",
         project / "typing" / "invalid_function_approval_override.py",
         project / "typing" / "invalid_ambiguous.py",

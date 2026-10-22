@@ -6,16 +6,16 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from support import Response, ServerState, loopback
 
-from blazing_agents import AsyncBlazingAgents, BlazingAgents
+from blazing_agents import AsyncBlazingAgents, BlazingAgents, MerchantUsageEvent
 
 GUARD: dict[str, Any] = {"enabled": True, "productIds": ["prod_1"], "meterId": None}
 CONNECTION: dict[str, Any] = {
     "id": "mch_0123456789abcdef",
     "provider": "polar",
     "environment": "sandbox",
-    "status": "active",
     "merchantAccountId": "org_1",
     "keyFragment": "abcd",
     "guard": GUARD,
@@ -46,23 +46,21 @@ EVENT: dict[str, Any] = {
     "turnStatus": "succeeded",
     "startedAt": "2026-10-01T00:00:00.000Z",
     "occurredAt": "2026-10-01T00:00:01.000Z",
-    "status": "unmapped",
+    "status": "discarded",
     "payload": None,
     "attemptCount": 1,
     "attemptGeneration": 0,
     "lastAttemptAt": None,
-    "lastErrorCode": "customer_unmapped",
+    "lastErrorCode": "MERCHANT_CUSTOMER_UNMAPPED",
     "acceptedAt": None,
     "workflowIssue": None,
-    "nextAction": "bind_and_release",
+    "nextAction": "none",
 }
 SUMMARY: dict[str, Any] = {
     "counts": {
         "pending": 1,
         "accepted": 2,
-        "uncertain": 0,
         "failed": 0,
-        "unmapped": 1,
         "incomplete": 0,
         "expired": 0,
         "discarded": 0,
@@ -140,7 +138,6 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
             asynchronous,
             base_url,
             lambda c: c.merchant_connection.update(
-                status="disconnected",
                 guard={"enabled": False, "product_ids": [], "meter_id": "m_1"},
             ),
         )
@@ -176,10 +173,7 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
         (
             "PATCH",
             "/v1/merchant-connection",
-            {
-                "status": "disconnected",
-                "guard": {"enabled": False, "productIds": [], "meterId": "m_1"},
-            },
+            {"guard": {"enabled": False, "productIds": [], "meterId": "m_1"}},
         ),
         ("PATCH", "/v1/merchant-connection", {"credential": "rotated"}),
         ("DELETE", "/v1/merchant-connection", None),
@@ -242,7 +236,9 @@ def test_usage_events(asynchronous: bool) -> None:
     async def collect_async(client: Any) -> list[Any]:
         return [
             e
-            async for e in client.merchant_usage_events.iter(status="unmapped", limit=1)
+            async for e in client.merchant_usage_events.iter(
+                status="discarded", limit=1
+            )
         ]
 
     event_id = EVENT["id"]
@@ -253,7 +249,6 @@ def test_usage_events(asynchronous: bool) -> None:
         Response(body={"event": EVENT}),
         Response(body={"summary": SUMMARY}),
         Response(body={"summary": SUMMARY}),
-        Response(body={"event": EVENT}),
         Response(body={"event": EVENT}),
         Response(body={"event": EVENT}),
     ) as (base_url, state):
@@ -270,7 +265,7 @@ def test_usage_events(asynchronous: bool) -> None:
             collect_async
             if asynchronous
             else lambda c: list(
-                c.merchant_usage_events.iter(status="unmapped", limit=1)
+                c.merchant_usage_events.iter(status="discarded", limit=1)
             ),
         )
         fetched = _run(
@@ -282,25 +277,34 @@ def test_usage_events(asynchronous: bool) -> None:
         _run(asynchronous, base_url, lambda c: c.merchant_usage_events.summary())
         _run(asynchronous, base_url, lambda c: c.merchant_usage_events.retry(event_id))
         _run(
-            asynchronous, base_url, lambda c: c.merchant_usage_events.release(event_id)
-        )
-        _run(
             asynchronous, base_url, lambda c: c.merchant_usage_events.discard(event_id)
         )
 
-    assert page.events[0].next_action == "bind_and_release"
+    assert page.events[0].next_action == "none"
     assert [event.id for event in events] == [event_id]
     assert fetched.event.total_tokens == 15
     assert summary.summary.counts.accepted == 2
     assert summary.summary.daily[0].accepted_tokens == 30
     assert _sent(state) == [
         ("GET", "/v1/merchant-usage-events?status=failed&cursor=c&limit=2", None),
-        ("GET", "/v1/merchant-usage-events?status=unmapped&limit=1", None),
-        ("GET", "/v1/merchant-usage-events?status=unmapped&cursor=next&limit=1", None),
+        ("GET", "/v1/merchant-usage-events?status=discarded&limit=1", None),
+        ("GET", "/v1/merchant-usage-events?status=discarded&cursor=next&limit=1", None),
         ("GET", f"/v1/merchant-usage-events/{event_id}", None),
         ("GET", "/v1/merchant-usage-events/summary?days=7", None),
         ("GET", "/v1/merchant-usage-events/summary", None),
         ("POST", f"/v1/merchant-usage-events/{event_id}/retry", None),
-        ("POST", f"/v1/merchant-usage-events/{event_id}/release", None),
         ("POST", f"/v1/merchant-usage-events/{event_id}/discard", None),
     ]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"status": "uncertain"},
+        {"status": "unmapped"},
+        {"nextAction": "bind_and_release"},
+    ],
+)
+def test_removed_event_values_are_rejected(overrides: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        MerchantUsageEvent.model_validate_json(json.dumps({**EVENT, **overrides}))

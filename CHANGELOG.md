@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased
+
+This release removes API surface the platform no longer serves. The SDK has no
+production users yet, so each removal ships in one release with no
+deprecation step.
+
+### Removed
+
+- Chat delivery listing and repair. The platform no longer keeps a chat
+  delivery outbox: the workflow that runs a Slack or Telegram Turn posts the
+  reply or approval card itself, with a bounded retry, and a reply that still
+  fails stays in the Session transcript. Removed `client.chat_deliveries`
+  (`list` and `iter`), `client.chat_connections.list_deliveries`,
+  `iter_deliveries` and `repair_delivery`, and the types `ChatDelivery`,
+  `TenantChatDelivery`, `ChatDeliveriesPage`, `ChatConnectionDeliveriesPage`,
+  `ChatDeliveryResult`, `ChatDeliveryStatus`, `ChatDeliveryListStatus` and
+  `ChatDeliveriesListOptions`. Migration: delete these calls; there is no
+  replacement. Read a failed reply from the Session's messages.
+- `SpendingLimitPeriod.reserved_usd` and `SpendingLimitStopDetails.reserved_usd`,
+  and the `reserved` and `unknown_usage` stop reasons. The platform no longer
+  holds spend for in-flight model requests: it checks the period total before
+  each request and adds each response's cost after it, so a running Turn may
+  finish one request past the limit. `reason` is now `exhausted` or `unpriced`,
+  and `unpriced` also covers a response whose cost could not be determined.
+  `available_usd` is `max(0, amount_usd - spent_usd)`. Migration: stop reading
+  `reserved_usd`, and handle `reserved` as `exhausted` and `unknown_usage` as
+  `unpriced`.
+- The `delivered` and `uncertain` steer receipt states. `SessionInputState` is
+  now `accepted`, `committed` or `not_placed`, and a lost owner is reported as
+  `not_placed` with reason `owner_lost`. Migration: treat `delivered` as
+  `accepted` and `uncertain` as `not_placed`.
+- `WorkspaceDeletionOutcome`. See `workspaces.delete` under Changed.
+- `MerchantConnectionStatus`, `MerchantConnection.status` and the `status`
+  parameter of `merchant_connection.update()`. A merchant connection has no
+  `disconnected` state. Migration: stop passing `status`; to pause billing,
+  turn monetization off with `client.tenant.update(monetization_enabled=False)`.
+- The `uncertain` usage event status and `MerchantUsageSummaryCounts.uncertain`.
+  An exhausted transient delivery now ends `failed` with `last_error_code`
+  `MERCHANT_RETRIES_EXHAUSTED`. Migration: retry `failed` events with
+  `merchant_usage_events.retry()`; providers drop duplicates by the `mev_` ID.
+- `merchant_usage_events.release()`, the `unmapped` usage event status, the
+  `bind_and_release` next action and `MerchantUsageSummaryCounts.unmapped`. A
+  Turn whose End-user has no customer binding records its usage event once as
+  `discarded` with `last_error_code` `MERCHANT_CUSTOMER_UNMAPPED`, and it is
+  never billed later. Migration: bind an End-user with `merchant_bindings.put()`
+  before their first Turn, or turn on the merchant guard so an unbound
+  End-user's Turn is refused with `merchant_customer_unmapped`.
+
+### Changed
+
+- `workspaces.delete()` returns `None`, sync and async. The API now deletes the
+  Workspace at once and answers 204, so the `"pending"` outcome can no longer
+  occur. Migration: drop any check of the returned value; `409
+  workspace_in_use` still raises `APIStatusError`.
+
 ## 0.29.0
 
 ### Added

@@ -25,7 +25,6 @@ from ._transport import (
 )
 from ._transport_sync import Transport
 from ._types import (
-    MerchantConnectionStatus,
     MerchantEnvironment,
     MerchantGuardInput,
     MerchantProvider,
@@ -127,7 +126,6 @@ class MerchantConnectionResource:
         self,
         *,
         credential: str | _Omitted = OMITTED,
-        status: MerchantConnectionStatus | _Omitted = OMITTED,
         guard: MerchantGuardInput | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -138,7 +136,6 @@ class MerchantConnectionResource:
 
         Args:
             credential: Replacement provider access token.
-            status: Connection status. disconnected pauses deliveries.
             guard: Replacement pre-Turn plan or balance check.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
@@ -152,7 +149,7 @@ class MerchantConnectionResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        json_body: dict[str, object] = wire_fields(credential=credential, status=status)
+        json_body: dict[str, object] = wire_fields(credential=credential)
         if not isinstance(guard, _Omitted):
             json_body["guard"] = _guard_body(guard)
         return self._transport.request(
@@ -510,7 +507,7 @@ class MerchantUsageEventsResource:
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> MerchantUsageEventResponse:
-        """Send a failed or uncertain event again.
+        """Send a failed event again.
 
         Args:
             event_id: Merchant usage event identifier.
@@ -530,39 +527,6 @@ class MerchantUsageEventsResource:
             _Request(
                 "POST",
                 f"{_EVENTS_PATH}/{path_segment('event_id', event_id)}/retry",
-                extra_headers=extra_headers,
-                timeout=timeout,
-            ),
-            decode_model(MerchantUsageEventResponse),
-        )
-
-    def release(
-        self,
-        event_id: str,
-        *,
-        extra_headers: Mapping[str, str] | None = None,
-        timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantUsageEventResponse:
-        """Send an unmapped event after you bind its end user.
-
-        Args:
-            event_id: Merchant usage event identifier.
-            extra_headers: Headers for this request. Authorization uses the client
-                API key.
-            timeout: Request timeout override. OMITTED inherits the client timeout.
-
-        Returns:
-            The event after the request.
-
-        Raises:
-            APIStatusError: The API returns a non-success status.
-            APIConnectionError: The HTTP request fails before a complete response.
-            APITimeoutError: The HTTP request times out.
-        """
-        return self._transport.request(
-            _Request(
-                "POST",
-                f"{_EVENTS_PATH}/{path_segment('event_id', event_id)}/release",
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
