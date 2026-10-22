@@ -53,7 +53,6 @@ EVENT: dict[str, Any] = {
     "lastAttemptAt": None,
     "lastErrorCode": "MERCHANT_CUSTOMER_UNMAPPED",
     "acceptedAt": None,
-    "workflowIssue": None,
     "nextAction": "none",
 }
 SUMMARY: dict[str, Any] = {
@@ -308,3 +307,12 @@ def test_usage_events(asynchronous: bool) -> None:
 def test_removed_event_values_are_rejected(overrides: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         MerchantUsageEvent.model_validate_json(json.dumps({**EVENT, **overrides}))
+
+
+def test_removed_workflow_issue_is_kept_as_an_unknown_field() -> None:
+    event = MerchantUsageEvent.model_validate_json(
+        json.dumps({**EVENT, "workflowIssue": "recovery_exhausted"})
+    )
+
+    assert event.model_extra == {"workflowIssue": "recovery_exhausted"}
+    assert not hasattr(event, "workflow_issue")

@@ -89,9 +89,6 @@ class MerchantUsageEvent(ResponseModel):
     last_attempt_at: AwareDatetime | None = Field(alias="lastAttemptAt")
     last_error_code: str | None = Field(alias="lastErrorCode")
     accepted_at: AwareDatetime | None = Field(alias="acceptedAt")
-    workflow_issue: Literal["error", "cancelled", "recovery_exhausted"] | None = Field(
-        alias="workflowIssue"
-    )
     next_action: Literal["none", "wait", "retry", "investigate", "discard"] = Field(
         alias="nextAction"
     )
