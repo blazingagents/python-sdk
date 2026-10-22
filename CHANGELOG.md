@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- `MerchantUsageEvent.workflow_issue`. The API no longer sends
+  `workflowIssue`; if it appears, the SDK keeps it in `model_extra` like any
+  other unknown field. Read `next_action` instead. It is `"retry"` for a
+  `pending` event whose automatic delivery has stopped, which is when
+  `workflow_issue` was set:
+
+  ```python
+  # Before
+  if event.workflow_issue is not None:
+      client.merchant_usage_events.retry(event.id)
+  # After
+  if event.next_action == "retry":
+      client.merchant_usage_events.retry(event.id)
+  ```
+
 ## 0.30.1
 
 ### Changed
