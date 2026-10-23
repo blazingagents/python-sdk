@@ -9,7 +9,12 @@ import pytest
 from pydantic import ValidationError
 from support import Response, ServerState, loopback
 
-from blazing_agents import AsyncBlazingAgents, BlazingAgents, MerchantUsageEvent
+from blazing_agents import (
+    APIStatusError,
+    AsyncBlazingAgents,
+    BlazingAgents,
+    MerchantUsageEvent,
+)
 
 GUARD: dict[str, Any] = {"enabled": True, "productIds": ["prod_1"], "meterId": None}
 CONNECTION: dict[str, Any] = {
@@ -177,6 +182,48 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
         ("PATCH", "/v1/merchant-connection", {"credential": "rotated"}),
         ("DELETE", "/v1/merchant-connection", None),
     ]
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_connection_errors_redact_the_credential(asynchronous: bool) -> None:
+    secret = "polar_secret_token"
+    rejected = Response(
+        status=400,
+        body={
+            "error": {
+                "code": "merchant_rejected",
+                "message": f"Rejected {secret}",
+                "details": {"echo": secret},
+            }
+        },
+        headers={"x-echo-secret": secret},
+    )
+    calls: list[Callable[[Any], Any]] = [
+        lambda c: c.merchant_connection.create(
+            provider="polar", environment="sandbox", credential=secret
+        ),
+        lambda c: c.merchant_connection.update(credential=secret),
+        lambda c: c.merchant_connection.update(credential=secret),
+    ]
+    errors: list[APIStatusError] = []
+    with loopback(
+        rejected,
+        rejected,
+        Response(status=400, raw_body=f"bad {secret}".encode()),
+    ) as (base_url, _state):
+        for call in calls:
+            with pytest.raises(APIStatusError) as raised:
+                _run(asynchronous, base_url, call)
+            errors.append(raised.value)
+
+    for error in errors[:2]:
+        assert error.code == "merchant_rejected"
+        assert error.details == {"echo": "[REDACTED]"}
+        assert error.headers["x-echo-secret"] == "[REDACTED]"
+    for error in errors:
+        assert secret not in str(error)
+        assert secret not in error.response_body
+    assert errors[2].response_body == "[REDACTED]"
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
