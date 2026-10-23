@@ -118,6 +118,7 @@ class MerchantConnectionResource:
                 json_body=json_body,
                 extra_headers=extra_headers,
                 timeout=timeout,
+                sensitive_values=(credential,),
             ),
             decode_model(MerchantConnectionResponse),
         )
@@ -160,6 +161,9 @@ class MerchantConnectionResource:
                 json_body=json_body,
                 extra_headers=extra_headers,
                 timeout=timeout,
+                sensitive_values=(
+                    () if isinstance(credential, _Omitted) else (credential,)
+                ),
             ),
             decode_model(MerchantConnectionResponse),
         )
