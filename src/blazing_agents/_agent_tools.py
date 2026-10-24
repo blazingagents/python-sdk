@@ -47,7 +47,7 @@ AGENT_TOOL_GROUPS: tuple[AgentToolGroup, ...] = (
         "Memory",
         "Save, recall, search, update, and delete durable notes owned by this Agent.",
     ),
-    AgentToolGroup("web", "Web", "Search the public web for current information."),
+    AgentToolGroup("web", "Web", "Search the public web and read pages by URL."),
 )
 
 AGENT_TOOLS: tuple[AgentToolDefinition, ...] = (
@@ -101,6 +101,12 @@ AGENT_TOOLS: tuple[AgentToolDefinition, ...] = (
     AgentToolDefinition(
         "web_search",
         "Search the public web for current results. Each search consumes Usage credit.",
+        False,
+        ("web",),
+    ),
+    AgentToolDefinition(
+        "web_fetch",
+        "Read a public web page or text document by URL, returned as markdown.",
         False,
         ("web",),
     ),

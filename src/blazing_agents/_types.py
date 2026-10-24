@@ -55,6 +55,7 @@ AgentTool = Literal[
     "update_memory",
     "delete_memory",
     "web_search",
+    "web_fetch",
 ]
 ApprovalDecision = Literal["full", "deny", "manual", "auto"]
 BuiltinToolName = Literal[AgentTool, "activate_skill"]
