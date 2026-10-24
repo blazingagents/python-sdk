@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from typing import Annotated, Literal, TypeAlias, cast
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     AfterValidator,
@@ -113,16 +112,11 @@ def _validate_cron(expression: str) -> str:
 
 
 def _validate_timezone(timezone: str) -> str:
-    """Validate an IANA timezone name."""
+    """Validate an IANA timezone name's shape; the API already resolved it."""
     timezone = timezone.strip()
     if len(timezone) > 64 or _IANA_TIMEZONE.fullmatch(timezone) is None:
         msg = "cron schedule timezone must be a canonical IANA timezone"
         raise ValueError(msg)
-    try:
-        ZoneInfo(timezone)
-    except (ValueError, ZoneInfoNotFoundError) as error:
-        msg = "cron schedule timezone is unknown"
-        raise ValueError(msg) from error
     return timezone
 
 
