@@ -827,7 +827,6 @@ def test_task_public_request_types_are_available_from_installed_wheel() -> None:
         {"expression": "1/2 * * * *"},
         {"expression": "0 0 31 2 *"},
         {"expression": "* * * * *", "timezone": "PST"},
-        {"expression": "* * * * *", "timezone": "Area/NoSuchZone"},
     ],
 )
 def test_task_cron_responses_reject_malformed_schedules(

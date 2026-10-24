@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A cron task now decodes on a machine without IANA timezone data, such as Windows without the `tzdata` package. The SDK no longer looks up the schedule's timezone locally; the API already validated it. Previously `tasks.get()` and every `tasks.list()` page holding such a task raised a validation error.
+
 ## 0.31.0
 
 ### Removed
