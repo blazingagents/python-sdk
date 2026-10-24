@@ -426,6 +426,7 @@ async def async_approval_examples(client: AsyncBlazingAgents) -> None:
         "overrides": [
             {"tool": {"type": "builtin", "name": "bash"}, "decision": "manual"},
             {"tool": {"type": "builtin", "name": "web_search"}, "decision": "deny"},
+            {"tool": {"type": "builtin", "name": "web_fetch"}, "decision": "deny"},
         ],
     }
     await client.agents.create(name="Reviewer", approval_in_chat=policy)
@@ -435,7 +436,7 @@ async def async_approval_examples(client: AsyncBlazingAgents) -> None:
 def agent_tools_round_trip_examples(client: BlazingAgents) -> None:
     agent = client.agents.get("ag_0123456789abcdef")
     assert_type(agent.tools, list[AgentTool])
-    client.agents.update(agent.id, tools=[*agent.tools, "web_search"])
+    client.agents.update(agent.id, tools=[*agent.tools, "web_search", "web_fetch"])
     client.agents.create(name="Copy", tools=agent.tools)
 
 

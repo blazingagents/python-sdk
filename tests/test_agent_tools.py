@@ -43,3 +43,9 @@ def test_read_only_file_tools_are_the_file_read_tagged_ones() -> None:
         "grep",
         "glob",
     ]
+
+
+def test_web_tools_need_no_workspace() -> None:
+    web = [tool for tool in AGENT_TOOLS if "web" in tool.tags]
+    assert [tool.name for tool in web] == ["web_search", "web_fetch"]
+    assert not any(tool.requires_workspace for tool in web)

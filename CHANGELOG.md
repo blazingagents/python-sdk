@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `web_fetch` joins the Agent tool catalog (`AGENT_TOOLS`, the `AgentTool` type). It reads a public web page or text document by URL and returns markdown, and needs no Workspace. Like every tool it is off until you list it in `tools`, and an approval policy can name it. `"web_fetch"` is now a reserved chat function name, so a caller function can no longer use it. The `web` group description now reads "Search the public web and read pages by URL."
+
 ### Fixed
 
 - A cron task now decodes on a machine without IANA timezone data, such as Windows without the `tzdata` package. The SDK no longer looks up the schedule's timezone locally; the API already validated it. Previously `tasks.get()` and every `tasks.list()` page holding such a task raised a validation error.
