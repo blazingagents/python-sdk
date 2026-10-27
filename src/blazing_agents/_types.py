@@ -110,7 +110,6 @@ McpConnectionAuthType = Literal[
     "none",
     "bearer",
     "oauth_authorization_code",
-    "oauth_client_credentials",
 ]
 TaskScheduleKind = Literal["once", "interval", "cron"]
 
@@ -469,20 +468,10 @@ class McpConnectionCreateAuthorizationCode(TypedDict, total=False):
     scope: str
 
 
-class McpConnectionCreateClientCredentials(TypedDict, total=False):
-    name: Required[str]
-    url: Required[str]
-    auth_type: Required[Literal["oauth_client_credentials"]]
-    client_id: Required[str]
-    client_secret: Required[str]
-    scope: str
-
-
 McpConnectionCreate: TypeAlias = (
     McpConnectionCreateNone
     | McpConnectionCreateBearer
     | McpConnectionCreateAuthorizationCode
-    | McpConnectionCreateClientCredentials
 )
 
 
@@ -509,19 +498,10 @@ class McpConnectionReconnectAuthorizationCode(TypedDict, total=False):
     scope: str
 
 
-class McpConnectionReconnectClientCredentials(TypedDict, total=False):
-    url: Required[str]
-    auth_type: Required[Literal["oauth_client_credentials"]]
-    client_id: Required[str]
-    client_secret: Required[str]
-    scope: str
-
-
 McpConnectionReconnect: TypeAlias = (
     McpConnectionReconnectNone
     | McpConnectionReconnectBearer
     | McpConnectionReconnectAuthorizationCode
-    | McpConnectionReconnectClientCredentials
 )
 
 
@@ -581,12 +561,6 @@ class MemoriesListOptions(TypedDict, total=False):
     limit: int
 
 
-class QuotaUpdate(TypedDict):
-    monthly_token_limit: int | None
-    monthly_request_limit: int | None
-    reset_day: int
-
-
 SpendingLimitResetInterval = Literal["daily", "weekly", "biweekly", "monthly"]
 
 
@@ -602,7 +576,6 @@ class SpendingLimitUpdate(TypedDict):
 
 class TenantUpdate(TypedDict, total=False):
     name: str
-    quota: QuotaUpdate | None
 
 
 class UsageQuery(TypedDict, total=False):

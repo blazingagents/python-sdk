@@ -10,6 +10,46 @@
 
 - A cron task now decodes on a machine without IANA timezone data, such as Windows without the `tzdata` package. The SDK no longer looks up the schedule's timezone locally; the API already validated it. Previously `tasks.get()` and every `tasks.list()` page holding such a task raised a validation error.
 
+### Removed
+
+The platform has no production users yet, so both removals ship in one release without a deprecation step.
+
+- Tenant quotas. The API no longer has a monthly token or request limit on Tenant settings, so the `quota` argument of `tenant.update`, `TenantSettings.quota`, the `Quota` and `QuotaUpdate` types and the `quota` key of `TenantUpdate` are gone. Delete the argument and stop handling the `quota_exceeded` error code. Model spending limits (`tenant.update_spending_limit`) stay:
+
+  ```python
+  # Before
+  client.tenant.update(
+      name="Acme",
+      quota={
+          "monthly_token_limit": 5_000_000,
+          "monthly_request_limit": None,
+          "reset_day": 1,
+      },
+  )
+  # After
+  client.tenant.update(name="Acme")
+  ```
+
+- The MCP connection `oauth_client_credentials` auth type. `McpConnectionCreateClientCredentials`, `McpConnectionReconnectClientCredentials` and the `"oauth_client_credentials"` value of `McpConnectionAuthType` are gone. Connect the server with `auth_type="bearer"` and a token you issue, or with `auth_type="oauth_authorization_code"`, which is saved as `needs_auth` until an administrator signs in from the dashboard and keeps its optional `client_id`, `client_secret` and `scope`:
+
+  ```python
+  # Before
+  client.mcp_connections.create(
+      name="Docs",
+      url="https://mcp.example.com/mcp",
+      auth_type="oauth_client_credentials",
+      client_id="client-42",
+      client_secret=secret,
+  )
+  # After
+  client.mcp_connections.create(
+      name="Docs",
+      url="https://mcp.example.com/mcp",
+      auth_type="bearer",
+      bearer_token=token,
+  )
+  ```
+
 ## 0.31.0
 
 ### Removed

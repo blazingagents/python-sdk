@@ -287,12 +287,6 @@ class ResponseModel(BaseModel):
         self._response_meta = meta
 
 
-class Quota(ResponseModel):
-    monthly_token_limit: int | None = Field(alias="monthlyTokenLimit")
-    monthly_request_limit: int | None = Field(alias="monthlyRequestLimit")
-    reset_day: int = Field(alias="resetDay")
-
-
 class SpendingLimit(ResponseModel):
     amount_usd: float = Field(
         alias="amountUsd", gt=0, le=1_000_000_000, multiple_of=0.000001
@@ -372,7 +366,6 @@ class TenantDeletion(ResponseModel):
 
 class TenantSettings(ResponseModel):
     name: str
-    quota: Quota | None
     deletion: TenantDeletion | None
     monetization_enabled: bool = Field(alias="monetizationEnabled")
 

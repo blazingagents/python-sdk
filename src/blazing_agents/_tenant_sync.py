@@ -4,10 +4,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ._models import SpendingLimitResponse, TenantSettings
-from ._tenant import _tenant_body
-from ._transport import OMITTED, _Omitted, _Request, decode_model
+from ._transport import OMITTED, _Omitted, _Request, decode_model, wire_fields
 from ._transport_sync import Transport
-from ._types import QuotaUpdate, SpendingLimitInput, Timeout
+from ._types import SpendingLimitInput, Timeout
 from ._wire import spending_limit_body
 
 
@@ -70,7 +69,7 @@ class TenantResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Tenant settings and quota limits.
+            Tenant settings.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -91,7 +90,6 @@ class TenantResource:
         self,
         *,
         name: str | _Omitted = OMITTED,
-        quota: QuotaUpdate | _Omitted | None = OMITTED,
         monetization_enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -100,7 +98,6 @@ class TenantResource:
 
         Args:
             name: Tenant display name, 1 to 80 characters.
-            quota: Tenant usage limit updates.
             monetization_enabled: Bill usage to your end users through your
                 merchant account. Turning it off drops usage events the merchant
                 has not accepted yet.
@@ -109,7 +106,7 @@ class TenantResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Tenant settings and quota limits.
+            Tenant settings.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -120,7 +117,9 @@ class TenantResource:
             _Request(
                 "PATCH",
                 "/v1/tenant",
-                json_body=_tenant_body(name, quota, monetization_enabled),
+                json_body=wire_fields(
+                    name=name, monetization_enabled=monetization_enabled
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

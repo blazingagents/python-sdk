@@ -50,9 +50,8 @@ class McpConnectionsResource:
     ) -> McpConnection:
         """Create a MCP Connection.
 
-        Bearer authentication accepts only bearer_token. OAuth client credentials
-        require client_id and client_secret. Authorization code credentials must be
-        paired.
+        Bearer authentication accepts only bearer_token. Authorization code
+        credentials must be paired.
 
         Args:
             name: MCP Connection display name, unique within the tenant.
@@ -282,9 +281,8 @@ class McpConnectionsResource:
     ) -> McpConnectionReconnectResult:
         """Reconnect an MCP Connection.
 
-        Bearer authentication accepts only bearer_token. OAuth client credentials
-        require client_id and client_secret. Authorization code credentials must be
-        paired.
+        Bearer authentication accepts only bearer_token. Authorization code
+        credentials must be paired.
 
         Args:
             mcp_connection_id: MCP Connection identifier.
