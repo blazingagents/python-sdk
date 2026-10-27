@@ -12,25 +12,10 @@ from ._transport import (
     wire_fields,
 )
 from ._types import (
-    QuotaUpdate,
     SpendingLimitInput,
     Timeout,
 )
 from ._wire import spending_limit_body
-
-
-def _tenant_body(
-    name: str | _Omitted,
-    quota: QuotaUpdate | None | _Omitted,
-    monetization_enabled: bool | _Omitted,
-) -> dict[str, object]:
-    """Build the tenant request body, omitting unspecified fields."""
-    body: dict[str, object] = wire_fields(
-        name=name, monetization_enabled=monetization_enabled
-    )
-    if not isinstance(quota, _Omitted):
-        body["quota"] = None if quota is None else wire_fields(**quota)
-    return body
 
 
 class AsyncTenantResource:
@@ -92,7 +77,7 @@ class AsyncTenantResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Tenant settings and quota limits.
+            Tenant settings.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -113,7 +98,6 @@ class AsyncTenantResource:
         self,
         *,
         name: str | _Omitted = OMITTED,
-        quota: QuotaUpdate | _Omitted | None = OMITTED,
         monetization_enabled: bool | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
@@ -122,7 +106,6 @@ class AsyncTenantResource:
 
         Args:
             name: Tenant display name, 1 to 80 characters.
-            quota: Tenant usage limit updates.
             monetization_enabled: Bill usage to your end users through your
                 merchant account. Turning it off drops usage events the merchant
                 has not accepted yet.
@@ -131,7 +114,7 @@ class AsyncTenantResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Tenant settings and quota limits.
+            Tenant settings.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -142,7 +125,9 @@ class AsyncTenantResource:
             _Request(
                 "PATCH",
                 "/v1/tenant",
-                json_body=_tenant_body(name, quota, monetization_enabled),
+                json_body=wire_fields(
+                    name=name, monetization_enabled=monetization_enabled
+                ),
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),

@@ -58,7 +58,6 @@ def test_sync_scopes_client_request_id_to_resource_client_view() -> None:
             200,
             json={
                 "name": "Blazing",
-                "quota": None,
                 "deletion": None,
                 "monetizationEnabled": False,
             },
@@ -197,7 +196,6 @@ def test_async_scopes_client_request_id_to_resource_client_view() -> None:
                 200,
                 json={
                     "name": "Blazing",
-                    "quota": None,
                     "deletion": None,
                     "monetizationEnabled": False,
                 },
@@ -262,7 +260,6 @@ def test_sync_server_owns_request_id_header_and_preserves_correlation() -> None:
             200,
             json={
                 "name": "Blazing",
-                "quota": None,
                 "deletion": None,
                 "monetizationEnabled": False,
             },
@@ -333,7 +330,6 @@ def test_async_server_owns_request_id_header_and_preserves_correlation() -> None
                 200,
                 json={
                     "name": "Blazing",
-                    "quota": None,
                     "deletion": None,
                     "monetizationEnabled": False,
                 },
@@ -421,7 +417,6 @@ def test_sync_preserves_injected_client_request_id_and_client_ownership() -> Non
             200,
             json={
                 "name": "Blazing",
-                "quota": None,
                 "deletion": None,
                 "monetizationEnabled": False,
             },
@@ -481,7 +476,6 @@ def test_async_preserves_injected_client_request_id_and_client_ownership() -> No
                 200,
                 json={
                     "name": "Blazing",
-                    "quota": None,
                     "deletion": None,
                     "monetizationEnabled": False,
                 },

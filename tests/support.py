@@ -16,11 +16,6 @@ import httpx
 
 TENANT = {
     "name": "Blazing",
-    "quota": {
-        "monthlyTokenLimit": 1_000,
-        "monthlyRequestLimit": None,
-        "resetDay": 1,
-    },
     "deletion": None,
     "monetizationEnabled": False,
 }

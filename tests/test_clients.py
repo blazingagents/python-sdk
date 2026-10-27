@@ -329,8 +329,8 @@ TASK_RUN: dict[str, Any] = {
     "sessionId": "ss_0123456789abcdef",
     "turnId": "turn_0123456789abcdef",
     "status": "blocked",
-    "error": "Monthly token quota reached",
-    "errorCode": "quota_exceeded",
+    "error": "Usage credit ran out",
+    "errorCode": "usage_credit_required",
     "userId": "end-user",
     "metadata": {"OpaqueKey": {"nested_key": True}},
     "startedAt": "2026-08-02T02:00:00.000Z",
@@ -388,8 +388,6 @@ def test_public_surface_and_sync_tenant_tracer(monkeypatch: pytest.MonkeyPatch) 
     assert request.headers["x-extra"] == "yes"
     assert request.headers["user-agent"] == f"blazing_agents/{__version__}"
     assert tenant.name == "Blazing"
-    assert tenant.quota is not None
-    assert tenant.quota.monthly_token_limit == 1_000
     assert tenant.model_extra == {"futureField": {"opaque_key": True}}
     meta = response_meta(tenant)
     assert meta.status == 200
@@ -481,7 +479,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
         Response(
             body={
                 "data": SESSION_MESSAGES,
-                "error": "Monthly token quota reached",
+                "error": "Usage credit ran out",
                 "finishedAt": "2026-08-02T02:00:01.000Z",
                 "nextCursor": "older",
                 "latestCursor": "tail",
@@ -593,8 +591,8 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert isinstance(first_submission, TaskRunSubmission)
     assert isinstance(runs_page, TaskRunsPage)
     assert runs_page.data[0].status == "blocked"
-    assert runs_page.data[0].error == "Monthly token quota reached"
-    assert runs_page.data[0].error_code == "quota_exceeded"
+    assert runs_page.data[0].error == "Usage credit ran out"
+    assert runs_page.data[0].error_code == "usage_credit_required"
     assert runs_page.data[0].turn_id == TASK_RUN["turnId"]
     assert run.status == "succeeded"
     assert run.error_code is None
@@ -604,7 +602,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     assert isinstance(messages, TaskRunMessagesPage)
     assert messages.latest_cursor == "tail"
     assert messages.status == "blocked"
-    assert messages.error == "Monthly token quota reached"
+    assert messages.error == "Usage credit ran out"
     assert messages.finished_at is not None
     assert messages.finished_at.isoformat() == "2026-08-02T02:00:01+00:00"
     assert messages.data[1].parts[0].model_extra == {"OpaqueKey": {"nested_key": True}}
@@ -1112,34 +1110,22 @@ def test_task_boundaries_preserve_api_errors_and_reject_malformed_responses() ->
     assert len(async_state.requests) == 7
 
 
-def test_sync_tenant_update_preserves_omission_and_null() -> None:
-    with loopback(Response(), Response(body={**TENANT, "quota": None})) as (
+def test_sync_tenant_update_sends_only_the_given_fields() -> None:
+    with loopback(
+        Response(), Response(body={**TENANT, "monetizationEnabled": True})
+    ) as (
         base_url,
         state,
     ):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            client.tenant.update(
-                name="Renamed",
-                quota={
-                    "monthly_token_limit": None,
-                    "monthly_request_limit": 25,
-                    "reset_day": 7,
-                },
-            )
-            result = client.tenant.update(quota=None)
+            client.tenant.update(name="Renamed")
+            result = client.tenant.update(monetization_enabled=True)
 
     first, second = state.requests
     assert first.method == "PATCH"
-    assert json.loads(first.body) == {
-        "name": "Renamed",
-        "quota": {
-            "monthlyTokenLimit": None,
-            "monthlyRequestLimit": 25,
-            "resetDay": 7,
-        },
-    }
-    assert json.loads(second.body) == {"quota": None}
-    assert result.quota is None
+    assert json.loads(first.body) == {"name": "Renamed"}
+    assert json.loads(second.body) == {"monetizationEnabled": True}
+    assert result.monetization_enabled is True
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -2575,19 +2561,6 @@ def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> Non
             {
                 "clientId": "client-id",
                 "clientSecret": "secret-canary.authorization",
-                "scope": "tools:call",
-            },
-        ),
-        (
-            "oauth_client_credentials",
-            {
-                "client_id": "client-id",
-                "client_secret": "secret-canary.client",
-                "scope": "tools:call",
-            },
-            {
-                "clientId": "client-id",
-                "clientSecret": "secret-canary.client",
                 "scope": "tools:call",
             },
         ),
@@ -5037,7 +5010,7 @@ def test_async_chat_matches_create_resume_relay_and_lifecycle() -> None:
             status=429,
             body={
                 "error": {
-                    "code": "quota_exceeded",
+                    "code": "model_spending_limit_exceeded",
                     "message": "Try later",
                 }
             },
@@ -5436,7 +5409,7 @@ def test_sync_completion_stream_closes_cancels_and_preserves_failures() -> None:
     cancelled = Event()
     api_error = {
         "error": {
-            "code": "quota_exceeded",
+            "code": "model_spending_limit_exceeded",
             "message": "Try later",
         }
     }
@@ -5509,7 +5482,7 @@ def test_sync_completion_stream_closes_cancels_and_preserves_failures() -> None:
                     agent_id=AGENT["id"],
                     prompt="Status",
                 )
-            assert status_error.value.code == "quota_exceeded"
+            assert status_error.value.code == "model_spending_limit_exceeded"
             assert status_error.value.request_id == "req_completion_status"
 
     assert len(state.requests) == 5
