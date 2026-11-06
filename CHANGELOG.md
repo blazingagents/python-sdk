@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- An empty credential string is no longer treated as a submitted secret. Creating
+  a Provider with `api_key=""` (or another empty credential) used to raise
+  `CredentialEchoError` when the response held any empty string field, and to
+  replace those empty fields with `[REDACTED]` on errors. Empty secrets are
+  ignored for both checks, matching Go.
+
 ## 0.32.0
 
 ### Added

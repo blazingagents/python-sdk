@@ -2975,6 +2975,18 @@ def test_short_provider_credentials_redact_only_exact_values_sync_and_async() ->
         }
 
 
+def test_empty_api_key_does_not_treat_empty_response_fields_as_echo() -> None:
+    body = {**PROVIDER, "baseUrl": ""}
+    with loopback(Response(body=body)) as (base_url, _state):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            created = client.providers.create(
+                name="OpenAI",
+                provider_type="openai",
+                api_key="",
+            )
+    assert created.base_url == ""
+
+
 def test_provider_and_mcp_response_substrings_are_safe_in_sync_and_async_clients() -> (
     None
 ):

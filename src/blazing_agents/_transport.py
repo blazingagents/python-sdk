@@ -363,6 +363,8 @@ def _redact_headers(
 def _redact_string(value: str, sensitive_values: tuple[str, ...]) -> str:
     """Redact exact short secrets and occurrences of longer secrets."""
     for secret in sensitive_values:
+        if not secret:
+            continue
         if len(secret) >= _MIN_SUBSTRING_SECRET_LENGTH:
             value = value.replace(secret, "[REDACTED]")
         elif value == secret:
@@ -439,8 +441,11 @@ def _contains_credential_material(
         )
     if isinstance(value, str):
         return any(
-            value == secret
-            or (len(secret) >= _MIN_SUBSTRING_SECRET_LENGTH and secret in value)
+            secret
+            and (
+                value == secret
+                or (len(secret) >= _MIN_SUBSTRING_SECRET_LENGTH and secret in value)
+            )
             for secret in sensitive_values
         )
     return False
