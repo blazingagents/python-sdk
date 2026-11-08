@@ -1405,6 +1405,22 @@ def test_configuration_validation_and_production_origin(
     assert str(async_requested[0].url) == ("https://api.blazingagents.com/v1/tenant")
 
 
+def test_api_key_surrounding_whitespace_is_not_a_connection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BLAZING_AGENTS_API_KEY", "ba_environment\n")
+    with loopback(Response(body=TENANT), Response(body=TENANT)) as (base_url, state):
+        with BlazingAgents(base_url=base_url) as client:
+            assert client.tenant.get().name == "Blazing"
+        with BlazingAgents(api_key="  ba_test\n", base_url=base_url) as client:
+            assert client.tenant.get().name == "Blazing"
+
+    assert state.requests[0].headers["authorization"] == "Bearer ba_environment"
+    assert state.requests[1].headers["authorization"] == "Bearer ba_test"
+    with pytest.raises(ValueError, match="API key"):
+        BlazingAgents(api_key="\n")
+
+
 def test_api_status_errors_preserve_server_metadata_without_retry() -> None:
     error = {
         "error": {

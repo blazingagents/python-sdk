@@ -858,7 +858,8 @@ class BlazingAgents(_Client):
         """Create a Blazing Agents API client.
 
         Args:
-            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
+            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY. Surrounding
+                whitespace is removed.
             base_url: API base URL. Trailing slashes are removed.
             timeout: Default HTTP timeout in seconds, an HTTPX timeout, or None.
             default_headers: Headers applied to every request.

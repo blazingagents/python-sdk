@@ -86,10 +86,17 @@ def _scoped_user_id(user_id: str) -> str:
 
 
 def _api_key(explicit: str | None) -> str:
-    """Resolve an explicit API key or BLAZING_AGENTS_API_KEY."""
+    """Resolve an explicit API key or BLAZING_AGENTS_API_KEY.
+
+    Surrounding whitespace is removed. A trailing newline, as from an
+    environment file, would otherwise make every request fail as a connection
+    error because HTTP forbids that character in the Authorization header.
+    """
     value = (
         explicit if explicit is not None else os.environ.get("BLAZING_AGENTS_API_KEY")
     )
+    if value is not None:
+        value = value.strip()
     if not value:
         msg = "An API key is required. Pass api_key or set BLAZING_AGENTS_API_KEY."
         raise ValueError(msg)
@@ -900,7 +907,8 @@ class AsyncBlazingAgents(_AsyncClient):
         """Create a Blazing Agents API client.
 
         Args:
-            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY.
+            api_key: API key. Defaults to BLAZING_AGENTS_API_KEY. Surrounding
+                whitespace is removed.
             base_url: API base URL. Trailing slashes are removed.
             timeout: Default HTTP timeout in seconds, an HTTPX timeout, or None.
             default_headers: Headers applied to every request.

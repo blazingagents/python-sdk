@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- An API key with surrounding whitespace, including a trailing newline from
+  `BLAZING_AGENTS_API_KEY` or `api_key`, is trimmed before it is sent.
+  Previously the newline made every request fail with `APIConnectionError`
+  ("Connection failed") because it is not a legal HTTP header character. A key
+  that is only whitespace is still rejected.
+
 - An empty credential string is no longer treated as a submitted secret. Creating
   a Provider with `api_key=""` (or another empty credential) used to raise
   `CredentialEchoError` when the response held any empty string field, and to
