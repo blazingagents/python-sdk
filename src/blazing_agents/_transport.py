@@ -361,8 +361,12 @@ def _redact_headers(
 
 
 def _redact_string(value: str, sensitive_values: tuple[str, ...]) -> str:
-    """Redact exact short secrets and occurrences of longer secrets."""
-    for secret in sensitive_values:
+    """Redact exact short secrets and occurrences of longer secrets.
+
+    Longer secrets go first. A shorter secret that sits inside a longer one
+    would otherwise leave the rest of the longer secret in the text.
+    """
+    for secret in sorted(sensitive_values, key=len, reverse=True):
         if not secret:
             continue
         if len(secret) >= _MIN_SUBSTRING_SECRET_LENGTH:

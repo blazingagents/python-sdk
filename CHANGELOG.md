@@ -9,6 +9,11 @@
   `CredentialEchoError` when the response held any empty string field, and to
   replace those empty fields with `[REDACTED]` on errors. Empty secrets are
   ignored for both checks, matching Go.
+- A shorter submitted credential that is contained in a longer one no longer
+  leaves the rest of the longer credential in an error message, body, or
+  header. Creating an MCP Connection with a bearer token that is a prefix of
+  the client secret used to redact only the prefix. Longer secrets are removed
+  first.
 
 ## 0.32.0
 

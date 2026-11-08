@@ -2975,6 +2975,35 @@ def test_short_provider_credentials_redact_only_exact_values_sync_and_async() ->
         }
 
 
+def test_shorter_credential_does_not_leave_the_rest_of_a_longer_one() -> None:
+    shorter = "tok_prefix"
+    longer = f"{shorter}_and_the_rest_of_secret"
+    error = {
+        "error": {
+            "code": "mcp_rejected",
+            "message": f"bad {longer}",
+            "details": {"echo": longer},
+        }
+    }
+    with loopback(Response(status=400, body=error, headers={"x-echo": longer})) as (
+        base_url,
+        _state,
+    ):
+        with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+            with pytest.raises(APIStatusError) as captured:
+                client.mcp_connections.create(
+                    name="Tools",
+                    url="https://mcp.example.com/",
+                    auth_type="oauth_authorization_code",
+                    bearer_token=shorter,
+                    client_secret=longer,
+                )
+
+    assert captured.value.headers["x-echo"] == "[REDACTED]"
+    assert "_and_the_rest_of_secret" not in str(captured.value)
+    assert "_and_the_rest_of_secret" not in captured.value.response_body
+
+
 def test_empty_api_key_does_not_treat_empty_response_fields_as_echo() -> None:
     body = {**PROVIDER, "baseUrl": ""}
     with loopback(Response(body=body)) as (base_url, _state):
