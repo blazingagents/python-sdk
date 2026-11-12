@@ -1427,6 +1427,7 @@ def test_api_status_errors_preserve_server_metadata_without_retry() -> None:
 
     exception = captured.value
     assert str(exception) == "[future_domain_code] Slow down"
+    assert exception.message == "Slow down"
     assert exception.status_code == 429
     assert exception.code == "future_domain_code"
     assert exception.details == {"opaque_Key": {"NestedKey": True}}
@@ -1438,7 +1439,7 @@ def test_api_status_errors_preserve_server_metadata_without_retry() -> None:
     assert len(state.requests) == 1
 
 
-def test_api_status_error_text_includes_code_for_catalog_lookup() -> None:
+def test_api_status_error_keeps_message_apart_and_text_includes_code() -> None:
     error = {
         "error": {
             "code": "model_validation_unavailable",
@@ -1453,6 +1454,7 @@ def test_api_status_error_text_includes_code_for_catalog_lookup() -> None:
     assert str(captured.value) == (
         "[model_validation_unavailable] Provider model discovery is unavailable"
     )
+    assert captured.value.message == "Provider model discovery is unavailable"
     assert captured.value.code == "model_validation_unavailable"
 
 
@@ -1467,6 +1469,7 @@ def test_malformed_api_status_error_is_still_actionable() -> None:
     assert str(captured.value) == (
         "[invalid_response] The server returned an invalid error response."
     )
+    assert captured.value.message == "The server returned an invalid error response."
     assert captured.value.status_code == 502
     assert captured.value.code == "invalid_response"
     assert captured.value.request_id == "req"
