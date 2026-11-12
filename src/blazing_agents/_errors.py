@@ -30,7 +30,7 @@ class APIStatusError(BlazingAgentsError):
         """Describe a non-successful API response.
 
         Args:
-            message: Error message for the caller.
+            message: The API error message, without the code.
             status_code: HTTP status code returned by the API.
             headers: HTTP headers.
             code: API error code.
@@ -40,6 +40,7 @@ class APIStatusError(BlazingAgentsError):
             response_body: Response body with submitted credentials redacted.
         """
         super().__init__(f"[{code}] {message}")
+        self.message = message
         self.status_code = status_code
         self.headers = headers
         self.code = code
