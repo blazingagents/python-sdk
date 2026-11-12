@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- `APIStatusError.message` holds the API's error message unchanged, so an app can show it to a user without the code. `str(error)` still reads `[code] message`, so tracebacks and logs keep the code for the error catalog:
+
+  ```python
+  try:
+      client.agents.delete(agent_id)
+  except APIStatusError as error:
+      # Before: str(error) == "[agent_busy] The agent has running work."
+      show(error.message)  # "The agent has running work."
+      if error.code == "agent_busy":
+          retry_later()
+  ```
+
 ### Fixed
 
 - An empty credential string is no longer treated as a submitted secret. Creating
