@@ -220,16 +220,19 @@ def rejected(message: str) -> RelayFailure:
 def failure_of(error: Exception) -> RelayFailure:
     """Map an SDK error to the answer the browser reads.
 
-    An API error keeps its status, code and message. Any other failure answers 500
-    without its cause, which goes to the `blazing_agents` logger instead.
+    An API error keeps its status, code and message. Any other failure answers with
+    a fixed message, never its cause, which goes to the `blazing_agents` logger
+    instead: 502 for a failed stream or connection, 500 for the rest.
     """
     if isinstance(error, APIStatusError):
         return RelayFailure(
             error.status_code, error.code, error.message, error.request_id
         )
     if isinstance(error, StreamError):
-        return RelayFailure(502, "stream_error", str(error), error.request_id)
+        _LOGGER.error("The chat relay's stream failed.", exc_info=error)
+        return RelayFailure(502, "stream_error", "The stream failed.", error.request_id)
     if isinstance(error, APIConnectionError):
-        return RelayFailure(502, "network_error", str(error))
+        _LOGGER.error("The chat relay could not reach the API.", exc_info=error)
+        return RelayFailure(502, "network_error", "Unable to reach Blazing Agents.")
     _LOGGER.error("The chat relay failed.", exc_info=error)
     return RelayFailure(500, "internal_error", "Request failed.")

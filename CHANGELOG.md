@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `AsyncChatRelay` and `ChatRelay` answer a 502 with a fixed message, like the Go and Rust relays: `"Unable to reach Blazing Agents."` for `network_error` and `"The stream failed."` for `stream_error`. The browser no longer reads the SDK error's own wording, which for a failed request included the Location and `X-BA-Turn-Id` header names and, after a timeout, `"Request timed out."`. The code, the status and the `X-Request-Id` header are unchanged, and the cause goes to the `blazing_agents` logger.
+
 ## 0.35.0
 
 ### Added
