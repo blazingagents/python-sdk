@@ -193,7 +193,10 @@ def loopback(*responses: Response) -> Generator[tuple[str, ServerState]]:
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = Thread(target=server.serve_forever, daemon=True)
+    # The default 0.5 s poll makes every shutdown wait half a second.
+    thread = Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    )
     thread.start()
     try:
         yield f"http://127.0.0.1:{server.server_port}", state
