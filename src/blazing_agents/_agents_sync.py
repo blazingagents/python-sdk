@@ -50,6 +50,7 @@ class UserAgentsResource:
         workspace_id: str | _Omitted = OMITTED,
         workspace_tier: WorkspaceTier | _Omitted = OMITTED,
         thinking_level: str | None | _Omitted = OMITTED,
+        auto_approval_model: str | None | _Omitted = OMITTED,
         auto_compaction: bool | _Omitted = OMITTED,
         compaction_reserve_tokens: int | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
@@ -76,6 +77,9 @@ class UserAgentsResource:
             workspace_tier: Tier for an automatic Workspace; defaults to Core.
                 Mutually exclusive with workspace_id.
             thinking_level: Provider-supported reasoning level.
+            auto_approval_model: Model on the Agent's provider that reviews tool calls
+                whose approval is auto. None uses the Agent's model. Needs a provider
+                and model.
             auto_compaction: Whether the Agent compacts its context automatically.
             compaction_reserve_tokens: Tokens reserved for context compaction.
             memory_injection_enabled: Whether the Agent injects matching Memories.
@@ -109,6 +113,7 @@ class UserAgentsResource:
                     workspace_id=workspace_id,
                     workspace_tier=workspace_tier,
                     thinking_level=thinking_level,
+                    auto_approval_model=auto_approval_model,
                     auto_compaction=auto_compaction,
                     compaction_reserve_tokens=compaction_reserve_tokens,
                     memory_injection_enabled=memory_injection_enabled,
@@ -293,6 +298,7 @@ class UserAgentsResource:
         provider_id: str | None | _Omitted = OMITTED,
         workspace_id: str | _Omitted = OMITTED,
         thinking_level: str | None | _Omitted = OMITTED,
+        auto_approval_model: str | None | _Omitted = OMITTED,
         auto_compaction: bool | _Omitted = OMITTED,
         compaction_reserve_tokens: int | _Omitted = OMITTED,
         memory_injection_enabled: bool | _Omitted = OMITTED,
@@ -319,6 +325,9 @@ class UserAgentsResource:
             workspace_id: Workspace identifier.
             thinking_level: Provider-supported reasoning level. None clears the
                 setting. Omission retains the current value.
+            auto_approval_model: Model on the Agent's provider that reviews tool calls
+                whose approval is auto. None uses the Agent's model. Changing
+                provider_id without sending it resets it to None.
             auto_compaction: Whether the Agent compacts its context automatically.
             compaction_reserve_tokens: Tokens reserved for context compaction.
             memory_injection_enabled: Whether the Agent injects matching Memories.
@@ -346,6 +355,7 @@ class UserAgentsResource:
             provider_id=provider_id,
             workspace_id=workspace_id,
             thinking_level=thinking_level,
+            auto_approval_model=auto_approval_model,
             auto_compaction=auto_compaction,
             compaction_reserve_tokens=compaction_reserve_tokens,
             memory_injection_enabled=memory_injection_enabled,
