@@ -68,8 +68,9 @@ class AsyncRelayResponse:
     Iterate it for the body. A chat answer streams the API's bytes while you
     iterate, so pass it to a streaming response without reading it first. When the
     browser disconnects, stop iterating and call `aclose`: that closes the API
-    request, which cancels the Turn. Your framework's disconnect handling normally
-    does both.
+    request, which cancels the Turn. ASGI servers such as uvicorn cancel the
+    response task on disconnect, which does both. A WSGI server notices the
+    disconnect only at its next write, so a quiet Turn runs until it streams again.
     """
 
     status_code: int
