@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from support import Response, loopback
 
 from blazing_agents import (
+    APIConnectionError,
     AsyncBlazingAgents,
     AsyncChatRelay,
     BlazingAgents,
@@ -791,18 +792,31 @@ def test_an_api_error_keeps_its_status_code_message_and_request_id(
 
 
 @ASYNC
-def test_an_unreachable_api_is_a_502_network_error(asynchronous: bool) -> None:
+def test_an_unreachable_api_is_a_502_network_error_with_a_fixed_message(
+    asynchronous: bool, caplog: pytest.LogCaptureFixture
+) -> None:
     with socket.socket() as closed:
-        closed.bind(("127.0.0.1", 0))
-        url = f"http://127.0.0.1:{closed.getsockname()[1]}"
-    answer = ask(url, chat(), asynchronous=asynchronous)
+        closed.bind(("localhost", 0))
+        port = closed.getsockname()[1]
+    with caplog.at_level(logging.ERROR, logger="blazing_agents"):
+        answer = ask(f"http://localhost:{port}", chat(), asynchronous=asynchronous)
     assert answer.status == 502
-    assert answer.json()["error"]["code"] == "network_error"
+    assert answer.json() == {
+        "error": {
+            "code": "network_error",
+            "message": "Unable to reach Blazing Agents.",
+        }
+    }
+    assert b"localhost" not in answer.body
+    assert str(port).encode() not in answer.body
+    (record,) = caplog.records
+    assert record.exc_info is not None
+    assert isinstance(record.exc_info[1], APIConnectionError)
 
 
 @ASYNC
 def test_a_created_session_without_a_location_is_a_502_stream_error(
-    asynchronous: bool,
+    asynchronous: bool, caplog: pytest.LogCaptureFixture
 ) -> None:
     def with_functions(request: Req) -> RelayContext:
         return RelayContext(agent_id=AGENT, user_id="user-a", functions=FUNCTIONS)
@@ -814,16 +828,22 @@ def test_a_created_session_without_a_location_is_a_502_stream_error(
         headers={**STREAM_HEADERS, "x-request-id": "req-chat"},
     )
     with loopback(reply) as (url, _):
-        answer = ask(
-            url,
-            chat(),
-            asynchronous=asynchronous,
-            resolve_context=with_functions,
-        )
+        with caplog.at_level(logging.ERROR, logger="blazing_agents"):
+            answer = ask(
+                url,
+                chat(),
+                asynchronous=asynchronous,
+                resolve_context=with_functions,
+            )
     assert answer.status == 502
     assert answer.headers["x-request-id"] == "req-chat"
-    assert answer.json()["error"]["code"] == "stream_error"
+    assert answer.json() == {
+        "error": {"code": "stream_error", "message": "The stream failed."}
+    }
     assert b"data-ba-function-call" not in answer.body
+    (record,) = caplog.records
+    assert record.exc_info is not None
+    assert isinstance(record.exc_info[1], StreamError)
 
 
 @ASYNC
