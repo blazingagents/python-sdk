@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `AsyncChatRelay` and `ChatRelay` answer the one endpoint that the TypeScript SDK's `useBlazingAgentsChat` and `BlazingAgentsChatTransport` post to, so a Python backend no longer hand-writes it. The relay takes the framework's request and the raw body, calls your `resolve_context` for the signed-in user and their Agent (return `None` for a 401), and acts through `client.for_user(user_id)` for the `chat`, `history` and `steer` operations of the browser relay contract. It depends on no web framework, and `handle` returns a `RelayResponse` (or `AsyncRelayResponse`) that you pass to the framework's streaming response; closing it, as a framework does when the browser disconnects, cancels the Turn. `RelayContext` carries `agent_id`, `user_id`, and optional `functions` and `metadata`:
+
+  ```python
+  relay = AsyncChatRelay(client=client, resolve_context=resolve_context)
+
+
+  @app.post("/api/chat")
+  async def chat(request: Request) -> StreamingResponse:
+      answer = await relay.handle(request, await request.body())
+      return StreamingResponse(
+          answer, status_code=answer.status_code, headers=answer.headers
+      )
+  ```
+
 ## 0.33.0
 
 ### Added

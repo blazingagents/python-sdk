@@ -107,6 +107,8 @@ from ._models import (
     response_meta,
 )
 from ._object import AsyncObjectStream, ObjectStream
+from ._relay import AsyncChatRelay, AsyncRelayResponse, RelayContext
+from ._relay_sync import ChatRelay, RelayResponse
 from ._responses import Completion
 from ._session_models import (
     Artifact,
@@ -289,8 +291,10 @@ __all__ = [
     "ArtifactDownloadUrl",
     "ArtifactsListOptions",
     "ArtifactsPage",
+    "AsyncChatRelay",
     "AsyncChatStream",
     "AsyncCompletionStream",
+    "AsyncRelayResponse",
     "AsyncObjectStream",
     "AsyncByteStream",
     "AsyncBlazingAgents",
@@ -306,6 +310,7 @@ __all__ = [
     "ContinueChatInput",
     "ChatPromptInput",
     "ChatFunction",
+    "ChatRelay",
     "ChatStream",
     "ChatTrigger",
     "Completion",
@@ -363,6 +368,8 @@ __all__ = [
     "PromptsPage",
     "PromptsListOptions",
     "PromptUpdate",
+    "RelayContext",
+    "RelayResponse",
     "ResponseMeta",
     "ResponseObservation",
     "Session",

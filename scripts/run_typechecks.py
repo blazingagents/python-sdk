@@ -33,6 +33,7 @@ def main() -> None:
         project / "typing" / "invalid_session_fork.py",
         project / "typing" / "invalid_chat_connection.py",
         project / "typing" / "invalid_chat_batch.py",
+        project / "typing" / "invalid_relay_resolver.py",
         project / "typing" / "invalid_removed_session_apis.py",
         project / "typing" / "invalid_approval_policy.py",
         project / "typing" / "invalid_function_approval_override.py",

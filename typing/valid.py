@@ -14,13 +14,16 @@ from blazing_agents import (
     ArtifactDownloadUrl,
     ArtifactsListOptions,
     AsyncBlazingAgents,
+    AsyncChatRelay,
     AsyncChatStream,
     AsyncCompletionStream,
     AsyncObjectStream,
+    AsyncRelayResponse,
     BlazingAgents,
     ChatFunction,
     ChatMessageInput,
     ChatMessagesInput,
+    ChatRelay,
     ChatStream,
     Completion,
     CompletionLiteralInput,
@@ -32,6 +35,8 @@ from blazing_agents import (
     MemoryCreate,
     MemoryResponse,
     ObjectStream,
+    RelayContext,
+    RelayResponse,
     Session,
     SessionActivityState,
     SessionForkedFrom,
@@ -662,3 +667,36 @@ async def async_spending_limits(client: AsyncBlazingAgents) -> None:
         ),
         SpendingLimitResponse,
     )
+
+
+class AppRequest:
+    user: str
+
+
+def resolve_context(request: AppRequest) -> RelayContext | None:
+    return RelayContext(agent_id="ag_0123456789abcdef", user_id=request.user)
+
+
+async def async_resolve_context(request: AppRequest) -> RelayContext | None:
+    return None
+
+
+def chat_relay(client: BlazingAgents, request: AppRequest, body: bytes) -> None:
+    relay = ChatRelay(client=client, resolve_context=resolve_context)
+    assert_type(relay, ChatRelay[AppRequest])
+    response = relay.handle(request, body)
+    assert_type(response, RelayResponse)
+    assert_type(response.status_code, int)
+    assert_type(response.headers, dict[str, str])
+    assert_type(iter(response), Iterator[bytes])
+
+
+async def async_chat_relay(
+    client: AsyncBlazingAgents, request: AppRequest, body: bytes
+) -> None:
+    relay = AsyncChatRelay(client=client, resolve_context=async_resolve_context)
+    assert_type(relay, AsyncChatRelay[AppRequest])
+    response = await relay.handle(request, body)
+    assert_type(response, AsyncRelayResponse)
+    assert_type(aiter(response), AsyncIterator[bytes])
+    await response.aclose()
