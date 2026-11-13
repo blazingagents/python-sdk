@@ -207,6 +207,13 @@ def _not_dot_segment(value: str) -> str:
     return value
 
 
+SessionInputRequestId: TypeAlias = Annotated[
+    str,
+    StringConstraints(min_length=1, max_length=128),
+    AfterValidator(_not_dot_segment),
+]
+
+
 class SessionInputMessage(ResponseModel):
     id: NonEmptyString
     role: Literal["user"]
@@ -235,11 +242,7 @@ class SessionInput(ResponseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    request_id: Annotated[
-        str,
-        StringConstraints(min_length=1, max_length=128),
-        AfterValidator(_not_dot_segment),
-    ] = Field(alias="requestId")
+    request_id: SessionInputRequestId = Field(alias="requestId")
     sequence: int = Field(ge=1)
     message: SessionInputMessage
     state: SessionInputState
@@ -252,11 +255,7 @@ class SessionInput(ResponseModel):
 class ChatSteerConsumedData(ResponseModel):
     model_config = ConfigDict(extra="ignore")
 
-    request_id: Annotated[
-        str,
-        StringConstraints(min_length=1, max_length=128),
-        AfterValidator(_not_dot_segment),
-    ] = Field(alias="requestId")
+    request_id: SessionInputRequestId = Field(alias="requestId")
     turn_id: TurnId = Field(alias="turnId")
     sequence: int = Field(ge=1)
     message: SessionInputMessage
