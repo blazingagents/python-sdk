@@ -26,6 +26,7 @@ SOURCES = (
     "_merchant",
     "_prompts",
     "_providers",
+    "_relay",
     "_sessions",
     "_skills",
     "_tasks",
