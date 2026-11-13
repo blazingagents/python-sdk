@@ -355,6 +355,7 @@ class SkillCopy(TypedDict):
 
 class _AgentCreateBase(TypedDict, total=False):
     thinking_level: str | None
+    auto_approval_model: str | None
     name: Required[str]
     workspace_id: str
     workspace_tier: WorkspaceTier
@@ -385,6 +386,7 @@ AgentCreate: TypeAlias = _ConfiguredAgentCreate | _UnconfiguredAgentCreate
 
 class _AgentUpdateBase(TypedDict, total=False):
     thinking_level: str | None
+    auto_approval_model: str | None
     name: str
     workspace_id: str
     auto_compaction: bool

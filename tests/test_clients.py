@@ -164,6 +164,7 @@ AGENT_CONFIG: dict[str, Any] = {
         "model",
         "thinkingLevel",
         "providerId",
+        "autoApprovalModel",
         "autoCompaction",
         "compactionReserveTokens",
         "memoryInjectionEnabled",
@@ -6394,6 +6395,59 @@ def test_thinking_levels_omit_clear_custom_and_capabilities(asynchronous: bool) 
     assert parse_qs(urlsplit(state.requests[3].target).query) == {
         "model": ["vendor/model + custom"]
     }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_auto_approval_model_omit_set_and_clear(asynchronous: bool) -> None:
+    configured = {
+        **AGENT,
+        "providerId": "prv_0123456789abcdef",
+        "model": "openai/gpt-5",
+        "autoApprovalModel": "openai/gpt-5-mini",
+    }
+    with loopback(
+        Response(body=configured),
+        Response(body=configured),
+        Response(body=AGENT),
+    ) as (base_url, state):
+        if asynchronous:
+
+            async def run() -> None:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    created = await client.agents.create(
+                        name="Builder",
+                        provider_id="prv_0123456789abcdef",
+                        model="openai/gpt-5",
+                        auto_approval_model="openai/gpt-5-mini",
+                    )
+                    assert created.auto_approval_model == "openai/gpt-5-mini"
+                    await client.agents.update(AGENT["id"], name="Renamed")
+                    cleared = await client.agents.update(
+                        AGENT["id"], auto_approval_model=None
+                    )
+                    assert cleared.auto_approval_model is None
+
+            asyncio.run(run())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                created = client.agents.create(
+                    name="Builder",
+                    provider_id="prv_0123456789abcdef",
+                    model="openai/gpt-5",
+                    auto_approval_model="openai/gpt-5-mini",
+                )
+                assert created.auto_approval_model == "openai/gpt-5-mini"
+                client.agents.update(AGENT["id"], name="Renamed")
+                cleared = client.agents.update(AGENT["id"], auto_approval_model=None)
+                assert cleared.auto_approval_model is None
+
+    assert json.loads(state.requests[0].body)["autoApprovalModel"] == (
+        "openai/gpt-5-mini"
+    )
+    assert "autoApprovalModel" not in json.loads(state.requests[1].body)
+    assert json.loads(state.requests[2].body) == {"autoApprovalModel": None}
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])

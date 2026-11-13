@@ -567,6 +567,7 @@ class Agent(ResponseModel):
     model: AgentModelId | None
     thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
+    auto_approval_model: NonEmptyString | None = Field(alias="autoApprovalModel")
     workspace_id: WorkspaceId = Field(alias="workspaceId")
     auto_compaction: bool = Field(alias="autoCompaction")
     compaction_reserve_tokens: int = Field(
@@ -608,6 +609,7 @@ class AgentConfig(ResponseModel):
     model: AgentModelId | None
     thinking_level: NonEmptyString | None = Field(alias="thinkingLevel")
     provider_id: ProviderId | None = Field(alias="providerId")
+    auto_approval_model: NonEmptyString | None = Field(alias="autoApprovalModel")
     auto_compaction: bool = Field(alias="autoCompaction")
     compaction_reserve_tokens: int = Field(
         alias="compactionReserveTokens", ge=0, le=9007199254740991

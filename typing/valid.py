@@ -111,6 +111,7 @@ def sync_examples(client: BlazingAgents) -> None:
         "name": "Configured agent",
         "model": "openai/gpt-5",
         "provider_id": "prv_0123456789abcdef",
+        "auto_approval_model": "openai/gpt-5-mini",
     }
     assert_type(client.agents.create(**configured_agent_request), Agent)
     clear_agent_request: AgentUpdate = {"model": None, "provider_id": None}
@@ -120,6 +121,10 @@ def sync_examples(client: BlazingAgents) -> None:
             **clear_agent_request,
         ),
         Agent,
+    )
+    clear_auto_approval: AgentUpdate = {"auto_approval_model": None}
+    assert_type(
+        client.agents.update("ag_0123456789abcdef", **clear_auto_approval), Agent
     )
     model_update: AgentUpdate = {"model": "openai/gpt-5-mini"}
     assert_type(

@@ -26,6 +26,7 @@ AGENT: dict[str, Any] = {
     "thinkingLevel": None,
     "model": None,
     "providerId": None,
+    "autoApprovalModel": None,
     "workspaceId": "ws_aaaaaaaaaaaaaaaa",
     "autoCompaction": True,
     "compactionReserveTokens": 16384,

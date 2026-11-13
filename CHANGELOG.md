@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `auto_approval_model` on Agents. Tool calls whose approval is `auto` are reviewed by this model on the Agent's own provider; `None` (the default) uses the Agent's model. It needs a provider and model, and changing `provider_id` without sending it resets it to `None`. `Agent.auto_approval_model` and `AgentConfig.auto_approval_model` (the snapshot on Sessions and Task Runs) carry the current value:
+
+  ```python
+  agent = client.agents.create(
+      name="Builder",
+      provider_id=provider.id,
+      model="openai/gpt-5",
+      auto_approval_model="openai/gpt-5-mini",
+  )
+  client.agents.update(
+      agent.id, auto_approval_model=None
+  )  # review with the Agent's model
+  ```
+
 ## 0.34.0
 
 ### Added
