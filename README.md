@@ -24,6 +24,8 @@ CPython 3.11 and newer.
   approvals, and backend functions that run in your process.
 - Text and structured-object generation.
 - End-user scoped clients through `for_user`.
+- A chat relay (`AsyncChatRelay`, `ChatRelay`) that serves the TypeScript SDK's
+  browser chat hooks from your backend with any web framework.
 - Lazy pagination, uploads, and downloads.
 - Request IDs and typed errors.
 - Matching synchronous and asynchronous clients with Pydantic models.
@@ -92,6 +94,42 @@ user. A scoped chat with an Agent created without the scope fails with `404`.
 Send it to the browser as a `text/event-stream` response, and AI SDK
 `useChat` reads it. For asyncio applications, `AsyncBlazingAgents` has the
 same methods.
+
+## Chat for browser apps
+
+A browser holds no API key, so `useBlazingAgentsChat` from the TypeScript SDK
+posts every chat, history, and steering request to one URL on your backend.
+`AsyncChatRelay` answers it as the signed-in user; your backend adds only its
+sign-in. The relay depends on no web framework. With FastAPI:
+
+```python
+from blazing_agents import AsyncBlazingAgents, AsyncChatRelay, RelayContext
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+
+client = AsyncBlazingAgents()
+
+
+async def resolve_context(request: Request) -> RelayContext | None:
+    user_id = await verified_user_id(request)  # your sign-in
+    if user_id is None:
+        return None  # answered with 401
+    return RelayContext(agent_id=await agent_id_for(user_id), user_id=user_id)
+
+
+relay = AsyncChatRelay(client=client, resolve_context=resolve_context)
+app = FastAPI()
+
+
+@app.post("/api/chat")
+async def chat(request: Request) -> StreamingResponse:
+    answer = await relay.handle(request, await request.body())
+    return StreamingResponse(
+        answer, status_code=answer.status_code, headers=answer.headers
+    )
+```
+
+`ChatRelay` is the blocking twin for frameworks such as Flask.
 
 ## Examples
 
