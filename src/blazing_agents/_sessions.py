@@ -26,6 +26,7 @@ from ._transport import (
 from ._types import (
     Timeout,
 )
+from ._wire import idempotency_headers
 
 
 def _sessions_path(agent_id: str, session_id: str | None = None) -> str:
@@ -116,18 +117,12 @@ class AsyncSessionsResource:
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        headers = {
-            name: value
-            for name, value in (extra_headers or {}).items()
-            if name.lower() != "idempotency-key"
-        }
-        headers["Idempotency-Key"] = idempotency_key
         return await self._transport.request(
             _Request(
                 "POST",
                 f"{_sessions_path(agent_id, session_id)}/fork",
                 json_body={"messageId": message_id},
-                extra_headers=headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(SessionResponse),

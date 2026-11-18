@@ -267,6 +267,7 @@ def sync_examples(client: BlazingAgents) -> None:
         skills.create(
             path="SKILL.md",
             content="---\nname: test\ndescription: Test.\n---\n",
+            idempotency_key="retry-key",
         ),
         SkillDetail,
     )

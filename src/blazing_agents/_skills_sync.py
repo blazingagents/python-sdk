@@ -17,6 +17,7 @@ from ._transport import (
 )
 from ._transport_sync import Transport
 from ._types import SkillArchiveType, Timeout, UploadFile
+from ._wire import idempotency_headers
 
 
 class AgentSkillsResource:
@@ -35,14 +36,22 @@ class AgentSkillsResource:
         *,
         path: Literal["SKILL.md"],
         content: str,
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
         """Create a Skill.
 
+        Retrying with the same idempotency_key and the same content returns the
+        Skill the first request created, and the same key with other content fails
+        with idempotency_conflict.
+
         Args:
             path: Path to the requested file.
             content: UTF-8 Skill document or file contents.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same create without duplicating it. Sent as the Idempotency-Key
+                header, replacing any in extra_headers.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -60,7 +69,7 @@ class AgentSkillsResource:
                 "POST",
                 _skill_path(self._agent_id),
                 json_body={"path": path, "content": content},
-                extra_headers=extra_headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(SkillDetail),
@@ -72,6 +81,7 @@ class AgentSkillsResource:
         archive_type: SkillArchiveType,
         file: UploadFile,
         filename: str | None = None,
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> SkillDetail:
@@ -80,10 +90,17 @@ class AgentSkillsResource:
         Paths are opened and closed by the SDK. Caller-owned file objects remain
         open.
 
+        Retrying with the same idempotency_key and the same archive returns the
+        Skill the first request created, and the same key with another archive
+        fails with idempotency_conflict.
+
         Args:
             archive_type: Archive format: zip, tar, or tar.gz.
             file: File upload input.
             filename: Filename supplied for the upload.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same upload without duplicating it. Sent as the Idempotency-Key
+                header, replacing any in extra_headers.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -101,6 +118,7 @@ class AgentSkillsResource:
             archive_type=archive_type,
             file=file,
             filename=filename,
+            idempotency_key=idempotency_key,
             extra_headers=extra_headers,
             timeout=timeout,
         ) as request:
@@ -356,14 +374,22 @@ class AgentSkillsResource:
         *,
         skill_id: str,
         destination_agent_ids: Sequence[str],
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> _SkillCopyResultList:
         """Copy Skills to another Agent.
 
+        Retrying with the same idempotency_key and the same skill_id returns the
+        copy each destination already has as created, and the same key with
+        another request fails that destination with idempotency_conflict.
+
         Args:
             skill_id: Skill identifier.
             destination_agent_ids: Agents that receive a copy of the Skill.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same copy without duplicating it. Sent as the Idempotency-Key
+                header, replacing any in extra_headers.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -381,7 +407,7 @@ class AgentSkillsResource:
                 "POST",
                 f"{_skill_path(self._agent_id, skill_id)}/copies",
                 json_body={"agentIds": list(destination_agent_ids)},
-                extra_headers=extra_headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(SkillCopyResults),
