@@ -8,6 +8,7 @@ from typing import (
     BinaryIO,
     Literal,
     Never,
+    NotRequired,
     Required,
     TypeAlias,
     TypedDict,
@@ -137,12 +138,14 @@ WorkspaceNetworkPolicy: TypeAlias = (
 class SkillCreate(TypedDict):
     path: Literal["SKILL.md"]
     content: str
+    idempotency_key: NotRequired[str]
 
 
 class SkillArchiveUpload(TypedDict, total=False):
     archive_type: Required[SkillArchiveType]
     file: Required[UploadFile]
     filename: str
+    idempotency_key: str
 
 
 class SkillsListOptions(TypedDict, total=False):
@@ -351,6 +354,7 @@ class CompletionPromptInput(_CompletionInput, total=False):
 
 class SkillCopy(TypedDict):
     destination_agent_ids: list[str]
+    idempotency_key: NotRequired[str]
 
 
 class _AgentCreateBase(TypedDict, total=False):

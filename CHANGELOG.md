@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `skills.create`, `skills.upload` and `skills.copy` take an optional `idempotency_key`, sent as the `Idempotency-Key` header (1 to 200 characters) and replacing any in `extra_headers`. Retrying with the same key and the same content returns the Skill the first request created, and for a copy each destination returns the copy it already has as `created`. The same key with other content fails with `idempotency_conflict`, and for a copy that destination is `failed` with that code. A key belongs to one Agent and is remembered as long as its Skill exists. Without a key nothing changes. `SkillCreate`, `SkillArchiveUpload` and `SkillCopy` carry the key too:
+
+  ```python
+  skill = client.agent(agent_id).skills.create(
+      path="SKILL.md",
+      content=markdown,
+      idempotency_key="deploy-skill-v1",
+  )
+  # After a lost response, the same call returns the same Skill.
+  ```
+
 ## 0.35.1
 
 ### Fixed

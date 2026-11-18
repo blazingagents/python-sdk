@@ -4003,6 +4003,99 @@ def test_skill_request_validation_and_malformed_responses() -> None:
     assert len(state.requests) == 6
 
 
+SKILL_CREATIONS: dict[str, dict[str, Any]] = {
+    "create": {"path": "SKILL.md", "content": "---\nname: deploy\n---\n"},
+    "upload": {"archive_type": "zip", "file": b"archive-bytes"},
+    "copy": {
+        "skill_id": SKILL["id"],
+        "destination_agent_ids": ["ag_fedcba9876543210"],
+    },
+}
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("operation", list(SKILL_CREATIONS))
+def test_skill_creation_sends_the_idempotency_key_as_a_header_only_when_given(
+    operation: str, asynchronous: bool
+) -> None:
+    created = {
+        "agentId": "ag_fedcba9876543210",
+        "status": "created",
+        "skill": {**SKILL_DETAIL, "agentId": "ag_fedcba9876543210"},
+    }
+    body = [created] if operation == "copy" else SKILL_DETAIL
+    attempts: list[dict[str, Any]] = [
+        {
+            "idempotency_key": "retry-key",
+            "extra_headers": {
+                "idempotency-key": "wrong",
+                "IDEMPOTENCY-KEY": "also-wrong",
+                "X-Custom": "retained",
+            },
+        },
+        {"extra_headers": {"X-Custom": "retained"}},
+        {"idempotency_key": None, "extra_headers": {"Idempotency-Key": "caller-key"}},
+        {},
+    ]
+    with loopback(*(Response(status=201, body=body) for _ in attempts)) as (
+        base_url,
+        state,
+    ):
+        if asynchronous:
+
+            async def exercise() -> None:
+                async with AsyncBlazingAgents(
+                    api_key="ba_test", base_url=base_url
+                ) as client:
+                    skills = client.agent(SKILL["agentId"]).skills
+                    for options in attempts:
+                        await getattr(skills, operation)(
+                            **SKILL_CREATIONS[operation], **options
+                        )
+
+            asyncio.run(exercise())
+        else:
+            with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
+                skills = client.agent(SKILL["agentId"]).skills
+                for options in attempts:
+                    getattr(skills, operation)(**SKILL_CREATIONS[operation], **options)
+
+    assert [
+        request.headers.get_list("idempotency-key") for request in state.requests
+    ] == [
+        ["retry-key"],
+        [],
+        ["caller-key"],
+        [],
+    ]
+    assert state.requests[0].headers["x-custom"] == "retained"
+    assert state.requests[0].headers["authorization"] == "Bearer ba_test"
+    path = {
+        "create": "/v1/agents/ag_0123456789abcdef/skills",
+        "upload": "/v1/agents/ag_0123456789abcdef/skills/upload",
+        "copy": "/v1/agents/ag_0123456789abcdef/skills/skill_0123456789abcdef/copies",
+    }[operation]
+    for request in state.requests:
+        assert request.method == "POST"
+        assert request.target == path
+        assert b"retry-key" not in request.body
+        assert b"idempotency" not in request.body.lower()
+    if operation == "create":
+        expected_body: dict[str, object] = {
+            "path": "SKILL.md",
+            "content": "---\nname: deploy\n---\n",
+        }
+    elif operation == "copy":
+        expected_body = {"agentIds": ["ag_fedcba9876543210"]}
+    else:
+        for request in state.requests:
+            assert b'name="type"' in request.body
+            assert b"archive-bytes" in request.body
+        return
+    for request in state.requests:
+        assert json.loads(request.body) == expected_body
+
+
 def test_skill_public_types_ship_in_the_installed_wheel() -> None:
     archive_type: SkillArchiveType = "tar.gz"
     create: SkillCreate = {
@@ -4015,11 +4108,17 @@ def test_skill_public_types_ship_in_the_installed_wheel() -> None:
     }
     options: SkillsListOptions = {"cursor": "opaque", "limit": 25}
     copy: SkillCopy = {"destination_agent_ids": ["ag_0123456789abcdef"]}
+    keyed_create: SkillCreate = {**create, "idempotency_key": "retry-key"}
+    keyed_upload: SkillArchiveUpload = {**upload, "idempotency_key": "retry-key"}
+    keyed_copy: SkillCopy = {**copy, "idempotency_key": "retry-key"}
 
     assert create["path"] == "SKILL.md"
     assert upload["archive_type"] == "tar.gz"
     assert options["limit"] == 25
     assert copy["destination_agent_ids"] == ["ag_0123456789abcdef"]
+    assert keyed_create["idempotency_key"] == "retry-key"
+    assert keyed_upload["idempotency_key"] == "retry-key"
+    assert keyed_copy["idempotency_key"] == "retry-key"
 
 
 def test_artifacts_list_get_download_url_and_delete() -> None:

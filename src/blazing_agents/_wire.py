@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import mimetypes
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from os import PathLike
 from pathlib import Path
@@ -24,6 +24,25 @@ def spending_limit_body(
         if spending_limit is None
         else wire_fields(**spending_limit)
     }
+
+
+def idempotency_headers(
+    idempotency_key: str | None,
+    extra_headers: Mapping[str, str] | None,
+) -> Mapping[str, str] | None:
+    """Send the key as Idempotency-Key, replacing one in extra_headers.
+
+    Without a key, extra_headers stays as the caller gave it.
+    """
+    if idempotency_key is None:
+        return extra_headers
+    headers = {
+        name: value
+        for name, value in (extra_headers or {}).items()
+        if name.lower() != "idempotency-key"
+    }
+    headers["Idempotency-Key"] = idempotency_key
+    return headers
 
 
 def agent_path(agent_id: str) -> str:
