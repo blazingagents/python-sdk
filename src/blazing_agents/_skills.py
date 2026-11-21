@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Literal
 
-from ._models import Skill, SkillCopyResult, SkillCopyResults, SkillDetail, SkillsPage
+from ._models import Skill, SkillCopyResults, SkillDetail, SkillsPage
 from ._transport import (
     OMITTED,
     AsyncTransport,
@@ -22,8 +22,6 @@ from ._types import (
     UploadFile,
 )
 from ._wire import agent_path, idempotency_headers, upload_part
-
-_SkillCopyResultList = list[SkillCopyResult]
 
 
 def _skill_path(agent_id: str, skill_id: str | None = None) -> str:
@@ -423,7 +421,7 @@ class AsyncAgentSkillsResource:
         idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> _SkillCopyResultList:
+    ) -> SkillCopyResults:
         """Copy Skills to another Agent.
 
         Retrying with the same idempotency_key and the same skill_id returns the
@@ -441,14 +439,14 @@ class AsyncAgentSkillsResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Per-destination copy results.
+            The per-destination copy results under data.
 
         Raises:
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        response = await self._transport.request(
+        return await self._transport.request(
             _Request(
                 "POST",
                 f"{_skill_path(self._agent_id, skill_id)}/copies",
@@ -458,4 +456,3 @@ class AsyncAgentSkillsResource:
             ),
             decode_model(SkillCopyResults),
         )
-        return response.root

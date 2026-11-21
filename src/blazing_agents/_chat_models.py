@@ -64,4 +64,4 @@ class ChatConnection(ResponseModel):
 
 
 class ChatConnections(ResponseModel):
-    chat_connections: list[ChatConnection] = Field(alias="chatConnections")
+    data: list[ChatConnection]

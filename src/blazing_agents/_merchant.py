@@ -3,14 +3,13 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 
 from ._merchant_models import (
-    MerchantBindingResponse,
     MerchantBindingsPage,
+    MerchantConnection,
     MerchantConnectionResponse,
     MerchantCustomerBinding,
     MerchantUsageEvent,
-    MerchantUsageEventResponse,
     MerchantUsageEventsPage,
-    MerchantUsageSummaryResponse,
+    MerchantUsageSummary,
 )
 from ._transport import (
     OMITTED,
@@ -90,7 +89,7 @@ class AsyncMerchantConnectionResource:
         guard: MerchantGuardInput | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantConnectionResponse:
+    ) -> MerchantConnection:
         """Connect the Tenant's Polar or Dodo account.
 
         The credential is write-only. Responses show only its last characters.
@@ -127,7 +126,7 @@ class AsyncMerchantConnectionResource:
                 timeout=timeout,
                 sensitive_values=(credential,),
             ),
-            decode_model(MerchantConnectionResponse),
+            decode_model(MerchantConnection),
         )
 
     async def update(
@@ -137,7 +136,7 @@ class AsyncMerchantConnectionResource:
         guard: MerchantGuardInput | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantConnectionResponse:
+    ) -> MerchantConnection:
         """Update the merchant connection.
 
         Omitted fields keep their current values.
@@ -172,7 +171,7 @@ class AsyncMerchantConnectionResource:
                     () if isinstance(credential, _Omitted) else (credential,)
                 ),
             ),
-            decode_model(MerchantConnectionResponse),
+            decode_model(MerchantConnection),
         )
 
     async def retire(
@@ -285,7 +284,7 @@ class AsyncMerchantBindingsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
-            for item in page.bindings:
+            for item in page.data:
                 yield item
             if page.next_cursor is None:
                 return
@@ -298,7 +297,7 @@ class AsyncMerchantBindingsResource:
         customer_id: str,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantBindingResponse:
+    ) -> MerchantCustomerBinding:
         """Link an end user to a provider customer.
 
         The API checks that the customer exists at the provider before saving.
@@ -326,7 +325,7 @@ class AsyncMerchantBindingsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MerchantBindingResponse),
+            decode_model(MerchantCustomerBinding),
         )
 
     async def delete(
@@ -440,7 +439,7 @@ class AsyncMerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
-            for item in page.events:
+            for item in page.data:
                 yield item
             if page.next_cursor is None:
                 return
@@ -452,7 +451,7 @@ class AsyncMerchantUsageEventsResource:
         *,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantUsageEventResponse:
+    ) -> MerchantUsageEvent:
         """Fetch one usage event.
 
         Args:
@@ -476,7 +475,7 @@ class AsyncMerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MerchantUsageEventResponse),
+            decode_model(MerchantUsageEvent),
         )
 
     async def summary(
@@ -485,7 +484,7 @@ class AsyncMerchantUsageEventsResource:
         days: int | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantUsageSummaryResponse:
+    ) -> MerchantUsageSummary:
         """Fetch delivery health: status counts and a daily window.
 
         Args:
@@ -510,7 +509,7 @@ class AsyncMerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MerchantUsageSummaryResponse),
+            decode_model(MerchantUsageSummary),
         )
 
     async def retry(
@@ -519,7 +518,7 @@ class AsyncMerchantUsageEventsResource:
         *,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantUsageEventResponse:
+    ) -> MerchantUsageEvent:
         """Send a failed event again.
 
         Args:
@@ -543,7 +542,7 @@ class AsyncMerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MerchantUsageEventResponse),
+            decode_model(MerchantUsageEvent),
         )
 
     async def discard(
@@ -552,7 +551,7 @@ class AsyncMerchantUsageEventsResource:
         *,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MerchantUsageEventResponse:
+    ) -> MerchantUsageEvent:
         """Stop delivering an event.
 
         Args:
@@ -576,5 +575,5 @@ class AsyncMerchantUsageEventsResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MerchantUsageEventResponse),
+            decode_model(MerchantUsageEvent),
         )

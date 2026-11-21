@@ -157,6 +157,7 @@ class ArtifactsListOptions(TypedDict, total=False):
     session_id: str
     agent_id: str
     cursor: str
+    limit: int
 
 
 class SessionsListOptions(TypedDict, total=False):

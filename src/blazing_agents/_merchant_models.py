@@ -9,7 +9,7 @@ from pydantic import (
     StringConstraints,
 )
 
-from ._models import AgentId, ResponseModel, SessionId, TurnId
+from ._models import AgentId, ResponseModel, SessionId, TenantId, TurnId
 from ._types import (
     MerchantEnvironment,
     MerchantProvider,
@@ -35,6 +35,7 @@ class MerchantGuard(ResponseModel):
 
 class MerchantConnection(ResponseModel):
     id: MerchantConnectionId
+    tenant_id: TenantId = Field(alias="tenantId")
     provider: MerchantProvider
     environment: MerchantEnvironment
     merchant_account_id: str = Field(alias="merchantAccountId", min_length=1)
@@ -56,17 +57,14 @@ class MerchantCustomerBinding(ResponseModel):
     updated_at: AwareDatetime = Field(alias="updatedAt")
 
 
-class MerchantBindingResponse(ResponseModel):
-    binding: MerchantCustomerBinding
-
-
 class MerchantBindingsPage(ResponseModel):
-    bindings: list[MerchantCustomerBinding]
+    data: list[MerchantCustomerBinding]
     next_cursor: str | None = Field(alias="nextCursor")
 
 
 class MerchantUsageEvent(ResponseModel):
     id: MerchantUsageEventId
+    tenant_id: TenantId = Field(alias="tenantId")
     turn_id: TurnId = Field(alias="turnId")
     connection_id: MerchantConnectionId = Field(alias="connectionId")
     provider: MerchantProvider
@@ -94,12 +92,8 @@ class MerchantUsageEvent(ResponseModel):
     )
 
 
-class MerchantUsageEventResponse(ResponseModel):
-    event: MerchantUsageEvent
-
-
 class MerchantUsageEventsPage(ResponseModel):
-    events: list[MerchantUsageEvent]
+    data: list[MerchantUsageEvent]
     next_cursor: str | None = Field(alias="nextCursor")
 
 
@@ -126,7 +120,3 @@ class MerchantUsageSummary(ResponseModel):
         alias="oldestPendingOccurredAt"
     )
     daily: list[MerchantUsageSummaryDay]
-
-
-class MerchantUsageSummaryResponse(ResponseModel):
-    summary: MerchantUsageSummary

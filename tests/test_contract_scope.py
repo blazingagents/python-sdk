@@ -39,7 +39,7 @@ Client = User | Tenant
 # operationIds.
 CALLS: dict[str, tuple[Callable[[Client], object], ...]] = {
     "agents.create": (lambda c: c.agents.create(name="Agent"),),
-    "agents.delete": (lambda c: c.agents.delete(AG, include_artifacts=False),),
+    "agents.delete": (lambda c: c.agents.delete(AG, delete_artifacts=False),),
     "agents.disable": (lambda c: c.agents.disable(AG),),
     "agents.enable": (lambda c: c.agents.enable(AG),),
     "agents.get": (lambda c: c.agents.get(AG),),

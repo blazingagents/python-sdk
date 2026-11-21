@@ -32,8 +32,8 @@ from blazing_agents import (
     FunctionContext,
     JsonValue,
     LatestSessionsPage,
+    Memory,
     MemoryCreate,
-    MemoryResponse,
     ObjectStream,
     RelayContext,
     RelayResponse,
@@ -46,6 +46,7 @@ from blazing_agents import (
     SessionResponse,
     SessionStopResponse,
     Skill,
+    SkillCopyResults,
     SkillDetail,
     SkillsPage,
     SpendingLimitInput,
@@ -99,6 +100,7 @@ def sync_examples(client: BlazingAgents) -> None:
         "agent_id": "ag_0123456789abcdef",
         "session_id": "ss_0123456789abcdef",
         "cursor": "next-page-token",
+        "limit": 100,
     }
     client.artifacts.list(**artifact_options)
     agent_request: AgentCreate = {
@@ -137,7 +139,7 @@ def sync_examples(client: BlazingAgents) -> None:
             agent_id="ag_0123456789abcdef",
             **memory_request,
         ),
-        MemoryResponse,
+        Memory,
     )
     chat_request: ChatMessageInput = {
         "agent_id": "ag_0123456789abcdef",
@@ -270,6 +272,14 @@ def sync_examples(client: BlazingAgents) -> None:
             idempotency_key="retry-key",
         ),
         SkillDetail,
+    )
+    assert_type(
+        skills.copy(
+            skill_id="skill_0123456789abcdef",
+            destination_agent_ids=["ag_fedcba9876543210"],
+            idempotency_key="retry-key",
+        ),
+        SkillCopyResults,
     )
     assert_type(
         client.artifacts.get(
@@ -555,7 +565,7 @@ def session_input_examples(client: BlazingAgents) -> None:
         message=message,
     )
     assert_type(submitted, SessionInputResponse)
-    assert_type(submitted.data.state, SessionInputState)
+    assert_type(submitted.input.state, SessionInputState)
     assert_type(submitted.activity.state, SessionActivityState)
     page = client.sessions.inputs(
         agent_id="ag_example", session_id="ss_example", include_completed=True

@@ -62,7 +62,6 @@ from blazing_agents import (
     MemoriesPage,
     Memory,
     MemoryCreate,
-    MemoryResponse,
     MemoryUpdate,
     ObjectJSONDecodeError,
     ObjectStream,
@@ -89,6 +88,7 @@ from blazing_agents import (
     SkillCopy,
     SkillCopyCreated,
     SkillCopyFailed,
+    SkillCopyResults,
     SkillCreate,
     SkillDetail,
     SkillsListOptions,
@@ -195,6 +195,7 @@ WORKSPACE: dict[str, Any] = {
 }
 PROVIDER: dict[str, Any] = {
     "id": "prv_0123456789abcdef",
+    "tenantId": "ten_0123456789abcdef",
     "name": "OpenAI",
     "providerType": "future-provider",
     "baseUrl": None,
@@ -204,6 +205,7 @@ PROVIDER: dict[str, Any] = {
 }
 MCP_CONNECTION: dict[str, Any] = {
     "id": "mcp_0123456789abcdef",
+    "tenantId": "ten_0123456789abcdef",
     "name": "Tools",
     "url": "https://mcp.example.com/",
     "authType": "future-auth",
@@ -256,7 +258,7 @@ SKILL_DETAIL: dict[str, Any] = {
     ],
 }
 ARTIFACT: dict[str, Any] = {
-    "artifactId": "at_0123456789abcdef",
+    "id": "at_0123456789abcdef",
     "agentId": "ag_0123456789abcdef",
     "tenantId": "ten_0123456789abcdef",
     "sessionId": "ss_0123456789abcdef",
@@ -270,6 +272,7 @@ ARTIFACT: dict[str, Any] = {
 }
 SESSION: dict[str, Any] = {
     "id": "ss_0123456789abcdef",
+    "tenantId": "ten_0123456789abcdef",
     "messageCount": 2,
     "lastMessagePreview": "Done",
     "userId": "end-user",
@@ -438,7 +441,7 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     submitted_runs: dict[str, str] = {}
 
     def idempotent_submission(request: Request) -> dict[str, str]:
-        key = cast(dict[str, str], json.loads(request.body))["idempotencyKey"]
+        key = request.headers["idempotency-key"]
         run_id = submitted_runs.setdefault(key, "tr_0123456789abcdef")
         return {"runId": run_id}
 
@@ -650,8 +653,8 @@ def test_sync_tasks_manage_definitions_runs_and_lazy_pages() -> None:
     }
     assert state.requests[8].method == "DELETE"
     for request in state.requests[9:11]:
-        assert json.loads(request.body) == {"idempotencyKey": "stable-key"}
-        assert "idempotency-key" not in request.headers
+        assert request.headers["idempotency-key"] == "stable-key"
+        assert request.body == b""
     assert state.requests[13].target.endswith("?cursor=runs-next&limit=1")
     assert state.requests[15].target.endswith("/messages?after=tail+before&limit=25")
     assert state.requests[16].method == "POST"
@@ -768,7 +771,7 @@ def test_async_tasks_match_sync_resources_and_lazy_pagination() -> None:
         "schedule": {"kind": "interval", "config": {"everyMs": 120_000}},
     }
     assert state.requests[1].target == "/v1/tasks?userId=&limit=1"
-    assert json.loads(state.requests[7].body) == {}
+    assert state.requests[7].body == b""
     assert "idempotency-key" not in state.requests[7].headers
     assert state.requests[10].target.endswith("?cursor=next-run&limit=1")
     assert state.requests[12].target.endswith("/messages?cursor=older")
@@ -1656,7 +1659,7 @@ def test_public_request_and_response_validation_rejects_invalid_invariants() -> 
     oversized_memory = {**MEMORY, "text": "µ" * 5_121}
     with loopback(
         Response(body=duplicate_tools),
-        Response(body={"memory": oversized_memory}),
+        Response(body=oversized_memory),
     ) as (base_url, _state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
             with pytest.raises(ValidationError, match="unique"):
@@ -1845,7 +1848,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
             )
             disabled = client.agents.disable("ag_0123456789abcdef")
             enabled = client.agents.enable("ag_0123456789abcdef")
-            client.agents.delete("ag_0123456789abcdef", include_artifacts=False)
+            client.agents.delete("ag_0123456789abcdef", delete_artifacts=False)
 
     assert created.user_id == "end-user"
     assert created.metadata == {"OpaqueKey": {"nested_key": True}}
@@ -1862,7 +1865,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
         "POST",
         "GET",
         "GET",
-        "PUT",
+        "PATCH",
         "POST",
         "POST",
         "DELETE",
@@ -1882,6 +1885,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
     assert state.requests[1].target.endswith(
         "?userId=end-user&workspaceId=ws_0123456789abcdef&cursor=first-agent&limit=25"
     )
+    assert state.requests[6].target.endswith("?deleteArtifacts=false")
     assert json.loads(state.requests[3].body) == {
         "name": "Renamed",
         "model": None,
@@ -1892,7 +1896,7 @@ def test_sync_agents_manage_complete_lifecycle_and_attribution() -> None:
 
 def test_sync_agent_mcp_attachment_settings() -> None:
     with loopback(
-        Response(body={"mcpAttachments": [MCP_ATTACHMENT]}),
+        Response(body={"data": [MCP_ATTACHMENT]}),
         Response(
             body={
                 **MCP_ATTACHMENT,
@@ -1914,7 +1918,7 @@ def test_sync_agent_mcp_attachment_settings() -> None:
                 forwarded_metadata_keys=["locale"],
             )
 
-    assert listed.mcp_attachments[0].forward_user_id is False
+    assert listed.data[0].forward_user_id is False
     assert updated.forwarded_metadata_keys == ["locale"]
     assert updated.model_extra == {"futureSetting": "retained"}
     assert response_meta(updated).request_id == "req_attachment"
@@ -1986,7 +1990,7 @@ def test_async_agents_match_every_sync_operation() -> None:
         Response(body={**AGENT, "workspaceId": "ws_0123456789abcdef"}),
         Response(body={**AGENT, "status": "disabled"}),
         Response(body=AGENT),
-        Response(body={"mcpAttachments": [MCP_ATTACHMENT]}),
+        Response(body={"data": [MCP_ATTACHMENT]}),
         Response(body={**MCP_ATTACHMENT, "forwardUserId": True}),
         Response(body={**AGENT, "avatarUrl": "https://signed.example/avatar.png"}),
         Response(body=AGENT),
@@ -2021,7 +2025,7 @@ def test_async_agents_match_every_sync_operation() -> None:
                     await client.agents.list_mcp_attachments(
                         "ag_0123456789abcdef",
                     )
-                ).mcp_attachments[0].mcp_connection_id == ("mcp_0123456789abcdef")
+                ).data[0].mcp_connection_id == ("mcp_0123456789abcdef")
                 assert (
                     await client.agents.update_mcp_attachment(
                         "ag_0123456789abcdef",
@@ -2039,9 +2043,7 @@ def test_async_agents_match_every_sync_operation() -> None:
                 assert (
                     await client.agents.remove_avatar("ag_0123456789abcdef")
                 ).avatar_url is None
-                await client.agents.delete(
-                    "ag_0123456789abcdef", include_artifacts=True
-                )
+                await client.agents.delete("ag_0123456789abcdef", delete_artifacts=True)
 
             assert caller_file.closed is False
 
@@ -2049,7 +2051,9 @@ def test_async_agents_match_every_sync_operation() -> None:
 
     assert len(state.requests) == 11
     assert json.loads(state.requests[0].body) == {"name": "Builder"}
+    assert state.requests[3].method == "PATCH"
     assert state.requests[-1].method == "DELETE"
+    assert state.requests[-1].target.endswith("?deleteArtifacts=true")
 
 
 def test_agent_boundaries_reject_malformed_responses() -> None:
@@ -2109,7 +2113,7 @@ def test_agent_and_mcp_models_validate_documented_response_contracts() -> None:
     ]
     responses = [
         *(Response(body=value) for value in invalid_agents),
-        *(Response(body={"mcpAttachments": [value]}) for value in invalid_attachments),
+        *(Response(body={"data": [value]}) for value in invalid_attachments),
     ]
     with loopback(*responses) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
@@ -2213,6 +2217,7 @@ def test_sync_workspaces_manage_lifecycle_pagination_and_agent_attachment() -> N
     assert state.requests[3].target.endswith(
         "/v1/workspaces?cursor=next&limit=1&userId=end-user"
     )
+    assert state.requests[5].method == "PATCH"
     assert json.loads(state.requests[5].body) == {
         "name": None,
         "metadata": {"OpaqueKey": {"nested_key": False}},
@@ -2351,7 +2356,7 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
         ),
         Response(
             body={
-                "providers": [
+                "data": [
                     {
                         k: v
                         for k, v in future.items()
@@ -2414,9 +2419,11 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
     assert response_meta(created).request_id == "req_provider"
     assert response_meta(created).headers["x-echo-secret"] == "[REDACTED]"
     assert secret not in created.model_dump_json()
-    assert listed.providers[0].model_extra == {"futureField": {"OpaqueKey": True}}
-    assert not hasattr(listed.providers[0], "base_url")
-    assert not hasattr(listed.providers[0], "key_fragment")
+    assert created.tenant_id == PROVIDER["tenantId"]
+    assert listed.data[0].tenant_id == PROVIDER["tenantId"]
+    assert listed.data[0].model_extra == {"futureField": {"OpaqueKey": True}}
+    assert not hasattr(listed.data[0], "base_url")
+    assert not hasattr(listed.data[0], "key_fragment")
     assert fetched.id == PROVIDER["id"]
     assert updated.base_url is None
     assert secret not in str(captured.value)
@@ -2451,7 +2458,7 @@ def test_sync_providers_cover_crud_and_safe_forward_compatibility(
 
 
 def test_provider_model_discovery_has_sync_and_async_resource_parity() -> None:
-    response = {"models": [{"id": "a-model"}, {"id": "z-model"}]}
+    response = {"data": [{"id": "a-model"}, {"id": "z-model"}]}
     responses = (Response(body=response), Response(body=response))
     with loopback(*responses) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
@@ -2465,8 +2472,8 @@ def test_provider_model_discovery_has_sync_and_async_resource_parity() -> None:
 
         async_models = asyncio.run(exercise())
 
-    assert [model.id for model in sync_models.models] == ["a-model", "z-model"]
-    assert [model.id for model in async_models.models] == ["a-model", "z-model"]
+    assert [model.id for model in sync_models.data] == ["a-model", "z-model"]
+    assert [model.id for model in async_models.data] == ["a-model", "z-model"]
     assert [request.target for request in state.requests] == [
         "/v1/providers/provider%2Fwith%20space/models",
         "/v1/providers/provider%2Fwith%20space/models",
@@ -2500,7 +2507,7 @@ def test_async_providers_match_sync_and_reject_unsafe_or_invalid_shapes() -> Non
         Response(body=PROVIDER),
         Response(
             body={
-                "providers": [
+                "data": [
                     {
                         k: v
                         for k, v in PROVIDER.items()
@@ -2664,7 +2671,7 @@ def test_sync_mcp_connections_cover_lifecycle_and_tests() -> None:
         },
     }
     with loopback(
-        Response(body={"mcpConnections": [future]}),
+        Response(body={"data": [future]}),
         Response(body=future),
         Response(body=future),
         Response(body=succeeded),
@@ -2682,7 +2689,8 @@ def test_sync_mcp_connections_cover_lifecycle_and_tests() -> None:
             failed_test = client.mcp_connections.test(MCP_CONNECTION["id"])
             client.mcp_connections.delete(MCP_CONNECTION["id"])
 
-    assert listed.mcp_connections[0].model_extra == {"futureField": "retained"}
+    assert listed.data[0].model_extra == {"futureField": "retained"}
+    assert listed.data[0].tenant_id == MCP_CONNECTION["tenantId"]
     assert fetched.status == "future-status"
     assert updated.name == "Tools"
     assert isinstance(tested, McpConnectionTestResult)
@@ -2701,7 +2709,7 @@ def test_sync_mcp_connections_cover_lifecycle_and_tests() -> None:
 def test_async_mcp_connections_match_sync_and_validate_boundaries() -> None:
     responses = (
         Response(body=MCP_CONNECTION),
-        Response(body={"mcpConnections": [MCP_CONNECTION]}),
+        Response(body={"data": [MCP_CONNECTION]}),
         Response(body=MCP_CONNECTION),
         Response(body=MCP_CONNECTION),
         Response(
@@ -3268,7 +3276,8 @@ def test_sync_memories_manage_lifecycle_query_and_lazy_pages() -> None:
     future_memory = {**MEMORY, "futureField": {"opaque_key": True}}
     with loopback(
         Response(
-            body={"memory": future_memory, "futureEnvelopeField": True},
+            body=future_memory,
+            status=201,
             headers={"x-request-id": "req_memory"},
         ),
         Response(body={"data": [MEMORY], "nextCursor": "next"}),
@@ -3279,8 +3288,8 @@ def test_sync_memories_manage_lifecycle_query_and_lazy_pages() -> None:
                 "nextCursor": None,
             }
         ),
-        Response(body={"memory": MEMORY}),
-        Response(body={"memory": {**MEMORY, "text": "Prefers light mode"}}),
+        Response(body=MEMORY),
+        Response(body={**MEMORY, "text": "Prefers light mode"}),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
@@ -3320,14 +3329,14 @@ def test_sync_memories_manage_lifecycle_query_and_lazy_pages() -> None:
                 memory_id=MEMORY["id"],
             )
 
-    assert created.memory.id == MEMORY["id"]
-    assert created.memory.user_id == ""
-    assert created.memory.model_extra == {"futureField": {"opaque_key": True}}
-    assert created.model_extra == {"futureEnvelopeField": True}
+    assert isinstance(created, Memory)
+    assert created.id == MEMORY["id"]
+    assert created.user_id == ""
+    assert created.model_extra == {"futureField": {"opaque_key": True}}
     assert response_meta(created).request_id == "req_memory"
     assert page.next_cursor == "next"
-    assert fetched.memory.text == "Prefers dark mode"
-    assert updated.memory.text == "Prefers light mode"
+    assert fetched.text == "Prefers dark mode"
+    assert updated.text == "Prefers light mode"
     assert json.loads(state.requests[0].body) == {
         "text": "Prefers dark mode",
         "userId": "",
@@ -3344,7 +3353,7 @@ def test_sync_memories_manage_lifecycle_query_and_lazy_pages() -> None:
 
 def test_async_memories_match_sync_lifecycle_and_lazy_pagination() -> None:
     with loopback(
-        Response(body={"memory": MEMORY}),
+        Response(body=MEMORY, status=201),
         Response(body={"data": [MEMORY], "nextCursor": None}),
         Response(body={"data": [MEMORY], "nextCursor": "after"}),
         Response(
@@ -3353,8 +3362,8 @@ def test_async_memories_match_sync_lifecycle_and_lazy_pagination() -> None:
                 "nextCursor": None,
             }
         ),
-        Response(body={"memory": MEMORY}),
-        Response(body={"memory": {**MEMORY, "text": "Updated"}}),
+        Response(body=MEMORY),
+        Response(body={**MEMORY, "text": "Updated"}),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
 
@@ -3388,7 +3397,7 @@ def test_async_memories_match_sync_lifecycle_and_lazy_pagination() -> None:
                     memory_id=MEMORY["id"],
                     text="Updated",
                 )
-                assert updated.memory.text == "Updated"
+                assert updated.text == "Updated"
                 await client.memories.delete(
                     agent_id=MEMORY["agentId"],
                     memory_id=MEMORY["id"],
@@ -3426,7 +3435,6 @@ def test_prompt_and_memory_public_types_ship_in_the_installed_wheel() -> None:
     assert issubclass(Prompt, object)
     assert issubclass(PromptsPage, object)
     assert issubclass(Memory, object)
-    assert issubclass(MemoryResponse, object)
     assert issubclass(MemoriesPage, object)
 
 
@@ -3482,7 +3490,7 @@ def test_prompt_and_memory_boundaries_preserve_errors_and_reject_malformed() -> 
             status=404,
             headers={"x-request-id": "req_missing_memory"},
         ),
-        Response(body={"memory": {**MEMORY, "text": ""}}),
+        Response(body={**MEMORY, "text": ""}),
         Response(body={"data": "wrong", "nextCursor": None}),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
@@ -3593,7 +3601,9 @@ def test_sync_skills_manage_files_pagination_and_partial_copies() -> None:
         Response(raw_body=b"\x00\xff\x80\x01"),
         Response(body=SKILL_DETAIL),
         Response(body=SKILL_DETAIL),
-        Response(body=copy_results, headers={"x-request-id": "req_skill_copy"}),
+        Response(
+            body={"data": copy_results}, headers={"x-request-id": "req_skill_copy"}
+        ),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
@@ -3646,14 +3656,14 @@ def test_sync_skills_manage_files_pagination_and_partial_copies() -> None:
     assert content == b"\x00\xff\x80\x01"
     assert replaced.id == SKILL["id"]
     assert after_delete.name == "deploy"
-    assert isinstance(copied[0], SkillCopyCreated)
-    assert copied[0].agent_id == destination
-    assert copied[0].skill.agent_id == destination
-    assert isinstance(copied[1], SkillCopyFailed)
-    assert copied[1].agent_id == failed_destination
-    assert copied[1].error.details == {"existingId": "skill_1111111111111111"}
-    assert response_meta(copied[0]).request_id == "req_skill_copy"
-    assert response_meta(copied[1]).request_id == "req_skill_copy"
+    assert isinstance(copied, SkillCopyResults)
+    assert isinstance(copied.data[0], SkillCopyCreated)
+    assert copied.data[0].agent_id == destination
+    assert copied.data[0].skill.agent_id == destination
+    assert isinstance(copied.data[1], SkillCopyFailed)
+    assert copied.data[1].agent_id == failed_destination
+    assert copied.data[1].error.details == {"existingId": "skill_1111111111111111"}
+    assert response_meta(copied).request_id == "req_skill_copy"
 
     assert json.loads(state.requests[0].body) == {
         "path": "SKILL.md",
@@ -3833,7 +3843,7 @@ def test_async_skills_match_lifecycle_upload_and_file_ownership(
         Response(raw_body=b"\x00\xffasync"),
         Response(body=SKILL_DETAIL),
         Response(body=SKILL_DETAIL),
-        Response(body=copy_results),
+        Response(body={"data": copy_results}),
         Response(status=204, raw_body=b""),
     ) as (base_url, state):
 
@@ -3913,8 +3923,8 @@ def test_async_skills_match_lifecycle_upload_and_file_ownership(
             assert content == b"\x00\xffasync"
             assert replaced.id == SKILL["id"]
             assert after_delete.description == "Deploy the application."
-            assert isinstance(copied[0], SkillCopyCreated)
-            assert isinstance(copied[1], SkillCopyFailed)
+            assert isinstance(copied.data[0], SkillCopyCreated)
+            assert isinstance(copied.data[1], SkillCopyFailed)
 
         asyncio.run(exercise())
 
@@ -3961,7 +3971,7 @@ def test_skill_request_validation_and_malformed_responses() -> None:
             headers={"x-request-id": "req_missing_skill_file"},
         ),
         Response(body={"data": "wrong", "nextCursor": None}),
-        Response(body=[{"agentId": SKILL["agentId"], "status": "future"}]),
+        Response(body={"data": [{"agentId": SKILL["agentId"], "status": "future"}]}),
         Response(body={**SKILL_DETAIL, "name": "anthropic"}),
         Response(
             body={
@@ -4022,7 +4032,7 @@ def test_skill_creation_sends_the_idempotency_key_as_a_header_only_when_given(
         "status": "created",
         "skill": {**SKILL_DETAIL, "agentId": "ag_fedcba9876543210"},
     }
-    body = [created] if operation == "copy" else SKILL_DETAIL
+    body = {"data": [created]} if operation == "copy" else SKILL_DETAIL
     attempts: list[dict[str, Any]] = [
         {
             "idempotency_key": "retry-key",
@@ -4132,21 +4142,21 @@ def test_artifacts_list_get_download_url_and_delete() -> None:
         Response(status=204),
     ) as (base_url, state):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            page = client.artifacts.list(agent_id=ARTIFACT["agentId"])
-            detail = client.artifacts.get(artifact_id=ARTIFACT["artifactId"])
-            signed = client.artifacts.create_download_url(
-                artifact_id=ARTIFACT["artifactId"]
-            )
+            page = client.artifacts.list(agent_id=ARTIFACT["agentId"], limit=100)
+            detail = client.artifacts.get(artifact_id=ARTIFACT["id"])
+            signed = client.artifacts.create_download_url(artifact_id=ARTIFACT["id"])
             client.artifacts.delete(
-                artifact_id=ARTIFACT["artifactId"],
+                artifact_id=ARTIFACT["id"],
             )
 
     assert isinstance(page, ArtifactsPage)
+    assert page.data[0].id == ARTIFACT["id"]
     assert isinstance(detail, Artifact)
+    assert detail.id == ARTIFACT["id"]
     assert detail.model_extra == {}
     assert isinstance(signed, ArtifactDownloadUrl)
     assert [request.target for request in state.requests] == [
-        "/v1/artifacts?agentId=ag_0123456789abcdef",
+        "/v1/artifacts?agentId=ag_0123456789abcdef&limit=100",
         "/v1/artifacts/at_0123456789abcdef",
         "/v1/artifacts/at_0123456789abcdef/download-url",
         "/v1/artifacts/at_0123456789abcdef",
@@ -4156,12 +4166,12 @@ def test_artifacts_list_get_download_url_and_delete() -> None:
 def test_async_artifacts_match_tenant_detail_and_download_url() -> None:
     async def exercise(base_url: str) -> None:
         async with AsyncBlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            detail = await client.artifacts.get(artifact_id=ARTIFACT["artifactId"])
+            detail = await client.artifacts.get(artifact_id=ARTIFACT["id"])
             signed = await client.artifacts.create_download_url(
-                artifact_id=ARTIFACT["artifactId"]
+                artifact_id=ARTIFACT["id"]
             )
             await client.artifacts.delete(
-                artifact_id=ARTIFACT["artifactId"],
+                artifact_id=ARTIFACT["id"],
             )
 
         assert isinstance(detail, Artifact)
@@ -4189,7 +4199,7 @@ def test_async_artifacts_match_tenant_detail_and_download_url() -> None:
 def test_artifact_iterators_page_until_the_terminal_cursor() -> None:
     page_one = {"data": [ARTIFACT], "nextCursor": "next"}
     page_two = {
-        "data": [{**ARTIFACT, "artifactId": "at_aaaaaaaaaaaaaaaa"}],
+        "data": [{**ARTIFACT, "id": "at_aaaaaaaaaaaaaaaa"}],
         "nextCursor": None,
     }
     with loopback(Response(body=page_one), Response(body=page_two)) as (
@@ -4197,14 +4207,16 @@ def test_artifact_iterators_page_until_the_terminal_cursor() -> None:
         state,
     ):
         with BlazingAgents(api_key="ba_test", base_url=base_url) as client:
-            artifacts = list(client.artifacts.iter(session_id=ARTIFACT["sessionId"]))
+            artifacts = list(
+                client.artifacts.iter(session_id=ARTIFACT["sessionId"], limit=1)
+            )
 
-    assert [artifact.artifact_id for artifact in artifacts] == [
-        ARTIFACT["artifactId"],
+    assert [artifact.id for artifact in artifacts] == [
+        ARTIFACT["id"],
         "at_aaaaaaaaaaaaaaaa",
     ]
     assert state.requests[1].target.endswith(
-        "?sessionId=ss_0123456789abcdef&cursor=next"
+        "?sessionId=ss_0123456789abcdef&cursor=next&limit=1"
     )
 
     async def exercise(base_url: str) -> list[Artifact]:
@@ -4212,7 +4224,7 @@ def test_artifact_iterators_page_until_the_terminal_cursor() -> None:
             return [
                 artifact
                 async for artifact in client.artifacts.iter(
-                    session_id=ARTIFACT["sessionId"]
+                    session_id=ARTIFACT["sessionId"], limit=1
                 )
             ]
 
@@ -4222,12 +4234,12 @@ def test_artifact_iterators_page_until_the_terminal_cursor() -> None:
     ):
         async_artifacts = asyncio.run(exercise(base_url))
 
-    assert [artifact.artifact_id for artifact in async_artifacts] == [
-        ARTIFACT["artifactId"],
+    assert [artifact.id for artifact in async_artifacts] == [
+        ARTIFACT["id"],
         "at_aaaaaaaaaaaaaaaa",
     ]
     assert state.requests[1].target.endswith(
-        "?sessionId=ss_0123456789abcdef&cursor=next"
+        "?sessionId=ss_0123456789abcdef&cursor=next&limit=1"
     )
 
 

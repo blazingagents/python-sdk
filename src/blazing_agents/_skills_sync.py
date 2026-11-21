@@ -5,7 +5,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Literal
 
 from ._models import Skill, SkillCopyResults, SkillDetail, SkillsPage
-from ._skills import _skill_path, _skill_upload_request, _SkillCopyResultList
+from ._skills import _skill_path, _skill_upload_request
 from ._transport import (
     OMITTED,
     _Omitted,
@@ -377,7 +377,7 @@ class AgentSkillsResource:
         idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> _SkillCopyResultList:
+    ) -> SkillCopyResults:
         """Copy Skills to another Agent.
 
         Retrying with the same idempotency_key and the same skill_id returns the
@@ -395,14 +395,14 @@ class AgentSkillsResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Per-destination copy results.
+            The per-destination copy results under data.
 
         Raises:
             APIStatusError: The API returns a non-success status.
             APIConnectionError: The HTTP request fails before a complete response.
             APITimeoutError: The HTTP request times out.
         """
-        response = self._transport.request(
+        return self._transport.request(
             _Request(
                 "POST",
                 f"{_skill_path(self._agent_id, skill_id)}/copies",
@@ -412,4 +412,3 @@ class AgentSkillsResource:
             ),
             decode_model(SkillCopyResults),
         )
-        return response.root

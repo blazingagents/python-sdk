@@ -89,7 +89,7 @@ STORED = [
     {**ASSISTANT_TEXT, "branchable": False, "metadata": {"model": "m"}},
 ]
 RECEIPT = {
-    "data": {
+    "input": {
         "requestId": "steer-1",
         "sequence": 1,
         "message": MESSAGE,

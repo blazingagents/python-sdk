@@ -121,7 +121,7 @@ def _validate_timezone(timezone: str) -> str:
 
 
 class Artifact(ResponseModel):
-    artifact_id: ArtifactId = Field(alias="artifactId")
+    id: ArtifactId
     agent_id: AgentId = Field(alias="agentId")
     tenant_id: TenantId = Field(alias="tenantId")
     session_id: SessionId = Field(alias="sessionId")
@@ -141,6 +141,7 @@ class ArtifactsPage(ResponseModel):
 
 class Session(ResponseModel):
     id: SessionId
+    tenant_id: TenantId = Field(alias="tenantId")
     message_count: int = Field(alias="messageCount", ge=0)
     last_message_preview: str | None = Field(alias="lastMessagePreview")
     user_id: str = Field(alias="userId")
@@ -272,7 +273,7 @@ class ChatSteerConsumedEvent(ResponseModel):
 
 
 class SessionInputResponse(ResponseModel):
-    data: SessionInput
+    input: SessionInput
     activity: SessionActivity
 
 
