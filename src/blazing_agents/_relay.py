@@ -322,4 +322,4 @@ class AsyncChatRelay(Generic[RequestT]):
             request_id=body.request_id,
             message=cast(dict[str, object], body.message),
         )
-        return AsyncRelayResponse._json(202, {"state": receipt.data.state})
+        return AsyncRelayResponse._json(202, {"state": receipt.input.state})

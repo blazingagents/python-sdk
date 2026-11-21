@@ -32,6 +32,7 @@ class ArtifactsResource:
         agent_id: str | _Omitted = OMITTED,
         session_id: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> ArtifactsPage:
@@ -41,6 +42,7 @@ class ArtifactsResource:
             agent_id: Agent identifier.
             session_id: Session identifier.
             cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page, 1 to 100.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -58,7 +60,10 @@ class ArtifactsResource:
                 "GET",
                 "/v1/artifacts",
                 query=wire_fields(
-                    agent_id=agent_id, session_id=session_id, cursor=cursor
+                    agent_id=agent_id,
+                    session_id=session_id,
+                    cursor=cursor,
+                    limit=limit,
                 ),
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -72,17 +77,20 @@ class ArtifactsResource:
         agent_id: str | _Omitted = OMITTED,
         session_id: str | _Omitted = OMITTED,
         cursor: str | _Omitted = OMITTED,
+        limit: int | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> Iterator[Artifact]:
         """Iterate Artifact records across all pages.
 
-        Pages are fetched lazily until the API returns no continuation cursor.
+        Pages are fetched lazily until the API returns no continuation cursor. limit
+        controls each page, not the total.
 
         Args:
             agent_id: Agent identifier.
             session_id: Session identifier.
             cursor: Continuation cursor from a previous page.
+            limit: Maximum number of items per page, 1 to 100.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -96,6 +104,7 @@ class ArtifactsResource:
                 agent_id=agent_id,
                 session_id=session_id,
                 cursor=next_cursor,
+                limit=limit,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )

@@ -40,7 +40,7 @@ CONNECTION: dict[str, Any] = {
 def test_connection_lifecycle(asynchronous: bool) -> None:
     with loopback(
         *[Response(body=CONNECTION) for _ in range(7)],
-        Response(body={"chatConnections": [CONNECTION]}),
+        Response(body={"data": [CONNECTION]}),
         Response(status=204),
     ) as (base_url, state):
 
@@ -70,7 +70,7 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
                 await resource.check_health(created.id)
                 await resource.enable(created.id)
                 await resource.disable(created.id)
-                assert (await resource.list()).chat_connections[0].id == created.id
+                assert (await resource.list()).data[0].id == created.id
                 await resource.delete(created.id)
 
         if asynchronous:
@@ -99,7 +99,7 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
                 resource.check_health(created.id)
                 resource.enable(created.id)
                 resource.disable(created.id)
-                assert resource.list().chat_connections[0].id == created.id
+                assert resource.list().data[0].id == created.id
                 resource.delete(created.id)
     bodies = [
         json.loads(request.body) if request.body else None for request in state.requests

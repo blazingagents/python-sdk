@@ -224,6 +224,8 @@ class AsyncWorkspacesResource:
     ) -> Workspace:
         """Update the provided Workspace fields.
 
+        Omitted fields keep their current values.
+
         Args:
             workspace_id: Workspace identifier.
             name: New Workspace display name, or None to clear it.
@@ -249,7 +251,7 @@ class AsyncWorkspacesResource:
         )
         return await self._transport.request(
             _Request(
-                "PUT",
+                "PATCH",
                 _workspace_path(workspace_id),
                 json_body=body,
                 extra_headers=extra_headers,

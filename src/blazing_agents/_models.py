@@ -15,7 +15,6 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
-    RootModel,
     StringConstraints,
     field_validator,
     model_validator,
@@ -415,6 +414,7 @@ class UsageOverview(ResponseModel):
 
 class Provider(ResponseModel):
     id: ProviderId
+    tenant_id: TenantId = Field(alias="tenantId")
     name: NonEmptyString
     provider_type: str = Field(alias="providerType")
     base_url: str | None = Field(alias="baseUrl")
@@ -425,6 +425,7 @@ class Provider(ResponseModel):
 
 class ProviderListItem(ResponseModel):
     id: ProviderId
+    tenant_id: TenantId = Field(alias="tenantId")
     name: NonEmptyString
     provider_type: str = Field(alias="providerType")
     created_at: AwareDatetime = Field(alias="createdAt")
@@ -432,7 +433,7 @@ class ProviderListItem(ResponseModel):
 
 
 class Providers(ResponseModel):
-    providers: list[ProviderListItem]
+    data: list[ProviderListItem]
 
 
 class ProviderModel(ResponseModel):
@@ -445,11 +446,12 @@ class ThinkingLevels(ResponseModel):
 
 
 class ProviderModels(ResponseModel):
-    models: list[ProviderModel]
+    data: list[ProviderModel]
 
 
 class McpConnection(ResponseModel):
     id: McpConnectionId
+    tenant_id: TenantId = Field(alias="tenantId")
     name: NonEmptyString
     url: AnyUrl
     auth_type: str = Field(alias="authType")
@@ -467,7 +469,7 @@ class McpConnection(ResponseModel):
 
 
 class McpConnections(ResponseModel):
-    mcp_connections: list[McpConnection] = Field(alias="mcpConnections")
+    data: list[McpConnection]
 
 
 class McpConnectionTestError(ResponseModel):
@@ -645,7 +647,7 @@ class McpAttachment(ResponseModel):
 
 
 class McpAttachments(ResponseModel):
-    mcp_attachments: list[McpAttachment] = Field(alias="mcpAttachments")
+    data: list[McpAttachment]
 
 
 class WorkspaceUnrestrictedNetworkPolicy(ResponseModel):
@@ -740,10 +742,6 @@ class Memory(ResponseModel):
     last_accessed_at: AwareDatetime = Field(alias="lastAccessedAt")
 
 
-class MemoryResponse(ResponseModel):
-    memory: Memory
-
-
 class MemoriesPage(ResponseModel):
     data: list[Memory]
     next_cursor: str | None = Field(alias="nextCursor")
@@ -804,8 +802,5 @@ class SkillCopyFailed(ResponseModel):
 SkillCopyResult: TypeAlias = SkillCopyCreated | SkillCopyFailed
 
 
-class SkillCopyResults(RootModel[list[SkillCopyResult]]):
-    def _attach_response_meta(self, meta: ResponseMeta) -> None:
-        """Record the response on each copy result, which callers receive."""
-        for result in self.root:
-            result._attach_response_meta(meta)
+class SkillCopyResults(ResponseModel):
+    data: list[SkillCopyResult]

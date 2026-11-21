@@ -26,6 +26,7 @@ from ._types import (
     TaskScheduleInput,
     Timeout,
 )
+from ._wire import idempotency_headers
 
 
 def _task_path(task_id: str | None = None) -> str:
@@ -59,11 +60,9 @@ def _task_body(
     submit: bool | _Omitted,
     user_id: str | _Omitted,
     metadata: dict[str, object] | _Omitted,
-    idempotency_key: str | _Omitted,
 ) -> dict[str, object]:
     """Build the task request body, omitting unspecified fields."""
-    body: dict[str, object] = _task_run_body(idempotency_key)
-    body |= wire_fields(
+    body: dict[str, object] = wire_fields(
         agent_id=agent_id,
         name=name,
         prompt=prompt,
@@ -75,15 +74,6 @@ def _task_body(
     if not isinstance(schedule, _Omitted):
         body["schedule"] = None if schedule is None else _task_schedule(schedule)
     return body
-
-
-def _task_run_body(
-    idempotency_key: str | _Omitted,
-) -> dict[str, object]:
-    """Build the task run request body, omitting unspecified fields."""
-    if isinstance(idempotency_key, _Omitted):
-        return {}
-    return {"idempotencyKey": idempotency_key}
 
 
 class AsyncTasksResource:
@@ -106,7 +96,7 @@ class AsyncTasksResource:
         submit: bool | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
-        idempotency_key: str | _Omitted = OMITTED,
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskCreateResponse:
@@ -123,8 +113,9 @@ class AsyncTasksResource:
             submit: Optional initial Task Run submission.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
-            idempotency_key: Stable key for retrying the same create without
-                creating another Task.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same create without creating another Task. Sent as the
+                Idempotency-Key header, replacing any in extra_headers.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -150,9 +141,8 @@ class AsyncTasksResource:
                     submit=submit,
                     user_id=user_id,
                     metadata=metadata,
-                    idempotency_key=idempotency_key,
                 ),
-                extra_headers=extra_headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(TaskCreateResponse),
@@ -319,7 +309,6 @@ class AsyncTasksResource:
             submit=OMITTED,
             user_id=OMITTED,
             metadata=metadata,
-            idempotency_key=OMITTED,
         )
         return await self._transport.request(
             _Request(
@@ -366,18 +355,20 @@ class AsyncTasksResource:
         self,
         task_id: str,
         *,
-        idempotency_key: str | _Omitted = OMITTED,
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunSubmission:
         """Submit a Task Run for execution.
 
-        The idempotency key is sent in the JSON body, not an HTTP header.
+        Retrying with the same idempotency_key returns the same Run. The key
+        replaces any Idempotency-Key in extra_headers.
 
         Args:
             task_id: Task identifier.
-            idempotency_key: Stable key for retrying the same operation without
-                duplicating it.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same submission without starting another Run. Sent as the
+                Idempotency-Key header.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -394,8 +385,7 @@ class AsyncTasksResource:
             _Request(
                 "POST",
                 _task_run_path(task_id),
-                json_body=_task_run_body(idempotency_key),
-                extra_headers=extra_headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(TaskRunSubmission),

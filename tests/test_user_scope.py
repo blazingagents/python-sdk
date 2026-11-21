@@ -165,9 +165,10 @@ def test_task_create_sends_idempotency_key(asynchronous: bool) -> None:
                     agent_id=TASK["agentId"], name="Digest", prompt="Summarize"
                 )
 
-    bodies = [json.loads(request.body) for request in state.requests]
-    assert bodies[0]["idempotencyKey"] == "create-1"
-    assert "idempotencyKey" not in bodies[1]
+    keyed, unkeyed = state.requests
+    assert keyed.headers["idempotency-key"] == "create-1"
+    assert "idempotency-key" not in unkeyed.headers
+    assert "idempotencyKey" not in json.loads(keyed.body)
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])

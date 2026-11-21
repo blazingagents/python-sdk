@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 
-from ._models import MemoriesPage, Memory, MemoryResponse
+from ._models import MemoriesPage, Memory
 from ._transport import (
     OMITTED,
     AsyncTransport,
@@ -54,7 +54,7 @@ class AsyncMemoriesResource:
         user_id: str | _Omitted = OMITTED,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MemoryResponse:
+    ) -> Memory:
         """Create a Memory.
 
         Args:
@@ -66,7 +66,7 @@ class AsyncMemoriesResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Memory response details.
+            The Memory.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -81,7 +81,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MemoryResponse),
+            decode_model(Memory),
         )
 
     async def list(
@@ -180,7 +180,7 @@ class AsyncMemoriesResource:
         memory_id: str,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MemoryResponse:
+    ) -> Memory:
         """Fetch the requested Memory.
 
         Args:
@@ -191,7 +191,7 @@ class AsyncMemoriesResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Memory response details.
+            The Memory.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -205,7 +205,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MemoryResponse),
+            decode_model(Memory),
         )
 
     async def update(
@@ -216,7 +216,7 @@ class AsyncMemoriesResource:
         text: str,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
-    ) -> MemoryResponse:
+    ) -> Memory:
         """Update the provided Memory fields.
 
         Args:
@@ -228,7 +228,7 @@ class AsyncMemoriesResource:
             timeout: Request timeout override. OMITTED inherits the client timeout.
 
         Returns:
-            Memory response details.
+            The Memory.
 
         Raises:
             APIStatusError: The API returns a non-success status.
@@ -243,7 +243,7 @@ class AsyncMemoriesResource:
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
-            decode_model(MemoryResponse),
+            decode_model(Memory),
         )
 
     async def delete(

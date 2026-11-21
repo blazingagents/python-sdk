@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased
+
+The API's shapes follow one rule per subject, so a list, a record, a retry and a missing record read the same on every resource. Each change below breaks the call it names.
+
+### Changed
+
+- Every list returns its records under `data`. `providers.list()`, `providers.list_models()`, `mcp_connections.list()`, `chat_connections.list()` and `agents.list_mcp_attachments()` return a model with `data`, where they had `providers`, `models`, `mcp_connections`, `chat_connections` and `mcp_attachments`. `merchant_bindings.list()` and `merchant_usage_events.list()` return a page with `data` and `next_cursor`, where they had `bindings` and `events`. `skills.copy()` returns `SkillCopyResults` with the per-destination results in `data`, in place of a bare list. `response_meta()` reads the copy's response from it, where it read each result's.
+
+  ```python
+  providers = client.providers.list().data  # was .providers
+  skills = client.agent(agent_id).skills
+  copied = skills.copy(skill_id=skill_id, destination_agent_ids=agent_ids)
+  results = copied.data  # was the list itself
+  ```
+
+- A single record comes back bare. `memories.create()`, `get()` and `update()` return the `Memory`, `merchant_bindings.put()` the `MerchantCustomerBinding`, `merchant_usage_events.get()`, `retry()` and `discard()` the `MerchantUsageEvent`, `merchant_usage_events.summary()` the `MerchantUsageSummary`, and `merchant_connection.create()` and `update()` the `MerchantConnection`. `merchant_connection.get()` still returns `MerchantConnectionResponse`, whose `connection` is `None` while you have none.
+
+  ```python
+  memory = client.memories.get(agent_id=agent_id, memory_id=memory_id)  # was .memory
+  ```
+
+- `sessions.submit_input()` returns a `SessionInputResponse` with `input` and `activity`, where it had `data` and `activity`.
+- An `Artifact`'s ID is `id`, where it was `artifact_id`. Methods still take `artifact_id`.
+- `Provider`, `ProviderListItem`, `McpConnection`, `Session`, `SessionResponse`, `LatestSessionListItem`, `MerchantConnection` and `MerchantUsageEvent` carry `tenant_id`, like every other record.
+- `agents.update()` and `workspaces.update()` send `PATCH`, since they change only the fields you send.
+- `agents.delete()` takes `delete_artifacts`, the name `sessions.delete()` uses, where it took `include_artifacts`.
+- `tasks.create()` and `tasks.submit()` send `idempotency_key` as the `Idempotency-Key` header, as skills and forks do, replacing any in `extra_headers`; `submit()` sends no body. The option keeps its name and, as for skills, is `str | None` with the default `None`, where it was `str | OMITTED` with the default `OMITTED`.
+- A record the path names answers `404 not_found` when it is missing: a provider, a workspace, a skill, the merchant connection, a merchant binding or a merchant usage event. `sessions.list()` answers it for an Agent that does not exist, where it returned an empty page. A record a request reaches through another keeps its own code, such as `provider_not_found` for an Agent's provider on a Turn. An MCP connection an Agent lists is `404 mcp_connection_not_found`, and a model its provider does not offer is `422 model_not_found`. Read the code from `APIStatusError.code`.
+
+### Added
+
+- `artifacts.list()` and `artifacts.iter()` take `limit`, from 1 to 100, and `ArtifactsListOptions` has `limit`.
+- `SkillCopyResults` is exported.
+
+### Removed
+
+- `MemoryResponse`, `MerchantBindingResponse`, `MerchantUsageEventResponse` and `MerchantUsageSummaryResponse`. Use `Memory`, `MerchantCustomerBinding`, `MerchantUsageEvent` and `MerchantUsageSummary`.
+- The error codes `skill_not_found`, `merchant_connection_not_found`, `merchant_binding_not_found`, `merchant_event_not_found` and `agent_mcp_connection_not_found`. Compare `APIStatusError.code` with `not_found`, or `mcp_connection_not_found` for an Agent's MCP connection.
+
 ## 0.37.0
 
 ### Removed

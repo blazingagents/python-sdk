@@ -19,6 +19,7 @@ from blazing_agents import (
 GUARD: dict[str, Any] = {"enabled": True, "productIds": ["prod_1"], "meterId": None}
 CONNECTION: dict[str, Any] = {
     "id": "mch_0123456789abcdef",
+    "tenantId": "ten_0123456789abcdef",
     "provider": "polar",
     "environment": "sandbox",
     "merchantAccountId": "org_1",
@@ -36,6 +37,7 @@ BINDING: dict[str, Any] = {
 }
 EVENT: dict[str, Any] = {
     "id": "mev_0123456789abcdef",
+    "tenantId": "ten_0123456789abcdef",
     "turnId": "turn_0123456789abcdef",
     "connectionId": "mch_0123456789abcdef",
     "provider": "polar",
@@ -113,14 +115,16 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
     with loopback(
         Response(body={"connection": None}),
         Response(body={"connection": CONNECTION}),
-        Response(body={"connection": CONNECTION}),
-        Response(body={"connection": CONNECTION}),
-        Response(body={"connection": CONNECTION}),
+        Response(body=CONNECTION, status=201),
+        Response(body=CONNECTION, status=201),
+        Response(body=CONNECTION),
+        Response(body=CONNECTION),
         Response(status=204),
     ) as (base_url, state):
         assert (
             _run(asynchronous, base_url, lambda c: c.merchant_connection.get())
         ).connection is None
+        fetched = _run(asynchronous, base_url, lambda c: c.merchant_connection.get())
         created = _run(
             asynchronous,
             base_url,
@@ -152,12 +156,14 @@ def test_connection_lifecycle(asynchronous: bool) -> None:
         )
         _run(asynchronous, base_url, lambda c: c.merchant_connection.retire())
 
-    connection = created.connection
-    assert connection is not None
-    assert connection.key_fragment == "abcd"
-    assert connection.guard.product_ids == ["prod_1"]
-    assert connection.config_version == 2
+    assert fetched.connection is not None
+    assert fetched.connection.tenant_id == "ten_0123456789abcdef"
+    assert created.key_fragment == "abcd"
+    assert created.guard.product_ids == ["prod_1"]
+    assert created.config_version == 2
+    assert created.tenant_id == "ten_0123456789abcdef"
     assert _sent(state) == [
+        ("GET", "/v1/merchant-connection", None),
         ("GET", "/v1/merchant-connection", None),
         (
             "POST",
@@ -232,11 +238,11 @@ def test_bindings(asynchronous: bool) -> None:
         return [b async for b in client.merchant_bindings.iter(user_id="u", limit=1)]
 
     with loopback(
-        Response(body={"bindings": [BINDING], "nextCursor": "next"}),
-        Response(body={"bindings": [], "nextCursor": None}),
-        Response(body={"bindings": [BINDING], "nextCursor": "next"}),
-        Response(body={"bindings": [BINDING], "nextCursor": None}),
-        Response(body={"binding": BINDING}),
+        Response(body={"data": [BINDING], "nextCursor": "next"}),
+        Response(body={"data": [], "nextCursor": None}),
+        Response(body={"data": [BINDING], "nextCursor": "next"}),
+        Response(body={"data": [BINDING], "nextCursor": None}),
+        Response(body=BINDING),
         Response(status=204),
     ) as (base_url, state):
         page = _run(
@@ -259,10 +265,10 @@ def test_bindings(asynchronous: bool) -> None:
         )
         _run(asynchronous, base_url, lambda c: c.merchant_bindings.delete("user/1"))
 
-    assert page.bindings[0].customer_id == "cus_1"
+    assert page.data[0].customer_id == "cus_1"
     assert page.next_cursor == "next"
     assert [binding.user_id for binding in bindings] == ["user/1", "user/1"]
-    assert saved.binding.user_id == "user/1"
+    assert saved.user_id == "user/1"
     assert _sent(state) == [
         (
             "GET",
@@ -289,14 +295,14 @@ def test_usage_events(asynchronous: bool) -> None:
 
     event_id = EVENT["id"]
     with loopback(
-        Response(body={"events": [EVENT], "nextCursor": None}),
-        Response(body={"events": [EVENT], "nextCursor": "next"}),
-        Response(body={"events": [], "nextCursor": None}),
-        Response(body={"event": EVENT}),
-        Response(body={"summary": SUMMARY}),
-        Response(body={"summary": SUMMARY}),
-        Response(body={"event": EVENT}),
-        Response(body={"event": EVENT}),
+        Response(body={"data": [EVENT], "nextCursor": None}),
+        Response(body={"data": [EVENT], "nextCursor": "next"}),
+        Response(body={"data": [], "nextCursor": None}),
+        Response(body=EVENT),
+        Response(body=SUMMARY),
+        Response(body=SUMMARY),
+        Response(body=EVENT),
+        Response(body=EVENT),
     ) as (base_url, state):
         page = _run(
             asynchronous,
@@ -321,16 +327,21 @@ def test_usage_events(asynchronous: bool) -> None:
             asynchronous, base_url, lambda c: c.merchant_usage_events.summary(days=7)
         )
         _run(asynchronous, base_url, lambda c: c.merchant_usage_events.summary())
-        _run(asynchronous, base_url, lambda c: c.merchant_usage_events.retry(event_id))
-        _run(
+        retried = _run(
+            asynchronous, base_url, lambda c: c.merchant_usage_events.retry(event_id)
+        )
+        discarded = _run(
             asynchronous, base_url, lambda c: c.merchant_usage_events.discard(event_id)
         )
 
-    assert page.events[0].next_action == "none"
+    assert page.data[0].next_action == "none"
+    assert page.data[0].tenant_id == "ten_0123456789abcdef"
     assert [event.id for event in events] == [event_id]
-    assert fetched.event.total_tokens == 15
-    assert summary.summary.counts.accepted == 2
-    assert summary.summary.daily[0].accepted_tokens == 30
+    assert fetched.total_tokens == 15
+    assert retried.id == event_id
+    assert discarded.id == event_id
+    assert summary.counts.accepted == 2
+    assert summary.daily[0].accepted_tokens == 30
     assert _sent(state) == [
         ("GET", "/v1/merchant-usage-events?status=failed&cursor=c&limit=2", None),
         ("GET", "/v1/merchant-usage-events?status=discarded&limit=1", None),

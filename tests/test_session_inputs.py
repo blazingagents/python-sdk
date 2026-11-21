@@ -48,7 +48,7 @@ def receipt(**overrides: Any) -> dict[str, Any]:
 @pytest.mark.parametrize("asynchronous", [False, True])
 def test_steer_receipts_and_immediate_stop(asynchronous: bool) -> None:
     with loopback(
-        Response(status=202, body={"data": receipt(), "activity": ACTIVITY}),
+        Response(status=202, body={"input": receipt(), "activity": ACTIVITY}),
         Response(
             body={
                 "data": [receipt(state="not_placed", reason="turn_finished")],
@@ -120,7 +120,7 @@ def test_steer_receipts_and_immediate_stop(asynchronous: bool) -> None:
     assert isinstance(results[0], SessionInputResponse)
     assert isinstance(results[1], SessionInputsPage)
     assert isinstance(results[2], SessionStopResponse)
-    assert results[0].data.turn_id == TURN
+    assert results[0].input.turn_id == TURN
     assert results[1].data[0].state == "not_placed"
     assert results[2].activity.state == "stopping"
 

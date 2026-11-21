@@ -13,12 +13,7 @@ from ._session_models import (
     TaskRunSubmission,
     TasksPage,
 )
-from ._tasks import (
-    _task_body,
-    _task_path,
-    _task_run_body,
-    _task_run_path,
-)
+from ._tasks import _task_body, _task_path, _task_run_path
 from ._transport import (
     OMITTED,
     _Omitted,
@@ -29,6 +24,7 @@ from ._transport import (
 )
 from ._transport_sync import Transport
 from ._types import TaskScheduleInput, Timeout
+from ._wire import idempotency_headers
 
 
 class TasksResource:
@@ -51,7 +47,7 @@ class TasksResource:
         submit: bool | _Omitted = OMITTED,
         user_id: str | _Omitted = OMITTED,
         metadata: dict[str, object] | _Omitted = OMITTED,
-        idempotency_key: str | _Omitted = OMITTED,
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskCreateResponse:
@@ -68,8 +64,9 @@ class TasksResource:
             submit: Optional initial Task Run submission.
             user_id: Caller-defined user identifier.
             metadata: Caller-defined JSON metadata.
-            idempotency_key: Stable key for retrying the same create without
-                creating another Task.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same create without creating another Task. Sent as the
+                Idempotency-Key header, replacing any in extra_headers.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -95,9 +92,8 @@ class TasksResource:
                     submit=submit,
                     user_id=user_id,
                     metadata=metadata,
-                    idempotency_key=idempotency_key,
                 ),
-                extra_headers=extra_headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(TaskCreateResponse),
@@ -263,7 +259,6 @@ class TasksResource:
             submit=OMITTED,
             user_id=OMITTED,
             metadata=metadata,
-            idempotency_key=OMITTED,
         )
         return self._transport.request(
             _Request(
@@ -310,18 +305,20 @@ class TasksResource:
         self,
         task_id: str,
         *,
-        idempotency_key: str | _Omitted = OMITTED,
+        idempotency_key: str | None = None,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> TaskRunSubmission:
         """Submit a Task Run for execution.
 
-        The idempotency key is sent in the JSON body, not an HTTP header.
+        Retrying with the same idempotency_key returns the same Run. The key
+        replaces any Idempotency-Key in extra_headers.
 
         Args:
             task_id: Task identifier.
-            idempotency_key: Stable key for retrying the same operation without
-                duplicating it.
+            idempotency_key: Optional key, 1 to 200 characters, for retrying the
+                same submission without starting another Run. Sent as the
+                Idempotency-Key header.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -338,8 +335,7 @@ class TasksResource:
             _Request(
                 "POST",
                 _task_run_path(task_id),
-                json_body=_task_run_body(idempotency_key),
-                extra_headers=extra_headers,
+                extra_headers=idempotency_headers(idempotency_key, extra_headers),
                 timeout=timeout,
             ),
             decode_model(TaskRunSubmission),

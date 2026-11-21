@@ -378,8 +378,8 @@ class AsyncUserAgentsResource:
     ) -> Agent:
         """Update the provided Agent fields.
 
-        Omitted fields retain server defaults or existing values. Changing
-        provider_id requires model. Set both to None to clear them.
+        Omitted fields keep their current values. Changing provider_id requires
+        model. Set both to None to clear them.
 
         Args:
             agent_id: Agent identifier.
@@ -434,7 +434,7 @@ class AsyncUserAgentsResource:
         )
         return await self._transport.request(
             _Request(
-                "PUT",
+                "PATCH",
                 agent_path(agent_id),
                 json_body=body,
                 extra_headers=extra_headers,
@@ -513,7 +513,7 @@ class AsyncUserAgentsResource:
         self,
         agent_id: str,
         *,
-        include_artifacts: bool,
+        delete_artifacts: bool,
         extra_headers: Mapping[str, str] | None = None,
         timeout: Timeout | _Omitted = OMITTED,
     ) -> None:
@@ -521,7 +521,7 @@ class AsyncUserAgentsResource:
 
         Args:
             agent_id: Agent identifier.
-            include_artifacts: Whether to include the Agent Artifacts in deletion.
+            delete_artifacts: Whether to delete the Agent's Artifacts.
             extra_headers: Headers for this request. Authorization uses the client
                 API key.
             timeout: Request timeout override. OMITTED inherits the client timeout.
@@ -535,7 +535,7 @@ class AsyncUserAgentsResource:
             _Request(
                 "DELETE",
                 agent_path(agent_id),
-                query={"includeArtifacts": str(include_artifacts).lower()},
+                query={"deleteArtifacts": str(delete_artifacts).lower()},
                 extra_headers=extra_headers,
                 timeout=timeout,
             ),
