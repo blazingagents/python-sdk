@@ -170,7 +170,6 @@ AGENT_CONFIG: dict[str, Any] = {
         "memoryInjectionEnabled",
         "tools",
         "instructions",
-        "metadata",
         "mcpConnectionIds",
     }
 }

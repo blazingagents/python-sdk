@@ -623,7 +623,6 @@ class AgentConfig(ResponseModel):
         default_factory=lambda: ApprovalPolicy(default="full"), alias="approvalInTasks"
     )
     instructions: AgentInstructions
-    metadata: dict[str, object]
     mcp_connection_ids: McpConnectionIds = Field(alias="mcpConnectionIds")
 
     @model_validator(mode="after")
