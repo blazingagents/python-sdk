@@ -138,6 +138,8 @@ USAGE = {
             "outputTokens": 5,
             "requestCount": 1,
             "durationMs": 100,
+            "costUsd": 0.0123,
+            "unpricedTurnCount": 2,
         }
     ],
     "totals": {
@@ -145,6 +147,8 @@ USAGE = {
         "outputTokens": 5,
         "requestCount": 1,
         "durationMs": 100,
+        "costUsd": 0.0123,
+        "unpricedTurnCount": 2,
     },
 }
 USAGE_OVERVIEW = {
@@ -1218,6 +1222,10 @@ def test_sync_usage_queries_translate_only_owned_names() -> None:
     assert usage.buckets[0].provider == "future-provider"
     assert usage.buckets[0].user_id == ""
     assert usage.totals.request_count == 1
+    assert usage.totals.cost_usd == 0.0123
+    assert usage.totals.unpriced_turn_count == 2
+    assert usage.buckets[0].cost_usd == 0.0123
+    assert usage.buckets[0].unpriced_turn_count == 2
     assert agent_usage.totals.input_tokens == 10
 
 
@@ -1235,6 +1243,8 @@ def test_sync_usage_overview_serializes_the_bounded_query() -> None:
     )
     assert overview.active_agent_count == 1
     assert overview.totals.request_count == 1
+    assert overview.totals.cost_usd == 0.0123
+    assert overview.daily[0].unpriced_turn_count == 2
     assert overview.daily[0].day == "2026-08-01"
     assert overview.by_agent[0].agent_id == "ag_0123456789abcdef"
     assert overview.by_user[0].user_id == ""
