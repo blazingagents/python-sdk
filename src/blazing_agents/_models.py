@@ -369,6 +369,19 @@ class TenantSettings(ResponseModel):
     monetization_enabled: bool = Field(alias="monetizationEnabled")
 
 
+_COST_USD_DESCRIPTION = (
+    "Estimated US-dollar model cost of the priced Turns: the amount the provider "
+    "billed when it reported one, else the model catalogue's price for the token "
+    "counts. Excludes platform compute, storage, Workspace and network charges. "
+    "Turns counted in `unpriced_turn_count` add nothing to it."
+)
+_UNPRICED_TURN_COUNT_DESCRIPTION = (
+    "Turns that used tokens but have no model cost, such as a model the catalogue "
+    "does not price; `cost_usd` leaves them out, so a nonzero count means "
+    "`cost_usd` is a lower bound."
+)
+
+
 class UsageBucket(ResponseModel):
     day: str | None
     agent_id: str | None = Field(alias="agentId")
@@ -380,6 +393,12 @@ class UsageBucket(ResponseModel):
     output_tokens: int = Field(alias="outputTokens", ge=0)
     request_count: int = Field(alias="requestCount", ge=0)
     duration_ms: int = Field(alias="durationMs", ge=0)
+    cost_usd: float = Field(alias="costUsd", ge=0, description=_COST_USD_DESCRIPTION)
+    unpriced_turn_count: int = Field(
+        alias="unpricedTurnCount",
+        ge=0,
+        description=_UNPRICED_TURN_COUNT_DESCRIPTION,
+    )
 
 
 class UsageTotals(ResponseModel):
@@ -387,6 +406,12 @@ class UsageTotals(ResponseModel):
     output_tokens: int = Field(alias="outputTokens", ge=0)
     request_count: int = Field(alias="requestCount", ge=0)
     duration_ms: int = Field(alias="durationMs", ge=0)
+    cost_usd: float = Field(alias="costUsd", ge=0, description=_COST_USD_DESCRIPTION)
+    unpriced_turn_count: int = Field(
+        alias="unpricedTurnCount",
+        ge=0,
+        description=_UNPRICED_TURN_COUNT_DESCRIPTION,
+    )
 
 
 class Usage(ResponseModel):

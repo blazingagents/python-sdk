@@ -19,6 +19,8 @@ TOTALS: dict[str, Any] = {
     "outputTokens": 2,
     "requestCount": 1,
     "durationMs": 40,
+    "costUsd": 0.5,
+    "unpricedTurnCount": 0,
 }
 SESSION_USAGE: dict[str, Any] = {
     "data": [{"sessionId": "ss_0123456789abcdef", "totals": TOTALS}]
@@ -52,6 +54,8 @@ def test_for_user_scopes_every_request(asynchronous: bool) -> None:
                     ["ss_0123456789abcdef"], from_="2026-10-01", to="2026-10-31"
                 )
                 assert usage.data[0].totals.input_tokens == 3
+                assert usage.data[0].totals.cost_usd == 0.5
+                assert usage.data[0].totals.unpriced_turn_count == 0
                 await user.usage.sessions(
                     ["ss_0123456789abcdef"],
                     extra_headers={"X-BA-User-Id": "someone-else"},
@@ -72,6 +76,8 @@ def test_for_user_scopes_every_request(asynchronous: bool) -> None:
                     ["ss_0123456789abcdef"], from_="2026-10-01", to="2026-10-31"
                 )
                 assert usage.data[0].totals.input_tokens == 3
+                assert usage.data[0].totals.cost_usd == 0.5
+                assert usage.data[0].totals.unpriced_turn_count == 0
                 user.usage.sessions(
                     ["ss_0123456789abcdef"],
                     extra_headers={"X-BA-User-Id": "someone-else"},
